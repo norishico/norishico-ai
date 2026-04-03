@@ -1,0 +1,33 @@
+# DB
+*.db
+*.db-journal
+
+# Cache
+__pycache__/
+*.pyc
+
+# Data files (large)
+*.csv
+*.json
+!package.json
+
+# Backup files
+*_backup*
+*_old.*
+
+# HTML output (docs/index.html is the published version)
+this_week_prediction.html
+prediction_sample.html
+prediction_template.html
+blood_venue_ranking.html
+
+# Note articles
+note_article_*.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

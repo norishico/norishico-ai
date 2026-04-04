@@ -156,13 +156,13 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 .jiku-tag{font-size:9px;background:var(--orange);color:white;padding:1px 6px;border-radius:4px;font-weight:700;margin-left:2px}
 
 /* 結果タブ */
-.result-summary{margin:16px;padding:16px;background:linear-gradient(135deg,#3A4A5A,#2A3A4A);border-radius:12px;color:white}
-.result-summary .rs-title{font-size:11px;color:#8AA0B0;font-weight:700;letter-spacing:2px;margin-bottom:10px}
+.result-summary{margin:16px;padding:16px;background:linear-gradient(135deg,var(--green),#4A6A40);border-radius:12px;color:white;box-shadow:0 4px 12px rgba(58,86,51,0.2)}
+.result-summary .rs-title{font-size:11px;color:var(--orange-pale);font-weight:700;letter-spacing:2px;margin-bottom:10px}
 .result-summary .rs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.result-summary .rs-item{text-align:center;padding:10px 8px;background:rgba(255,255,255,0.08);border-radius:10px}
-.result-summary .rs-label{font-size:10px;color:#8AA0B0}
-.result-summary .rs-value{font-size:20px;font-weight:700;margin-top:2px}
-.result-summary .rs-plus{color:#50C878}.result-summary .rs-minus{color:#E06060}.result-summary .rs-zero{color:#AAA}
+.result-summary .rs-item{text-align:center;padding:10px 8px;background:rgba(255,255,255,0.1);border-radius:10px}
+.result-summary .rs-label{font-size:10px;color:var(--green-pale)}
+.result-summary .rs-value{font-size:20px;font-weight:700;margin-top:2px;color:#fff}
+.result-summary .rs-plus{color:var(--orange-pale)}.result-summary .rs-minus{color:#F0A0A0}.result-summary .rs-zero{color:var(--green-pale)}
 .result-day{margin:16px;background:var(--card-bg);border:2px solid var(--card-border);border-radius:12px;overflow:hidden}
 .result-day-header{padding:10px 16px;background:linear-gradient(135deg,var(--cream),#FFF);border-bottom:1px solid var(--card-border);display:flex;justify-content:space-between;align-items:center}
 .result-day-header .day-label{font-weight:700;font-size:13px}
@@ -1138,6 +1138,10 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="rs-item"><div class="rs-label">レース数</div><div class="rs-value">4R</div></div>
 <div class="rs-item"><div class="rs-label">開催日数</div><div class="rs-value">1日</div></div>
 </div></div>
+<div style="margin:8px 16px;padding:10px 14px;background:var(--cream);border:1px solid var(--card-border);border-radius:10px;display:flex;justify-content:space-between;align-items:center">
+<div style="font-size:11px;color:var(--text-sub)">v6.3 通算（2020-2026バックテスト）</div>
+<div style="font-size:12px;font-weight:700;color:var(--green)">ROI 140.2% / +832,400円 / 2,069R</div>
+</div>
 <div class="result-day">
 <div class="result-day-header">
 <span class="day-label">2026-04-04</span>
@@ -1251,7 +1255,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 
 <div class="footer">
   <p style="font-weight:700;color:var(--orange-pale);font-size:14px;letter-spacing:2px">NORISHICO AI v6.3</p>
-  <p>生成: 2026-04-04 18:55</p>
+  <p>生成: 2026-04-04 19:00</p>
   <div class="disclaimer">
     想定オッズは確定前です。発走5分前にオッズ確定後、最終買い判定を行います。<br>
     本予想はAIによる自動判定です。馬券の購入は自己責任でお願いいたします。

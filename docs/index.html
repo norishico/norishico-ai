@@ -155,6 +155,11 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 .jiku-row.bought{background:var(--cream-light)}
 .jiku-tag{font-size:9px;background:var(--orange);color:white;padding:1px 6px;border-radius:4px;font-weight:700;margin-left:2px}
 
+/* アラート */
+.alert-banner{margin:12px 16px;padding:10px 14px;background:#FFF3E0;border:2px solid var(--orange-light);border-radius:10px;font-size:12px;line-height:1.8;color:var(--text)}
+.alert-banner .alert-title{font-size:11px;font-weight:700;color:var(--orange);margin-bottom:4px;letter-spacing:1px}
+.alert-banner .alert-item{padding:2px 0}
+
 /* 結果タブ */
 .result-summary{margin:16px;padding:16px;background:linear-gradient(135deg,var(--green),#4A6A40);border-radius:12px;color:white;box-shadow:0 4px 12px rgba(58,86,51,0.2)}
 .result-summary .rs-title{font-size:11px;color:var(--orange-pale);font-weight:700;letter-spacing:2px;margin-bottom:10px}
@@ -221,6 +226,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <!-- 日付タブ（固定） -->
 <div class="tab-bar date-tabs" id="dateTabs">
   <div class="tab active" onclick="switchDateTab('0405')">4/5(日)</div>
+  <div class="tab" onclick="switchDateTab('results')">結果</div>
 </div>
 <div class="tab-content active" id="daytab-0405">
 <div class="tab-bar sub-tabs" id="subTabs-0405">
@@ -228,7 +234,6 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
   <div class="tab" onclick="switchSubTab('0405','graded')">今週の重賞</div>
   <div class="tab" onclick="switchSubTab('0405','中山')">中山</div>
   <div class="tab" onclick="switchSubTab('0405','阪神')">阪神</div>
-  <div class="tab" onclick="switchSubTab('0405','results')">結果</div>
   <div class="tab" onclick="switchSubTab('0405','nakanohito')">なかのひとたち</div>
 </div>
 <div class="sub-content active" id="sub-0405-picks">
@@ -1124,50 +1129,6 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
   </div>
 </div>
 </div>
-<div class="sub-content" id="sub-0405-results">
-<div class="section-title">結果</div>
-<div class="result-summary">
-<div class="rs-title">2026/04 MONTHLY</div>
-<div class="rs-grid">
-<div class="rs-item"><div class="rs-label">投資</div><div class="rs-value">8,000円</div></div>
-<div class="rs-item"><div class="rs-label">回収</div><div class="rs-value">0円</div></div>
-<div class="rs-item"><div class="rs-label">収支</div><div class="rs-value rs-minus">-8,000円</div></div>
-</div>
-<div class="rs-grid" style="margin-top:8px">
-<div class="rs-item"><div class="rs-label">ROI</div><div class="rs-value rs-minus">0%</div></div>
-<div class="rs-item"><div class="rs-label">レース数</div><div class="rs-value">4R</div></div>
-<div class="rs-item"><div class="rs-label">開催日数</div><div class="rs-value">1日</div></div>
-</div></div>
-<div style="margin:8px 16px;padding:10px 14px;background:var(--cream);border:1px solid var(--card-border);border-radius:10px;display:flex;justify-content:space-between;align-items:center">
-<div style="font-size:11px;color:var(--text-sub)">v6.3 通算（2020-2026バックテスト）</div>
-<div style="font-size:12px;font-weight:700;color:var(--green)">ROI 140.2% / +832,400円 / 2,069R</div>
-</div>
-<div class="result-day">
-<div class="result-day-header">
-<span class="day-label">2026-04-04</span>
-<div class="cond-badges"><span class="cond-badge">中山 重</span><span class="cond-badge">阪神 重</span></div></div>
-<div class="result-race">
-<span class="rr-badge">中山9R</span>
-<div class="rr-body"><div class="rr-title">山吹賞</div><div class="rr-detail">◎クラウンインジエア → 8着 / ○バリオス → 9着 / 1着: ケントン</div></div>
-<span class="rr-pnl lose">-2,000円</span>
-</div>
-<div class="result-race">
-<span class="rr-badge">中山11R</span>
-<div class="rr-body"><div class="rr-title">ダービー卿CT</div><div class="rr-detail">◎エンペラーズソード → 8着 / ○ミニトランザット → 4着 / 1着: スズハローム</div></div>
-<span class="rr-pnl lose">-2,000円</span>
-</div>
-<div class="result-race">
-<span class="rr-badge">中山12R</span>
-<div class="rr-body"><div class="rr-title">4歳以上2勝クラス</div><div class="rr-detail">◎ショウナンラリー → 11着 / ○マクミランテソーロ → 3着 / 1着: コパノヴィンセント</div></div>
-<span class="rr-pnl lose">-2,000円</span>
-</div>
-<div class="result-race">
-<span class="rr-badge">阪神11R</span>
-<div class="rr-body"><div class="rr-title">チャーチルダウンズC</div><div class="rr-detail">◎リゾートアイランド → 9着 / ○サンダーストラック → 12着 / 1着: アスクイキゴミ</div></div>
-<span class="rr-pnl lose">-2,000円</span>
-</div>
-</div>
-</div>
 <div class="sub-content" id="sub-0405-nakanohito">
 <div class="section-title">なかのひとたち</div>
 <div style="padding:8px 16px;font-size:12px;color:var(--text-sub);line-height:1.7">NORISHICO AIの予想を支える7人のアナリスト。<br>期待値ありレースについて、それぞれの専門視点からコメントします。</div>
@@ -1252,10 +1213,49 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 </div>
 </div>
+<div class="tab-content" id="daytab-results">
+<div class="result-summary">
+<div class="rs-title">2026/04 MONTHLY</div>
+<div class="rs-grid">
+<div class="rs-item"><div class="rs-label">投資</div><div class="rs-value">8,000円</div></div>
+<div class="rs-item"><div class="rs-label">回収</div><div class="rs-value">0円</div></div>
+<div class="rs-item"><div class="rs-label">収支</div><div class="rs-value rs-minus">-8,000円</div></div>
+</div>
+<div class="rs-grid" style="margin-top:8px">
+<div class="rs-item"><div class="rs-label">ROI</div><div class="rs-value rs-minus">0%</div></div>
+<div class="rs-item"><div class="rs-label">レース数</div><div class="rs-value">4R</div></div>
+<div class="rs-item"><div class="rs-label">開催日数</div><div class="rs-value">1日</div></div>
+</div></div>
+<div class="result-day">
+<div class="result-day-header">
+<span class="day-label">2026-04-04</span>
+<div class="cond-badges"><span class="cond-badge">中山 重</span><span class="cond-badge">阪神 重</span></div></div>
+<div class="result-race">
+<span class="rr-badge">中山9R</span>
+<div class="rr-body"><div class="rr-title">山吹賞</div><div class="rr-detail">◎クラウンインジエア → 8着 / ○バリオス → 9着 / 1着: ケントン</div></div>
+<span class="rr-pnl lose">-2,000円</span>
+</div>
+<div class="result-race">
+<span class="rr-badge">中山11R</span>
+<div class="rr-body"><div class="rr-title">ダービー卿CT</div><div class="rr-detail">◎エンペラーズソード → 8着 / ○ミニトランザット → 4着 / 1着: スズハローム</div></div>
+<span class="rr-pnl lose">-2,000円</span>
+</div>
+<div class="result-race">
+<span class="rr-badge">中山12R</span>
+<div class="rr-body"><div class="rr-title">4歳以上2勝クラス</div><div class="rr-detail">◎ショウナンラリー → 11着 / ○マクミランテソーロ → 3着 / 1着: コパノヴィンセント</div></div>
+<span class="rr-pnl lose">-2,000円</span>
+</div>
+<div class="result-race">
+<span class="rr-badge">阪神11R</span>
+<div class="rr-body"><div class="rr-title">チャーチルダウンズC</div><div class="rr-detail">◎リゾートアイランド → 9着 / ○サンダーストラック → 12着 / 1着: アスクイキゴミ</div></div>
+<span class="rr-pnl lose">-2,000円</span>
+</div>
+</div>
+</div>
 
 <div class="footer">
   <p style="font-weight:700;color:var(--orange-pale);font-size:14px;letter-spacing:2px">NORISHICO AI v6.3</p>
-  <p>生成: 2026-04-04 19:00</p>
+  <p>生成: 2026-04-04 19:11</p>
   <div class="disclaimer">
     想定オッズは確定前です。発走5分前にオッズ確定後、最終買い判定を行います。<br>
     本予想はAIによる自動判定です。馬券の購入は自己責任でお願いいたします。

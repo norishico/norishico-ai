@@ -656,7 +656,7 @@ for i, dk in enumerate(all_dates):
     html += f'<div class="tab-bar sub-tabs" id="subTabs-{dk}">\n'
     html += f'  <div class="tab active" onclick="switchSubTab(\'{dk}\',\'picks\')">期待値あり</div>\n'
     if day_graded:
-        html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'graded\')">今週の重賞</div>\n'
+        html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'graded\')">今日の重賞</div>\n'
     for v in day_venues:
         html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'{v}\')">{v}</div>\n'
     html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'nakanohito\')">なかのひとたち</div>\n'
@@ -711,7 +711,7 @@ for i, dk in enumerate(all_dates):
     # ── 今週の重賞 ──
     if day_graded:
         html += f'<div class="sub-content" id="sub-{dk}-graded">\n'
-        html += '<div class="section-title">今週の重賞</div>\n'
+        html += '<div class="section-title">今日の重賞</div>\n'
         for p in sorted(day_graded, key=lambda x: x['race'].get('race_num', 0)):
             html += race_card_html(p, show_full=True)
             g_comments = generate_graded_comments(p)

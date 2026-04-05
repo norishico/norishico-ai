@@ -158,18 +158,10 @@ def quick_odds_refresh():
         if bt or sp:
             new_buys[rid] = bt or 'special'
 
-    # 変更検出
-    changes = []
-    for rid in set(old_buys) | set(new_buys):
-        if rid in new_buys and rid not in old_buys:
-            r = next((p['race'] for p in new_preds if p['race']['race_id'] == rid), {})
-            changes.append(f"🆕 {r.get('venue','')}{r.get('race_num','')}R 追加")
-        elif rid in old_buys and rid not in new_buys:
-            r = next((p['race'] for p in preds if p['race']['race_id'] == rid), {})
-            changes.append(f"❌ {r.get('venue','')}{r.get('race_num','')}R 除外")
-        elif old_buys.get(rid) != new_buys.get(rid):
-            r = next((p['race'] for p in new_preds if p['race']['race_id'] == rid), {})
-            changes.append(f"⚠ {r.get('venue','')}{r.get('race_num','')}R 買い方変更")
+    # 変更検出 → アラートログに蓄積
+    from alerts_log import compare_and_log
+    new_alerts = compare_and_log(preds, new_preds)
+    changes = [a['text'] for a in new_alerts]
 
     if changes:
         print(f"  🚨 変更あり!")

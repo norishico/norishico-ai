@@ -2,38 +2,13 @@
 import json, os, glob
 from datetime import datetime
 from collections import defaultdict
+from alerts_log import load_alerts
 
 preds = json.load(open('weekend_predictions.json', encoding='utf-8'))
 
-# アラート: 前回予想との差分検出
-prev_preds_path = 'weekend_predictions_prev.json'
-alerts = []
-if os.path.exists(prev_preds_path):
-    prev = json.load(open(prev_preds_path, encoding='utf-8'))
-    prev_buys = {p['race']['race_id']: p for p in prev if p.get('buy_type') or p.get('special_horse')}
-    curr_buys = {p['race']['race_id']: p for p in preds if p.get('buy_type') or p.get('special_horse')}
-
-    # 新規追加
-    for rid, p in curr_buys.items():
-        if rid not in prev_buys:
-            r = p['race']
-            alerts.append(f'🆕 {r.get("venue","")}{r.get("race_num","")}R {r.get("race_name","")} が期待値ありに追加')
-
-    # 除外
-    for rid, p in prev_buys.items():
-        if rid not in curr_buys:
-            r = p['race']
-            alerts.append(f'❌ {r.get("venue","")}{r.get("race_num","")}R {r.get("race_name","")} がオッズ変動で条件外に')
-
-    # 買い方変更
-    for rid in set(prev_buys) & set(curr_buys):
-        old_bt = prev_buys[rid].get('buy_type', '')
-        new_bt = curr_buys[rid].get('buy_type', '')
-        if old_bt != new_bt and old_bt and new_bt:
-            r = curr_buys[rid]['race']
-            old_label = '単勝+馬連' if old_bt != 'v6_challenge' else '単勝のみ'
-            new_label = '単勝+馬連' if new_bt != 'v6_challenge' else '単勝のみ'
-            alerts.append(f'⚠ {r.get("venue","")}{r.get("race_num","")}R {r.get("race_name","")} 買い目変更: {old_label} → {new_label}')
+# アラート: 蓄積ログから読み込み
+alerts_data = load_alerts()
+alerts = [f"<span class=\"alert-time\">{a['time']}</span> {a['text']}" for a in alerts_data]
 
 # 月間結果（あれば読み込み）
 monthly_files = sorted(glob.glob('monthly_results_*.json'))
@@ -592,6 +567,7 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .alert-banner{{margin:12px 16px;padding:10px 14px;background:#FFF3E0;border:2px solid var(--orange-light);border-radius:10px;font-size:12px;line-height:1.8;color:var(--text)}}
 .alert-banner .alert-title{{font-size:11px;font-weight:700;color:var(--orange);margin-bottom:4px;letter-spacing:1px}}
 .alert-banner .alert-item{{padding:2px 0}}
+.alert-banner .alert-time{{font-size:10px;color:var(--text-sub);font-weight:700;margin-right:4px}}
 
 /* 結果タブ */
 .result-summary{{margin:16px;padding:16px;background:linear-gradient(135deg,var(--green),#4A6A40);border-radius:12px;color:white;box-shadow:0 4px 12px rgba(58,86,51,0.2)}}

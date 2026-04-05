@@ -97,6 +97,19 @@ def step_save_prev(proj_dir):
         shutil.copy2(src, dst)
 
 
+def step_detect_alerts(proj_dir):
+    """予想の差分を検出してアラートログに追記"""
+    sys.path.insert(0, str(proj_dir))
+    from alerts_log import compare_and_log
+    prev_path = proj_dir / 'weekend_predictions_prev.json'
+    curr_path = proj_dir / 'weekend_predictions.json'
+    if not prev_path.exists() or not curr_path.exists():
+        return []
+    prev = json.load(open(prev_path, encoding='utf-8'))
+    curr = json.load(open(curr_path, encoding='utf-8'))
+    return compare_and_log(prev, curr)
+
+
 def step_fetch_results(date_str, proj_dir):
     """Step R: レース結果をnetkeibaから取得"""
     print("\n" + "="*60)
@@ -228,7 +241,7 @@ def step_note(proj_dir):
     return True
 
 
-SPREADSHEET_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxCOaNDqyaTIANkE80300qvDGUoQerdsyxCUrGKOGwGNQ8rvEFRzrM4F_uYCH10BtyR/exec'
+SPREADSHEET_WEBHOOK = 'https://script.google.com/macros/s/AKfycbzRxGGdFZ3oUwsEG6tUTxSlP1b2HUF5n5NfKpZ-XGF1PW2_JRc-G1vzpwFvXnX38jn2cQ/exec'
 
 BUY_TYPE_LABELS = {
     'v6_star3': '単勝◎+馬連◎○',
@@ -418,9 +431,23 @@ def main():
 
     # Step 2: Predict (prevを保存してから再予測)
     step_save_prev(proj_dir)
+
+    # 初回生成時はアラートログをクリア（--refresh-odds以外）
+    if not args.refresh_odds:
+        sys.path.insert(0, str(proj_dir))
+        from alerts_log import clear_alerts
+        clear_alerts()
+
     if not step_predict(proj_dir):
         print("❌ スコアリングに失敗。中断します。")
         return
+
+    # 差分検出 → アラートログ追記
+    new_alerts = step_detect_alerts(proj_dir)
+    if new_alerts:
+        print(f"  🚨 アラート {len(new_alerts)}件:")
+        for a in new_alerts:
+            print(f"    {a['text']}")
 
     # Step 3: HTML
     if not step_html(proj_dir):

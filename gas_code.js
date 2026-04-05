@@ -1,10 +1,21 @@
 function doPost(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName('結果') || ss.getActiveSheet();
-
-  if (sheet.getName() !== '結果') sheet.setName('結果');
-
   var data = JSON.parse(e.postData.contents);
+  var type = data.type || 'results';
+
+  if (type === 'results') {
+    return handleResults(ss, data);
+  } else if (type === 'commands') {
+    return handleCommands(ss, data);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({status: 'error', message: 'unknown type'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function handleResults(ss, data) {
+  var sheet = ss.getSheetByName('結果') || ss.getActiveSheet();
+  if (sheet.getName() !== '結果') sheet.setName('結果');
 
   if (sheet.getLastRow() === 0) {
     var headers = [
@@ -46,6 +57,32 @@ function doPost(e) {
   }
 
   updateSummary(ss, sheet);
+
+  return ContentService.createTextOutput(JSON.stringify({status: 'ok', rows: rows.length}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function handleCommands(ss, data) {
+  var sheet = ss.getSheetByName('コマンド一覧');
+  if (!sheet) {
+    sheet = ss.insertSheet('コマンド一覧');
+  }
+  sheet.clear();
+
+  var headers = ['カテゴリ', 'コマンド / キーワード', '説明', 'タイミング'];
+  sheet.appendRow(headers);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#E8D5C0');
+  sheet.setFrozenRows(1);
+
+  var rows = data.rows;
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    sheet.appendRow([r.category, r.command, r.description, r.timing]);
+  }
+
+  sheet.autoResizeColumns(1, 4);
+  sheet.setColumnWidth(2, 350);
+  sheet.setColumnWidth(3, 400);
 
   return ContentService.createTextOutput(JSON.stringify({status: 'ok', rows: rows.length}))
     .setMimeType(ContentService.MimeType.JSON);

@@ -16,6 +16,7 @@ backtest_v6.py — ゼロベース再設計版
 """
 
 import sys, os, time, json, sqlite3, shutil, numpy as np
+sys.stdout.reconfigure(encoding='utf-8')
 from collections import defaultdict
 from pathlib import Path
 

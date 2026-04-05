@@ -400,7 +400,12 @@ def main():
             preds_file = proj_dir / 'weekend_predictions.json'
 
         if preds_file.exists():
-            step_save_monthly(results_file, preds_file, proj_dir)
+            # レース前の最終判断をスナップショットとして保存
+            final_file = preds_file.with_name(preds_file.stem + '_final.json')
+            shutil.copy2(preds_file, final_file)
+            print(f"  📸 最終予想スナップショット → {final_file.name}")
+
+            step_save_monthly(results_file, final_file, proj_dir)
             step_post_spreadsheet(proj_dir)
         else:
             print(f"  ⚠️ 予想ファイル {preds_file.name} が見つかりません")

@@ -395,6 +395,7 @@ def race_card_html(p, show_full=True):
         # 損益分岐オッズ表示
         be = p.get('breakeven_odds', 0)
         ho_now = honmei.get('odds', 0) or 0
+        is_challenge = buy == 'v6_challenge'
         if be > 0 and ho_now > 0 and buy:
             margin_ratio = ho_now / be
             if margin_ratio >= 1.5:
@@ -403,6 +404,9 @@ def race_card_html(p, show_full=True):
             elif margin_ratio >= 1.0:
                 be_cls = 'be-ok'
                 be_text = f'分岐{be:.1f}倍 ✅ オッズ十分'
+            elif is_challenge:
+                be_cls = 'be-warn'
+                be_text = f'分岐{be:.1f}倍 ⚠ 期待値ギリギリ'
             else:
                 be_cls = 'be-warn'
                 be_text = f'分岐{be:.1f}倍 ⚠ 馬連込みで勝負'

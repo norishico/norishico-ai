@@ -408,6 +408,88 @@ def main():
         except Exception as e:
             print(f"  Error: {r.get('venue','')}{r.get('race_num',0)}R - {e}")
 
+    # 注目データ: roi_hotspotテーブルとマッチング
+    print("\nScanning hotspot conditions...")
+    hs_conn = sqlite3.connect(DB_PATH); hs_conn.row_factory = sqlite3.Row
+    hotspot_all = []
+    for pred in predictions:
+        race = pred['race']
+        venue = race.get('venue', '')
+        surface = '芝' if '芝' in str(race.get('surface', '')) else 'ダ'
+        dist = race.get('distance', 0)
+        cond = race.get('track_cond', '良') or '良'
+        for h in pred.get('results', []):
+            sire = h.get('_sire', '')
+            if not sire: continue
+            odds = h.get('odds', 0) or 0
+            if odds < 3: continue
+            hnum = h.get('horse_num', 0)
+            heads = pred.get('heads', 12)
+            gate = '内枠' if heads > 0 and hnum / heads <= 0.35 else ('外枠' if heads > 0 and hnum / heads >= 0.65 else '中枠')
+            # 距離変更
+            prev_dist = None
+            pr = hs_conn.execute("SELECT prev_distance FROM results WHERE TRIM(horse_name)=? AND finish < 90 ORDER BY date DESC LIMIT 1",
+                                 (h['horse_name'],)).fetchone()
+            if pr and pr[0] and pr[0] > 0:
+                if dist < pr[0]: dc = '短縮'
+                elif dist > pr[0]: dc = '延長'
+                else: dc = '同距離'
+            else: dc = None
+            # 脚質
+            style = None
+            pp4 = h.get('_prev_pos4', 0)
+            if pp4 > 0 and heads > 0:
+                sr = pp4 / heads
+                if sr <= 0.15: style = '逃げ'
+                elif sr <= 0.33: style = '先行'
+
+            matches = []
+            # Match: sire×venue×dist×gate
+            row = hs_conn.execute("SELECT tansho_roi, n, confidence FROM roi_hotspot WHERE category='sire_venue_dist_gate' AND sire=? AND venue=? AND surface=? AND distance=? AND gate_cat=?",
+                                  (sire, venue, surface, dist, gate)).fetchone()
+            if row: matches.append({'type': '血統×コース×枠順', 'desc': f'{sire}×{venue}{surface}{dist}m×{gate}', 'roi': row[0], 'n': row[1], 'conf': row[2]})
+            # Match: sire×venue×dist×dist_change
+            if dc:
+                row = hs_conn.execute("SELECT tansho_roi, n, confidence FROM roi_hotspot WHERE category='sire_venue_dist_change' AND sire=? AND venue=? AND surface=? AND distance=? AND dist_change=?",
+                                      (sire, venue, surface, dist, dc)).fetchone()
+                if row: matches.append({'type': '血統×コース×距離変更', 'desc': f'{sire}×{venue}{surface}{dist}m×{dc}', 'roi': row[0], 'n': row[1], 'conf': row[2]})
+            # Match: style×venue
+            if style:
+                row = hs_conn.execute("SELECT tansho_roi, n, confidence FROM roi_hotspot WHERE category='style_venue' AND style=? AND venue=? AND surface=?",
+                                      (style, venue, surface)).fetchone()
+                if row: matches.append({'type': '脚質×会場', 'desc': f'{style}×{venue}{surface}', 'roi': row[0], 'n': row[1], 'conf': row[2]})
+            # Match: sire×surface×cond
+            row = hs_conn.execute("SELECT tansho_roi, n, confidence FROM roi_hotspot WHERE category='sire_surface_cond' AND sire=? AND surface=? AND track_cond=?",
+                                  (sire, surface, cond[:1])).fetchone()
+            if row: matches.append({'type': '血統×馬場', 'desc': f'{sire}×{surface}{cond}', 'roi': row[0], 'n': row[1], 'conf': row[2]})
+
+            if matches:
+                is_v6_honmei = h['horse_name'] == pred['honmei']['horse_name']
+                best = max(matches, key=lambda m: m['conf'] * 1000 + m['roi'])
+                hotspot_all.append({
+                    'venue': venue, 'race_num': race.get('race_num', 0),
+                    'race_name': race.get('race_name', ''),
+                    'horse_name': h['horse_name'], 'odds': odds,
+                    'matches': matches, 'best_conf': best['conf'], 'best_roi': best['roi'],
+                    'is_v6_honmei': is_v6_honmei,
+                    'is_buy': bool(pred.get('buy_type')),
+                })
+    hs_conn.close()
+
+    # Sort by confidence then ROI
+    hotspot_all.sort(key=lambda x: (-x['best_conf'], -x['best_roi']))
+    hotspot_top = hotspot_all[:30]  # Top 30
+    print(f"  注目データ該当: {len(hotspot_all)}馬 (上位{len(hotspot_top)}馬を表示)")
+    for hp in hotspot_top[:5]:
+        stars = '★' * hp['best_conf']
+        v6tag = ' [v6◎]' if hp['is_v6_honmei'] else ''
+        print(f"    {hp['venue']}{hp['race_num']}R {hp['horse_name'].strip()} {hp['odds']:.1f}倍 {stars} {hp['matches'][0]['desc']} ROI{hp['best_roi']:.0f}%{v6tag}")
+
+    # Attach to predictions for JSON output
+    for pred in predictions:
+        pred['hotspot_picks'] = [hp for hp in hotspot_top
+                                  if hp['venue'] == pred['race'].get('venue') and hp['race_num'] == pred['race'].get('race_num')]
+
     conn.close(); sc_conn.close()
 
     # JSON保存

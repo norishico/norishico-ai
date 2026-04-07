@@ -661,6 +661,21 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .rr-pnl.win{{color:#50C878}}.rr-pnl.lose{{color:#E06060}}
 
 /* なかのひとたち */
+/* 注目データ */
+.hotspot-card{{margin:8px 16px;padding:10px 14px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:10px}}
+.hs-header{{display:flex;align-items:center;gap:8px;margin-bottom:6px}}
+.hs-race{{font-weight:700;font-size:12px;color:var(--green)}}
+.hs-horse{{font-weight:700;font-size:13px;flex:1}}
+.hs-odds{{font-size:12px;color:var(--text-sub)}}
+.hs-v6{{background:var(--orange);color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700}}
+.hs-v6buy{{background:var(--green);color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700}}
+.hs-match{{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px}}
+.hs-stars{{color:#F59E0B;font-weight:700;min-width:30px}}
+.hs-desc{{flex:1;color:var(--text)}}
+.hs-roi{{font-weight:700;color:var(--orange)}}
+.hs-n{{color:var(--text-sub);font-size:10px}}
+.hs-conf3 .hs-roi{{color:#D32F2F}}
+.hs-conf2 .hs-roi{{color:var(--orange)}}
 .nakanohito-section{{margin:16px;padding:0}}
 .nakanohito-race{{margin-bottom:20px;background:var(--card-bg);border:2px solid var(--card-border);border-radius:12px;overflow:hidden}}
 .nakanohito-race-header{{padding:10px 16px;background:linear-gradient(135deg,var(--cream),#FFF);border-bottom:1px solid var(--card-border);font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}}
@@ -728,6 +743,7 @@ for i, dk in enumerate(all_dates):
         html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'graded\')">今日の重賞</div>\n'
     for v in day_venues:
         html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'{v}\')">{v}</div>\n'
+    html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'hotspot\')">注目データ</div>\n'
     html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'nakanohito\')">なかのひとたち</div>\n'
     html += '</div>\n'
 
@@ -808,6 +824,41 @@ for i, dk in enumerate(all_dates):
         for p in sorted(venue_races, key=lambda x: x['race'].get('race_num',0)):
             html += race_card_html(p, show_full=True)
         html += '</div>\n'
+
+    # ── 注目データ ──
+    html += f'<div class="sub-content" id="sub-{dk}-hotspot">\n'
+    html += '<div class="section-title">注目データ</div>\n'
+    html += '<div style="padding:4px 16px 8px;font-size:11px;color:var(--text-sub)">過去の回収率100%超パターンに該当する馬をピックアップ</div>\n'
+
+    # Collect hotspot picks for this day
+    day_hotspots = []
+    for p in preds:
+        if p['_date_key'] != dk: continue
+        for hp in p.get('hotspot_picks', []):
+            day_hotspots.append(hp)
+    day_hotspots.sort(key=lambda x: (-x['best_conf'], -x['best_roi']))
+
+    if day_hotspots:
+        for hp in day_hotspots:
+            stars = '★' * hp['best_conf']
+            star_cls = 'hs-conf3' if hp['best_conf'] >= 3 else ('hs-conf2' if hp['best_conf'] >= 2 else 'hs-conf1')
+            v6_tag = '<span class="hs-v6">v6◎</span>' if hp['is_v6_honmei'] else ('<span class="hs-v6buy">v6買い</span>' if hp['is_buy'] else '')
+
+            html += f'<div class="hotspot-card">\n'
+            html += f'  <div class="hs-header"><span class="hs-race">{hp["venue"]}{hp["race_num"]}R</span>'
+            html += f'<span class="hs-horse">{hp["horse_name"].strip()}</span>'
+            html += f'<span class="hs-odds">{hp["odds"]:.1f}倍</span>{v6_tag}</div>\n'
+
+            for m in hp['matches']:
+                m_stars = '★' * m['conf']
+                html += f'  <div class="hs-match {star_cls}"><span class="hs-stars">{m_stars}</span>'
+                html += f'<span class="hs-desc">{m["desc"]}</span>'
+                html += f'<span class="hs-roi">単回{m["roi"]:.0f}%</span>'
+                html += f'<span class="hs-n">n={m["n"]}</span></div>\n'
+            html += '</div>\n'
+    else:
+        html += '<div style="padding:16px;text-align:center;color:var(--text-sub)">該当なし</div>\n'
+    html += '</div>\n'
 
     # ── なかのひとたち ──
     html += f'<div class="sub-content" id="sub-{dk}-nakanohito">\n'

@@ -121,13 +121,43 @@ def generate_article(day_buys, day, date_label):
                 art += f"　想定{ni_odds:.1f}倍"
             art += "\n"
 
-        # 買い目
+        # 買い目（あかり案A: 高オッズは馬連寄せ）
         if bt == 'v6_challenge':
             art += f"🎯 単勝◎ 1,000円\n"
+        elif bt and odds >= 8:
+            art += f"🎯 単勝◎ 500円 ＋ 馬連◎○ 1,500円\n"
         elif bt:
             art += f"🎯 単勝◎ 1,000円 ＋ 馬連◎○ 1,000円\n"
 
         art += "\n"
+
+    # ── 注目データセクション ──
+    # 全レースの hotspot_picks を集約
+    day_hotspots = []
+    all_day_preds = [p for p in preds if get_day(p['race']['race_id']) == day]
+    for p in all_day_preds:
+        for hp in p.get('hotspot_picks', []):
+            day_hotspots.append(hp)
+    day_hotspots.sort(key=lambda x: (-x['best_conf'], -x['best_roi']))
+
+    if day_hotspots:
+        art += "━━━━━━━━━━━━━━━\n\n"
+        art += "📊 **今日の注目データ**\n\n"
+        art += "過去の回収率100%超パターンに該当する馬をAIがピックアップ！\n"
+        art += "（※ 買い推奨ではなく統計データとしてご参考に）\n\n"
+
+        shown = 0
+        for hp in day_hotspots:
+            if shown >= 8: break  # 最大8頭表示
+            stars = '★' * hp['best_conf']
+            v6tag = '（AI◎）' if hp.get('is_v6_honmei') else ''
+            best_match = max(hp['matches'], key=lambda m: m['conf'] * 1000 + m['roi'])
+            art += f"{stars} **{hp['venue']}{hp['race_num']}R {hp['horse_name'].strip()}**{v6tag}\n"
+            art += f"　{best_match['desc']}　→ 過去単回 **{best_match['roi']:.0f}%** (n={best_match['n']})\n\n"
+            shown += 1
+
+        if len(day_hotspots) > 8:
+            art += f"…ほか{len(day_hotspots) - 8}頭が該当（HTMLで全件確認できます）\n\n"
 
     # 締め
     art += f"""━━━━━━━━━━━━━━━

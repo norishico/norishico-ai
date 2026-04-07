@@ -42,8 +42,25 @@ SUNDAY_SIRES = frozenset({
 })
 
 
+def is_bias_disadvantaged(venue, surface, week_num, honmei_num, num_horses):
+    """Top3強バイアス不利枠フィルタ（案Bフィルタ方式）
+    スコアリングは変えず、買い判定後にhonmeiが不利枠なら見送り。
+    対象: ROI差-50pt以上の3パターンのみ。
+    """
+    if num_horses < 8 or honmei_num <= 0:
+        return False
+    ratio = honmei_num / num_horses
+    phase = '前半' if week_num <= 3 else ('中盤' if week_num <= 5 else '後半')
+    # 内枠(ratio<=0.35)が不利な3パターン
+    if ratio <= 0.35:
+        if venue == '新潟' and surface == '芝' and phase == '後半':   return True  # ROI差-68.6pt
+        if venue == '札幌' and surface == '芝' and phase == '後半':   return True  # ROI差-63.1pt
+        if venue == '中山' and surface == 'ダ' and phase == '前半':   return True  # ROI差-53.1pt
+    return False
+
+
 def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond=''):
-    """v6.4 通常買い条件 + 調教フィルタ + 不良馬場フィルタ
+    """v6.5 通常買い条件 + 調教フィルタ + 不良馬場フィルタ（バイアスフィルタはrun_month_v6で適用）
 
     Returns: ('normal', True/False) for 通常ゾーン
              ('challenge', True/False) for チャレンジゾーン
@@ -211,19 +228,47 @@ def run_month_v6(conn, sc_conn, year, month):
             rec['buy_zone'] = 'challenge'
             rec['hits'] = '単勝的中' if honmei['finish'] == 1 else '不的中'
         else:
-            # 通常: 単勝400+馬連300+ワイド300=1000円（v3互換）
-            ret = pay_t + pay_u + pay_w
-            rec['cost'] = 1000
+            # 通常ゾーン: オッズ帯別配分（あかり案A）
+            # ◎低オッズ(< 8倍): 単勝1000 + 馬連1000 = 2000円
+            # ◎高オッズ(>= 8倍): 単勝500 + 馬連1500 = 2000円
+            div_row_v6 = _get_div_cached(conn, d, v, rn)
+            ho = honmei_odds or 0
+            if ho >= 8:
+                t_bet, u_bet = 500, 1500  # 高オッズ: 馬連寄せ
+            else:
+                t_bet, u_bet = 1000, 1000  # 低オッズ: 現行
+            ret = 0
+            hit_parts = []
+            if div_row_v6:
+                if honmei['finish'] == 1:
+                    ret += div_row_v6['tansho_payout'] * (t_bet / 100)
+                    hit_parts.append('単勝')
+                if div_row_v6['umaren_payout'] and (
+                    (honmei['finish'] == 1 and ni['finish'] == 2) or
+                    (honmei['finish'] == 2 and ni['finish'] == 1)):
+                    ret += div_row_v6['umaren_payout'] * (u_bet / 100)
+                    hit_parts.append('馬連')
+            ret = int(ret)
+            rec['cost'] = t_bet + u_bet
             rec['ret'] = ret
-            rec['profit'] = ret - 1000
+            rec['profit'] = ret - (t_bet + u_bet)
             rec['buy_zone'] = 'normal' if ev_ok else None
-            rec['hits'] = ' + '.join(hits) if hits else '全外れ'
+            rec['hits'] = '+'.join(hit_parts) if hit_parts else '不的中'
 
         rec['ev7'] = ev7
 
         all_races.append(rec)
         if ev_ok:
-            bets.append(rec)
+            # フィルタ方式: 強バイアス不利枠なら見送り（スコアリングは変えない）
+            surface = rows[0].get('surface', '芝')
+            if '芝' in str(surface): surface = '芝'
+            else: surface = 'ダ'
+            wn = rows[0].get('week_num', 0) or 0
+            if is_bias_disadvantaged(race['venue'], surface, wn,
+                                     honmei['horse_num'], len(rows)):
+                rec['bias_filtered'] = True  # 記録は残す（分析用）
+            else:
+                bets.append(rec)
 
         # ── 別枠ルール: 全出走馬を対象に調教×血統パターン判定 ──
         d = race['date']; v = race['venue']; rn = race['race_num']

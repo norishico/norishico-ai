@@ -388,16 +388,11 @@ def main():
 
         results_file = step_fetch_results(date_str, proj_dir)
 
-        # 対応する予想ファイルを探す
-        # saturday_predictions.json or sunday_predictions.json
-        day_num = int(date_str[6:8])  # day of month
-        sat_date, sun_date = get_weekend_dates()
-        if date_str == sat_date:
-            preds_file = proj_dir / 'saturday_predictions.json'
-        elif date_str == sun_date:
-            preds_file = proj_dir / 'sunday_predictions.json'
-        else:
-            preds_file = proj_dir / 'weekend_predictions.json'
+        # 常にweekend_predictions.jsonを使用（HTML生成と同じソース）
+        # ※ 以前はsaturday/sunday_predictions.jsonを曜日で分岐していたが、
+        #    get_weekend_dates()が実行日基準のため実行タイミングで参照ファイルが変わり、
+        #    HTMLとスプシで異なるレースが選ばれるバグがあった
+        preds_file = proj_dir / 'weekend_predictions.json'
 
         if preds_file.exists():
             # レース前の最終判断をスナップショットとして保存

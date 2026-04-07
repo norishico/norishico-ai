@@ -188,6 +188,62 @@ def score_weekend_race(race, conn, sc_conn):
             sg['score'] * W['gate_style']
         )
 
+        # 前走バイアス不利の判定（克服 + 僅差惜敗）
+        bias_overcome = False   # 不利枠+展開不利で1-3着
+        bias_close_loss = False  # 不利枠で4-5着+0.1秒差以内（次走単回129%）
+        _BIAS_MAP = {
+            ('中山','芝','z'): 'i', ('中山','芝','k'): 'i',
+            ('中山','ダ','z'): 'o', ('中山','ダ','k'): 'o',
+            ('阪神','ダ','z'): 'o', ('阪神','ダ','c'): 'o', ('阪神','ダ','k'): 'o',
+            ('東京','ダ','z'): 'o', ('新潟','芝','k'): 'o', ('新潟','ダ','k'): 'o',
+            ('福島','芝','z'): 'i', ('京都','芝','k'): 'o',
+            ('札幌','ダ','z'): 'o', ('札幌','ダ','c'): 'o', ('札幌','芝','k'): 'o',
+            ('中京','芝','z'): 'i', ('中京','芝','c'): 'i',
+        }
+        if prev_runs:
+            pr = prev_runs[0]
+            pr_finish = pr.get('finish')
+            pr_venue = pr.get('venue', '')
+            pr_surface = '芝' if '芝' in str(pr.get('surface', '')) else 'ダ'
+            pr_wn = pr.get('week_num', 0) or 0
+            pr_phase = 'z' if pr_wn <= 3 else ('c' if pr_wn <= 5 else 'k')
+            pr_hnum = pr.get('horse_num', 0) or pr.get('umaban', 0) or 0
+            pr_heads = pr.get('num_horses', 0) or 0
+            pr_pos4 = pr.get('pos4', 0) or 0
+            pr_margin = pr.get('margin')
+
+            if pr_heads >= 10 and pr_hnum > 0 and pr_finish:
+                gr_ratio = float(pr_hnum) / pr_heads
+                rule = _BIAS_MAP.get((pr_venue, pr_surface, pr_phase))
+                pr_bias = (rule == 'i' and gr_ratio >= 0.65) or (rule == 'o' and gr_ratio <= 0.35)
+
+                if pr_bias:
+                    # パターン1: 不利枠で4-5着 + 0.1秒差以内 → 僅差惜敗（単回129%）
+                    if pr_finish in (4, 5) and pr_margin is not None and pr_margin <= 0.1:
+                        bias_close_loss = True
+
+                    # パターン2: 不利枠+展開不利で1-3着 → W不利克服（単回103%）
+                    if pr_finish <= 3:
+                        pr_pace_unfav = False
+                        pr_lap_row = sc_conn.execute(
+                            'SELECT lap_times FROM race_laps WHERE race_id=?',
+                            ('%s_%s_%s' % (pr.get('date',''), pr_venue, pr.get('race_num','')),)
+                        ).fetchone() if pr_venue else None
+                        if pr_lap_row and pr_lap_row[0]:
+                            import json as _json
+                            _laps = _json.loads(pr_lap_row[0])
+                            _half = len(_laps) // 2
+                            if _half > 0:
+                                _pd = sum(_laps[:_half])/_half - sum(_laps[_half:])/(len(_laps)-_half)
+                                _sr = float(pr_pos4) / pr_heads if pr_pos4 > 0 else 0.5
+                                if _sr <= 0.33 and _pd < -0.3: pr_pace_unfav = True
+                                if _sr >= 0.67 and _pd > 0.3: pr_pace_unfav = True
+                        elif pr_pos4 > 0 and pr_heads > 0:
+                            _sr = float(pr_pos4) / pr_heads
+                            pr_pace_unfav = (_sr <= 0.25) or (_sr >= 0.75)
+                        if pr_pace_unfav:
+                            bias_overcome = True
+
         results.append({
             'horse_name': name, 'horse_num': hn, 'jockey': jockey,
             'odds': odds, 'popularity': pop, 'total_score': round(total, 1),
@@ -196,6 +252,8 @@ def score_weekend_race(race, conn, sc_conn):
             'accel_lap': st.get('accel_lap', False),
             'has_good_train': st.get('has_good_train', False),
             'trainer': trainer, 'waku': h.get('waku', 0),
+            'bias_overcome': bias_overcome,
+            'bias_close_loss': bias_close_loss,
         })
 
     results.sort(key=lambda x: x['total_score'], reverse=True)
@@ -237,7 +295,21 @@ def score_weekend_race(race, conn, sc_conn):
     honmei_sire = honmei.get('_sire', '')
     buy_zone, ev_ok = is_buy_v6(gr, heads, gap, honmei_odds, ev7, good_train=honmei_good, sire=honmei_sire, track_cond=cond)
     if ev_ok:
-        if buy_zone == 'challenge':
+        # 強バイアス不利枠フィルタ: honmeiが内枠(≤35%)で不利な3パターンは見送り
+        from scoring import _get_opening_week
+        wn = _get_opening_week(venue, date, sc_conn)
+        phase = '前半' if wn <= 3 else ('中盤' if wn <= 5 else '後半')
+        honmei_num = honmei.get('horse_num', 0) or honmei.get('_umaban', 0) or 0
+        gate_ratio = honmei_num / heads if heads > 0 and honmei_num > 0 else 0.5
+        bias_skip = False
+        if gate_ratio <= 0.35:
+            if venue == '新潟' and surface == '芝' and phase == '後半':   bias_skip = True
+            elif venue == '札幌' and surface == '芝' and phase == '後半': bias_skip = True
+            elif venue == '中山' and surface == 'ダ' and phase == '前半': bias_skip = True
+
+        if bias_skip:
+            buy_type = None  # 見送り
+        elif buy_zone == 'challenge':
             buy_type = 'v6_challenge'
         elif gap >= 10 and honmei_good and (calc_venue_sire_bonus(venue, dist, honmei_sire, sc_conn) > 0):
             buy_type = 'v6_star3'
@@ -255,8 +327,17 @@ def score_weekend_race(race, conn, sc_conn):
             special_horse = {**h2, 'rule': sp_rule}
             break
 
+    # 逃げ候補判定（レース内の逃げ候補数 + ◎の逃げ確率）
+    nige_candidates = sum(1 for s in race_styles if s == '逃げ')
+    honmei_style = _infer_running_style(honmei['horse_name'], date, surface, dist, sc_conn)
+    honmei_is_nige = honmei_style == '逃げ'
+    raku_nige = honmei_is_nige and nige_candidates == 1  # ◎が唯一の逃げ候補
+
     # 根拠タグ
     reasons = []
+    if raku_nige: reasons.append('楽逃げ候補')
+    if honmei.get('bias_overcome'): reasons.append('前走不利克服')
+    if honmei.get('bias_close_loss'): reasons.append('前走不利僅差惜敗')
     if honmei_good: reasons.append('調教好仕上がり')
     if gap >= 8: reasons.append('スコア突出')
     if calc_venue_sire_bonus(venue, dist, honmei_sire, sc_conn) > 0: reasons.append('コース適性◎')
@@ -267,6 +348,7 @@ def score_weekend_race(race, conn, sc_conn):
     return {
         'race': race, 'grade': gr, 'results': results, 'gap': gap, 'ev7': ev7,
         'buy_type': buy_type, 'special_horse': special_horse, 'reasons': reasons,
+        'nige_candidates': nige_candidates, 'honmei_is_nige': honmei_is_nige,
         'honmei': honmei, 'ni': ni, 'heads': heads,
     }
 

@@ -147,7 +147,10 @@ def generate_graded_comments(p):
     if buy_type == 'v6_challenge':
         comments.append(('ゆきこ', f'チャレンジゾーンだから単勝1,000円のみの設計。リスクを抑えつつ、当たれば{odds:.0f}倍返し。資金管理的に正しいアプローチね。'))
     elif buy_type:
-        comments.append(('ゆきこ', f'通常ゾーンで単勝+馬連の2,000円。馬連が外れても単勝で回収できる設計。◎{odds:.1f}倍×○{ni_odds:.1f}倍なら馬連の期待値も悪くないわ。'))
+        if odds >= 8:
+            comments.append(('ゆきこ', f'通常ゾーン・高オッズ帯で馬連寄せ配分（単500+馬連1500）。◎{odds:.1f}倍は馬連的中時の回収が大きいから、馬連比率を上げる設計。'))
+        else:
+            comments.append(('ゆきこ', f'通常ゾーンで単勝+馬連の2,000円。◎{odds:.1f}倍の堅い軸なら単勝で安定回収。馬連◎○は{ni_odds:.1f}倍との組み合わせ。'))
     else:
         comments.append(('ゆきこ', f'EV条件やオッズ条件が合わず買い対象外。ルールに忠実に、ここは見送りが正解よ。'))
 
@@ -315,12 +318,19 @@ def race_card_html(p, show_full=True):
                 h += f'<span class="jockey-name">{ni.get("jockey","")}</span></div>'
                 h += f'<div class="pick-right"><div class="score-value">{ni["total_score"]:.1f}</div><div class="score-sub">/100</div></div></div>\n'
             h += '    <div class="bet-inline"><div class="bet-chips">'
-            h += '<div class="bet-chip"><span class="type">単勝◎</span> <span class="amount">1,000円</span></div>'
-            if buy != 'v6_challenge':
-                h += '<div class="bet-chip"><span class="type">馬連◎○</span> <span class="amount">1,000円</span></div>'
+            ho = honmei.get('odds', 0) or 0
+            if buy == 'v6_challenge':
+                h += '<div class="bet-chip"><span class="type">単勝◎</span> <span class="amount">1,000円</span></div>'
+                h += '<span class="bet-total-inline">計 1,000円</span></div></div>\n'
+            elif ho >= 8:
+                # あかり案A: 高オッズ帯は馬連寄せ
+                h += '<div class="bet-chip"><span class="type">単勝◎</span> <span class="amount">500円</span></div>'
+                h += '<div class="bet-chip"><span class="type">馬連◎○</span> <span class="amount">1,500円</span></div>'
                 h += '<span class="bet-total-inline">計 2,000円</span></div></div>\n'
             else:
-                h += '<span class="bet-total-inline">計 1,000円</span></div></div>\n'
+                h += '<div class="bet-chip"><span class="type">単勝◎</span> <span class="amount">1,000円</span></div>'
+                h += '<div class="bet-chip"><span class="type">馬連◎○</span> <span class="amount">1,000円</span></div>'
+                h += '<span class="bet-total-inline">計 2,000円</span></div></div>\n'
         if sp:
             rule = sp.get('rule','')
             sp_waku = sp.get('waku', 0)
@@ -336,9 +346,39 @@ def race_card_html(p, show_full=True):
             h += '<span class="bet-total-inline">計 1,000円</span></div></div>\n'
         h += '  </div>\n'
 
-        # 根拠タグ
+        # 根拠タグ（優先度順に最大2つ + 残りは折りたたみ）
+        priority_tags = []  # 特別バッジ（色付き）
+        normal_tags = []    # 通常バッジ
+        for tag in p['reasons']:
+            if tag in ('楽逃げ候補', '前走不利僅差惜敗', '前走不利克服'):
+                priority_tags.append(tag)
+            else:
+                normal_tags.append(tag)
+        # 逃げ候補数もバッジとして統合
+        nc = p.get('nige_candidates', 0)
+        if nc > 0 and '楽逃げ候補' not in priority_tags:
+            normal_tags.append(f'逃げ候補{nc}頭')
+
+        all_tags = priority_tags + normal_tags
+        show_tags = all_tags[:3]  # 常時表示は3つまで
+        extra_tags = all_tags[3:]
+
+        def _tag_cls(tag):
+            if tag == '前走不利克服': return ' bias-overcome'
+            if tag == '前走不利僅差惜敗': return ' bias-close-loss'
+            if tag == '楽逃げ候補': return ' raku-nige'
+            if tag.startswith('逃げ候補'): return ' nige-count'
+            return ''
+
         h += '  <div class="reason-section">'
-        for tag in p['reasons']: h += f'<span class="reason-tag">{tag}</span>'
+        for tag in show_tags:
+            h += f'<span class="reason-tag{_tag_cls(tag)}">{tag}</span>'
+        if extra_tags:
+            h += f'<span class="reason-more" onclick="this.nextElementSibling.style.display=\'inline\';this.style.display=\'none\'">+{len(extra_tags)}</span>'
+            h += '<span class="reason-extra" style="display:none">'
+            for tag in extra_tags:
+                h += f'<span class="reason-tag{_tag_cls(tag)}">{tag}</span>'
+            h += '</span>'
         h += '</div>\n'
 
         # オッズ
@@ -511,6 +551,12 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .bet-total-inline{{margin-left:auto;font-size:14px;font-weight:700;color:var(--orange)}}
 .reason-section{{padding:4px 16px 12px;display:flex;flex-wrap:wrap;gap:6px}}
 .reason-tag{{background:var(--cream);border:1px solid var(--card-border);padding:4px 12px;border-radius:12px;font-size:11px;color:var(--green);font-weight:500}}
+.reason-tag.bias-overcome{{background:linear-gradient(135deg,#FF6B35,#F7931E);color:white;border:none;font-weight:700}}
+.reason-tag.bias-close-loss{{background:linear-gradient(135deg,#E91E63,#FF5722);color:white;border:none;font-weight:700}}
+.reason-tag.raku-nige{{background:linear-gradient(135deg,#2196F3,#00BCD4);color:white;border:none;font-weight:700}}
+.reason-tag.nige-count{{background:#E3F2FD;color:#1565C0;border:1px solid #BBDEFB}}
+.reason-more{{background:var(--cream);border:1px dashed var(--card-border);padding:4px 10px;border-radius:12px;font-size:11px;color:var(--text-sub);cursor:pointer}}
+.reason-extra{{display:inline;gap:6px}}
 .odds-section{{padding:12px 16px;border-top:1px solid var(--card-border);display:flex;justify-content:space-between;align-items:center}}
 .odds-display{{display:flex;gap:20px}}
 .odds-item{{font-size:13px;color:var(--text-sub)}}

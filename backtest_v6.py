@@ -277,19 +277,20 @@ def run_month_v6(conn, sc_conn, year, month):
                     if div3 and div3.get('sanrentan_payout'):
                         h_uma = honmei.get('horse_num', 0)
                         n_uma = ni.get('horse_num', 0)
-                        # 人気上位5頭(◎○除く)の馬番を取得
+                        # 人気上位3頭(◎○除く)の馬番を取得
                         pop_rows = conn.execute(
                             'SELECT horse_num FROM results WHERE date=? AND venue=? AND race_num=? AND finish > 0 AND finish < 90 ORDER BY popularity',
                             (race['date'], race['venue'], race['race_num'])).fetchall()
-                        top5_uma = [r2['horse_num'] for r2 in pop_rows if r2['horse_num'] not in (h_uma, n_uma)][:5]
+                        top3_uma = [r2['horse_num'] for r2 in pop_rows if r2['horse_num'] not in (h_uma, n_uma)][:3]
                         axis = {h_uma, n_uma}
-                        all_set = axis | set(top5_uma)
+                        all_set = axis | set(top3_uma)
                         san = [div3.get('sanrentan_uma1',0), div3.get('sanrentan_uma2',0), div3.get('sanrentan_uma3',0)]
-                        if san[0] in all_set and san[1] in all_set and san[2] in all_set and (san[0] in axis or san[1] in axis):
+                        # 1着が◎○、2-3着がall_setの中
+                        if san[0] in axis and san[1] in all_set and san[2] in all_set:
                             san_ret = div3['sanrentan_payout'] * 1  # 100円×1
                         else:
                             san_ret = 0
-                        pts = 42  # ◎○+人気5頭の7頭BOX的な点数
+                        pts = 24  # 1着◎○(2) × 2着5頭 × 3着4頭 = 24点
                         san_cost = pts * 100
                         san_rec = {
                             'date': race['date'], 'venue': race['venue'],

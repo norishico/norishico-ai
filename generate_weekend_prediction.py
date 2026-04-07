@@ -245,8 +245,8 @@ def _calc_inv(p):
     if bt == 'v6_challenge': base = 1000
     elif bt: base = 2000
     elif p.get('special_horse'): base = 1000
-    # 3連単BOX追加 (gap5+ & odds8+)
-    if bt and gap >= 5 and ho >= 8: base += 4200
+    # 3連単フォーメーション追加 (gap5+ & odds8+)
+    if bt and gap >= 5 and ho >= 8: base += 2400
     return 0
 total_inv = sum(_calc_inv(p) for p in buy_preds)
 
@@ -336,14 +336,23 @@ def race_card_html(p, show_full=True):
                 h += '<div class="bet-chip"><span class="type">単勝◎</span> <span class="amount">1,000円</span></div>'
                 h += '<div class="bet-chip"><span class="type">馬連◎○</span> <span class="amount">1,000円</span></div>'
                 h += '<span class="bet-total-inline">計 2,000円</span></div></div>\n'
-        # 3連単BOX表示 (gap5+ & odds8+)
-        if buy:
-            ho_3 = honmei.get('odds', 0) or 0
-            gap_3 = p.get('gap', 0) or 0
-            if gap_3 >= 5 and ho_3 >= 8:
-                h += '    <div class="bet-inline bet-3rentan"><div class="bet-chips">'
-                h += '<div class="bet-chip chip-3ren"><span class="type">3連単◎○BOX</span> <span class="amount">4,200円</span></div>'
-                h += '<span class="bet-total-inline">（◎○+人気1-5位 42点×100円）</span></div></div>\n'
+        # 3連単フォーメーション表示 (gap5+ & odds8+)
+        san_targets = p.get('sanrentan_targets')
+        if san_targets:
+            h_name = honmei.get('horse_name','').strip()
+            h_num = honmei.get('horse_num', '?')
+            n_name = ni.get('horse_name','').strip() if ni else ''
+            n_num = ni.get('horse_num', '?') if ni else '?'
+            t_names = ', '.join(f'{t["name"].strip()}' for t in san_targets)
+            t_nums = ', '.join(str(t.get('horse_num','?')) for t in san_targets)
+            all_2nd = f'{h_num} {n_num} {t_nums}'
+            h += '    <div class="bet-3rentan">\n'
+            h += '      <div class="san-header">3連単フォーメーション 24点×100円＝2,400円</div>\n'
+            h += f'      <div class="san-row"><span class="san-pos">1着</span><span class="san-arrow">→</span><span class="san-horses">◎{h_name}、○{n_name}</span></div>\n'
+            h += f'      <div class="san-row"><span class="san-pos">2着</span><span class="san-arrow">→</span><span class="san-horses">◎○＋ {t_names}</span></div>\n'
+            h += f'      <div class="san-row"><span class="san-pos">3着</span><span class="san-arrow">→</span><span class="san-horses">◎○＋ {t_names}</span></div>\n'
+            h += f'      <div class="san-nums">馬番: 1着[{h_num},{n_num}] 2着[{all_2nd}] 3着[{all_2nd}]</div>\n'
+            h += '    </div>\n'
 
         if sp:
             rule = sp.get('rule','')
@@ -578,8 +587,13 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .score-value{{font-size:18px;font-weight:700;color:var(--orange)}}
 .score-sub{{font-size:10px;color:var(--text-sub)}}
 .bet-inline{{margin-top:10px;padding:10px 12px;background:var(--cream-light);border-radius:10px;border:1px solid var(--card-border)}}
-.bet-3rentan{{background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border:1px solid #FFB74D;margin-top:6px}}
-.chip-3ren .type{{color:#E65100;font-weight:700}}
+.bet-3rentan{{background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border:1px solid #FFB74D;border-radius:10px;margin:8px 16px;padding:12px 14px}}
+.san-header{{font-size:12px;font-weight:700;color:#E65100;margin-bottom:8px}}
+.san-row{{display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0}}
+.san-pos{{font-weight:700;color:#E65100;min-width:28px}}
+.san-arrow{{color:#FFB74D}}
+.san-horses{{color:var(--text)}}
+.san-nums{{font-size:10px;color:var(--text-sub);margin-top:6px;padding-top:6px;border-top:1px dashed #FFB74D}}
 .bet-chips{{display:flex;flex-wrap:wrap;gap:6px;align-items:center}}
 .bet-chip{{background:white;border:1px solid var(--card-border);padding:4px 12px;border-radius:8px;font-size:12px}}
 .bet-chip .type{{color:var(--text-sub)}}.bet-chip .amount{{color:var(--text);font-weight:700}}

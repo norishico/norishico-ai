@@ -349,12 +349,23 @@ def score_weekend_race(race, conn, sc_conn):
     _BREAKEVEN = {'新馬': 5.5, '未勝利': 5.5, '1勝': 6.0, '2勝': 5.9, '3勝': 7.1, 'G3': 7.0, 'G2': 6.3, 'G1': 8.4}
     breakeven_odds = _BREAKEVEN.get(gr, 7.0)
 
+    # 3連単フォーメーション対象判定 (gap5+ & odds8+)
+    sanrentan_targets = None
+    if buy_type and gap >= 5 and honmei_odds >= 8:
+        # ◎○以外で人気上位3頭を選出
+        honmei_name = honmei['horse_name']
+        ni_name = ni['horse_name'] if ni else ''
+        pop_sorted = sorted(results, key=lambda x: x.get('odds', 999) or 999)
+        top3_others = [h for h in pop_sorted if h['horse_name'] != honmei_name and h['horse_name'] != ni_name][:3]
+        sanrentan_targets = [{'name': h['horse_name'], 'odds': h.get('odds', 0), 'horse_num': h.get('horse_num', 0)} for h in top3_others]
+
     return {
         'race': race, 'grade': gr, 'results': results, 'gap': gap, 'ev7': ev7,
         'buy_type': buy_type, 'special_horse': special_horse, 'reasons': reasons,
         'nige_candidates': nige_candidates, 'honmei_is_nige': honmei_is_nige,
         'honmei': honmei, 'ni': ni, 'heads': heads,
         'breakeven_odds': breakeven_odds,
+        'sanrentan_targets': sanrentan_targets,
     }
 
 

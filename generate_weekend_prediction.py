@@ -392,6 +392,21 @@ def race_card_html(p, show_full=True):
         if sp:
             so = sp.get('odds',0) or 0
             h += f'<div class="odds-item"><span class="mark-sm">◆</span> <span class="odds-val">{f"{so:.1f}" if so > 0 else "--"}</span>{"倍" if so > 0 else ""}</div>'
+        # 損益分岐オッズ表示
+        be = p.get('breakeven_odds', 0)
+        ho_now = honmei.get('odds', 0) or 0
+        if be > 0 and ho_now > 0 and buy:
+            margin_ratio = ho_now / be
+            if margin_ratio >= 1.5:
+                be_cls = 'be-good'
+                be_text = f'分岐{be:.1f}倍 ✅ ゆとり大'
+            elif margin_ratio >= 1.0:
+                be_cls = 'be-ok'
+                be_text = f'分岐{be:.1f}倍 ✅ オッズ十分'
+            else:
+                be_cls = 'be-warn'
+                be_text = f'分岐{be:.1f}倍 ⚠ 馬連込みで勝負'
+            h += f'<span class="breakeven {be_cls}">{be_text}</span>'
         h += '</div><span class="odds-status pending">オッズ判定中</span></div>\n'
 
     # スコアバー（全レース共通）
@@ -556,6 +571,10 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .reason-tag.raku-nige{{background:linear-gradient(135deg,#2196F3,#00BCD4);color:white;border:none;font-weight:700}}
 .reason-tag.nige-count{{background:#E3F2FD;color:#1565C0;border:1px solid #BBDEFB}}
 .reason-more{{background:var(--cream);border:1px dashed var(--card-border);padding:4px 10px;border-radius:12px;font-size:11px;color:var(--text-sub);cursor:pointer}}
+.breakeven{{font-size:10px;padding:2px 8px;border-radius:8px;margin-left:8px;font-weight:600}}
+.be-good{{background:#E8F5E9;color:#2E7D32}}
+.be-ok{{background:#E8F5E9;color:#558B2F}}
+.be-warn{{background:#FFF3E0;color:#E65100}}
 .reason-extra{{display:inline;gap:6px}}
 .odds-section{{padding:12px 16px;border-top:1px solid var(--card-border);display:flex;justify-content:space-between;align-items:center}}
 .odds-display{{display:flex;gap:20px}}

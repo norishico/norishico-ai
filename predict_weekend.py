@@ -345,11 +345,16 @@ def score_weekend_race(race, conn, sc_conn):
     if honmei_odds >= 10: reasons.append('配当妙味◎')
     if not reasons: reasons.append('AI総合評価')
 
+    # 損益分岐オッズ（クラス別勝率から逆算）
+    _BREAKEVEN = {'新馬': 5.5, '未勝利': 5.5, '1勝': 6.0, '2勝': 5.9, '3勝': 7.1, 'G3': 7.0, 'G2': 6.3, 'G1': 8.4}
+    breakeven_odds = _BREAKEVEN.get(gr, 7.0)
+
     return {
         'race': race, 'grade': gr, 'results': results, 'gap': gap, 'ev7': ev7,
         'buy_type': buy_type, 'special_horse': special_horse, 'reasons': reasons,
         'nige_candidates': nige_candidates, 'honmei_is_nige': honmei_is_nige,
         'honmei': honmei, 'ni': ni, 'heads': heads,
+        'breakeven_odds': breakeven_odds,
     }
 
 

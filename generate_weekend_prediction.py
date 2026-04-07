@@ -239,9 +239,14 @@ preds.sort(key=lambda p: (p['_date_key'], p['race'].get('venue',''), p['race'].g
 buy_preds = [p for p in preds if p['buy_type'] or p['special_horse']]
 def _calc_inv(p):
     bt = p.get('buy_type', '')
-    if bt == 'v6_challenge': return 1000
-    elif bt: return 2000
-    elif p.get('special_horse'): return 1000
+    ho = p.get('honmei', {}).get('odds', 0) or 0
+    gap = p.get('gap', 0) or 0
+    base = 0
+    if bt == 'v6_challenge': base = 1000
+    elif bt: base = 2000
+    elif p.get('special_horse'): base = 1000
+    # 3連単BOX追加 (gap5+ & odds8+)
+    if bt and gap >= 5 and ho >= 8: base += 4200
     return 0
 total_inv = sum(_calc_inv(p) for p in buy_preds)
 
@@ -331,6 +336,15 @@ def race_card_html(p, show_full=True):
                 h += '<div class="bet-chip"><span class="type">単勝◎</span> <span class="amount">1,000円</span></div>'
                 h += '<div class="bet-chip"><span class="type">馬連◎○</span> <span class="amount">1,000円</span></div>'
                 h += '<span class="bet-total-inline">計 2,000円</span></div></div>\n'
+        # 3連単BOX表示 (gap5+ & odds8+)
+        if buy:
+            ho_3 = honmei.get('odds', 0) or 0
+            gap_3 = p.get('gap', 0) or 0
+            if gap_3 >= 5 and ho_3 >= 8:
+                h += '    <div class="bet-inline bet-3rentan"><div class="bet-chips">'
+                h += '<div class="bet-chip chip-3ren"><span class="type">3連単◎○BOX</span> <span class="amount">4,200円</span></div>'
+                h += '<span class="bet-total-inline">（◎○+人気1-5位 42点×100円）</span></div></div>\n'
+
         if sp:
             rule = sp.get('rule','')
             sp_waku = sp.get('waku', 0)
@@ -564,6 +578,8 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .score-value{{font-size:18px;font-weight:700;color:var(--orange)}}
 .score-sub{{font-size:10px;color:var(--text-sub)}}
 .bet-inline{{margin-top:10px;padding:10px 12px;background:var(--cream-light);border-radius:10px;border:1px solid var(--card-border)}}
+.bet-3rentan{{background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border:1px solid #FFB74D;margin-top:6px}}
+.chip-3ren .type{{color:#E65100;font-weight:700}}
 .bet-chips{{display:flex;flex-wrap:wrap;gap:6px;align-items:center}}
 .bet-chip{{background:white;border:1px solid var(--card-border);padding:4px 12px;border-radius:8px;font-size:12px}}
 .bet-chip .type{{color:var(--text-sub)}}.bet-chip .amount{{color:var(--text);font-weight:700}}

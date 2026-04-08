@@ -122,14 +122,14 @@ KINGKAME_SIRES = frozenset({
 })
 
 
-def is_special_buy(grade, odds, popularity, heads, accel, good_train, sire):
+def is_special_buy(grade, odds, popularity, heads, accel, good_train, sire, surface=''):
     """別枠買いルール: 調教×血統の特殊掛け合わせパターン
 
     スコアリング不要、全出走馬が対象。
-    C2: 新馬×非主流血統×odds10-20×加速ラップ×15頭以上
-        → 単勝1,100円 + ワイド(×人気1-3)各300円 = 2,000円/R (5/7年黒字)
+    C2: 新馬×非主流血統×odds10-20×加速ラップ×15頭以上×ダート限定
+        → 単勝1,000円のみ (6/7年黒字, ROI135%)
     F1: 未勝利×主流血統(SS+KK)×odds20-30×好調教+加速ラップ×1-8番人気
-        → 単勝1,000円のみ = 1,000円/R (4/6年黒字, ROI161%)
+        → 単勝1,000円のみ (4/6年黒字, ROI175%)
 
     Returns: (buy, rule_name) or (False, '')
     """
@@ -138,9 +138,11 @@ def is_special_buy(grade, odds, popularity, heads, accel, good_train, sire):
     sire_s = (sire or '').strip()
     is_mainstream = sire_s in SUNDAY_SIRES or sire_s in KINGKAME_SIRES
 
-    # C2: 新馬×非主流血統×中穴×加速ラップ×多頭数
+    # C2: 新馬×非主流血統×中穴×加速ラップ×多頭数×ダート限定
     if not is_mainstream:
-        if grade == '新馬' and 10 <= odds < 20 and heads >= 15:
+        surf = str(surface or '')
+        is_dirt = 'ダ' in surf
+        if grade == '新馬' and 10 <= odds < 20 and heads >= 15 and is_dirt:
             return True, 'C2_新馬accel'
 
     # F1: 未勝利×主流血統(SS+KK)×穴馬×好調教+加速ラップ
@@ -322,7 +324,7 @@ def run_month_v6(conn, sc_conn, year, month):
             sp_buy, sp_rule = is_special_buy(
                 gr, h_odds, h_pop, len(rows),
                 h.get('accel_lap', False), h.get('has_good_train', False),
-                h.get('_sire', ''))
+                h.get('_sire', ''), surface=rows[0].get('surface', ''))
             if not sp_buy:
                 continue
 

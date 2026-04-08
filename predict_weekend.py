@@ -331,7 +331,7 @@ def score_weekend_race(race, conn, sc_conn):
         sp_buy, sp_rule = is_special_buy(
             gr, h2.get('odds', 0) or 0, h2.get('popularity', 0),
             heads, h2.get('accel_lap', False), h2.get('has_good_train', False),
-            h2.get('_sire', ''))
+            h2.get('_sire', ''), surface=surface)
         if sp_buy:
             special_horse = {**h2, 'rule': sp_rule}
             break

@@ -377,6 +377,7 @@ def run_year_v6(year, db_path):
         build_bloodline_stats, build_gate_cond_blood_bonus, build_track_bias_bonus
     )
     cutoff = f'{year}-01-01'
+    # blood_start: 全期間データを使用（直近3年は悪化したため不採用）
     build_bloodline_stats(sc_conn, cutoff_date=cutoff)
     build_gate_cond_blood_bonus(sc_conn, cutoff_date=cutoff)
     build_track_bias_bonus(sc_conn, cutoff_date=cutoff)

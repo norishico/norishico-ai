@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NORISHICO AI — 血統データラボ</title>
+<style>
+:root{--bg:#FAF7F2;--card:#FFF;--border:#E8DDD0;--text:#2D2A26;--sub:#8B7E6E;--orange:#F28C28;--green:#4A7C59;--red:#D32F2F}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);max-width:720px;margin:0 auto}
+.header{background:linear-gradient(135deg,#2D2A26,#4A3728);color:white;padding:24px 20px;text-align:center}
+.header h1{font-size:18px;letter-spacing:2px}
+.header p{font-size:11px;color:#BDA88E;margin-top:4px}
+.nav{display:flex;overflow-x:auto;gap:0;background:#FFF;border-bottom:2px solid var(--border);position:sticky;top:0;z-index:10}
+.nav-item{padding:12px 16px;font-size:12px;font-weight:600;color:var(--sub);cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s}
+.nav-item:hover,.nav-item.active{color:var(--orange);border-bottom-color:var(--orange)}
+.section{display:none;padding:16px}
+.section.active{display:block}
+.section-header{margin-bottom:12px}
+.section-header h2{font-size:16px;color:var(--text)}
+.section-header p{font-size:11px;color:var(--sub);margin-top:4px;line-height:1.6}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.card-row{display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid #F5EDE5;gap:10px}
+.card-row:last-child{border-bottom:none}
+.rank{font-size:18px;font-weight:800;color:var(--orange);min-width:28px;text-align:center}
+.rank.gold{color:#FFB300}.rank.silver{color:#90A4AE}.rank.bronze{color:#A1887F}
+.name{font-weight:700;font-size:13px;flex:1;min-width:0}
+.name small{font-weight:400;color:var(--sub);font-size:10px;display:block}
+.stat{text-align:right;min-width:60px}
+.stat .value{font-size:15px;font-weight:700}.stat .label{font-size:9px;color:var(--sub)}
+.tag{display:inline-block;font-size:9px;padding:2px 8px;border-radius:8px;font-weight:600}
+.tag-hot{background:#FFF3E0;color:#E65100}.tag-ok{background:#E8F5E9;color:#2E7D32}.tag-cold{background:#F5F5F5;color:#757575}
+.vs-row{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;padding:10px 14px;border-bottom:1px solid #F5EDE5;align-items:center}
+.vs-label{font-size:10px;color:var(--sub);text-align:center}
+.bar-section{padding:10px 14px;border-bottom:1px solid #F5EDE5}
+.bar-label{font-size:12px;font-weight:600;margin-bottom:4px}
+.season-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px 14px}
+.season-cell{text-align:center;padding:8px 4px;border-radius:8px;font-size:11px}
+.season-cell .szn{font-weight:700;font-size:10px;color:var(--sub)}
+.season-cell .val{font-size:14px;font-weight:700;margin-top:2px}
+.disclaimer{padding:16px;font-size:10px;color:var(--sub);text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>NORISHICO AI — BLOOD DATA LAB</h1>
+<p>keiba.db 2019-2026 / 335,700頭のデータから導出</p>
+</div>
+<div class="nav" id="nav">
+<div class="nav-item active" onclick="switchTab('nicks')">ニックス</div>
+<div class="nav-item" onclick="switchTab('dam_sire')">母父力</div>
+<div class="nav-item" onclick="switchTab('himba')">牝馬限定</div>
+<div class="nav-item" onclick="switchTab('shinba')">新馬戦</div>
+<div class="nav-item" onclick="switchTab('heavy')">重馬場</div>
+<div class="nav-item" onclick="switchTab('kakusei')">覚醒型</div>
+<div class="nav-item" onclick="switchTab('extension')">距離延長</div>
+<div class="nav-item" onclick="switchTab('season')">季節別</div>
+</div>
+<div class="section active" id="sec-nicks">
+<div class="section-header"><h2>父×母父ニックス（相性抜群の組み合わせ）</h2><p>n≥50、単勝回収率順。この父とこの母父の組み合わせは統計的に好走率が高い。</p></div>
+<div class="card">
+<div class="card-row"><span class="rank gold">1</span><div class="name">パイロ<small>× 母父アフリート</small></div><div class="stat"><div class="value" style="color:#D32F2F">766%</div><div class="label">単回 n=84</div></div></div>
+<div class="card-row"><span class="rank silver">2</span><div class="name">マツリダゴッホ<small>× 母父アラジ</small></div><div class="stat"><div class="value" style="color:#D32F2F">716%</div><div class="label">単回 n=77</div></div></div>
+<div class="card-row"><span class="rank bronze">3</span><div class="name">リアルスティール<small>× 母父ヴィクトワールピサ</small></div><div class="stat"><div class="value" style="color:#D32F2F">682%</div><div class="label">単回 n=68</div></div></div>
+<div class="card-row"><span class="rank ">4</span><div class="name">サトノクラウン<small>× 母父ダイワメジャー</small></div><div class="stat"><div class="value" style="color:#D32F2F">550%</div><div class="label">単回 n=72</div></div></div>
+<div class="card-row"><span class="rank ">5</span><div class="name">モンテロッソ<small>× 母父グラスワンダー</small></div><div class="stat"><div class="value" style="color:#D32F2F">425%</div><div class="label">単回 n=61</div></div></div>
+<div class="card-row"><span class="rank ">6</span><div class="name">コパノリッキー<small>× 母父ハーツクライ</small></div><div class="stat"><div class="value" style="color:#D32F2F">395%</div><div class="label">単回 n=54</div></div></div>
+<div class="card-row"><span class="rank ">7</span><div class="name">オルフェーヴル<small>× 母父タニノギムレット</small></div><div class="stat"><div class="value" style="color:#D32F2F">392%</div><div class="label">単回 n=65</div></div></div>
+<div class="card-row"><span class="rank ">8</span><div class="name">ダンカーク<small>× 母父スペシャルウィーク</small></div><div class="stat"><div class="value" style="color:#D32F2F">390%</div><div class="label">単回 n=63</div></div></div>
+<div class="card-row"><span class="rank ">9</span><div class="name">ジャスタウェイ<small>× 母父サクラバクシンオー</small></div><div class="stat"><div class="value" style="color:#D32F2F">368%</div><div class="label">単回 n=79</div></div></div>
+<div class="card-row"><span class="rank ">10</span><div class="name">ディープインパクト<small>× 母父Shamardal</small></div><div class="stat"><div class="value" style="color:#D32F2F">367%</div><div class="label">単回 n=52</div></div></div>
+<div class="card-row"><span class="rank ">11</span><div class="name">エスポワールシチー<small>× 母父タイキシャトル</small></div><div class="stat"><div class="value" style="color:#D32F2F">363%</div><div class="label">単回 n=63</div></div></div>
+<div class="card-row"><span class="rank ">12</span><div class="name">ザファクター<small>× 母父サンデーサイレンス</small></div><div class="stat"><div class="value" style="color:#D32F2F">321%</div><div class="label">単回 n=72</div></div></div>
+<div class="card-row"><span class="rank ">13</span><div class="name">ダイワメジャー<small>× 母父フレンチデピュティ</small></div><div class="stat"><div class="value" style="color:#D32F2F">314%</div><div class="label">単回 n=76</div></div></div>
+<div class="card-row"><span class="rank ">14</span><div class="name">ダイワメジャー<small>× 母父ワイルドラッシュ</small></div><div class="stat"><div class="value" style="color:#D32F2F">312%</div><div class="label">単回 n=85</div></div></div>
+<div class="card-row"><span class="rank ">15</span><div class="name">スズカフェニックス<small>× 母父フレンチデピュティ</small></div><div class="stat"><div class="value" style="color:#D32F2F">305%</div><div class="label">単回 n=100</div></div></div>
+<div class="card-row"><span class="rank ">16</span><div class="name">ワークフォース<small>× 母父フレンチデピュティ</small></div><div class="stat"><div class="value" style="color:#D32F2F">303%</div><div class="label">単回 n=51</div></div></div>
+<div class="card-row"><span class="rank ">17</span><div class="name">リオンディーズ<small>× 母父ブライアンズタイム</small></div><div class="stat"><div class="value" style="color:#D32F2F">302%</div><div class="label">単回 n=89</div></div></div>
+<div class="card-row"><span class="rank ">18</span><div class="name">キングカメハメハ<small>× 母父ゼンノロブロイ</small></div><div class="stat"><div class="value" style="color:#D32F2F">295%</div><div class="label">単回 n=53</div></div></div>
+<div class="card-row"><span class="rank ">19</span><div class="name">ジャスタウェイ<small>× 母父High Chaparral</small></div><div class="stat"><div class="value" style="color:#D32F2F">284%</div><div class="label">単回 n=56</div></div></div>
+<div class="card-row"><span class="rank ">20</span><div class="name">キングカメハメハ<small>× 母父Storm Cat</small></div><div class="stat"><div class="value" style="color:#D32F2F">280%</div><div class="label">単回 n=71</div></div></div>
+</div>
+</div>
+<div class="section" id="sec-dam_sire">
+<div class="section-header"><h2>母父だけで回収率100%超</h2><p>n≥300。母父の血が強く影響するパターン。</p></div>
+<div class="card">
+<div class="card-row"><span class="rank gold">1</span><div class="name">母父 Scat Daddy</div><div class="stat"><div class="value" style="color:#2E7D32">137%</div><div class="label">n=408</div></div></div>
+<div class="card-row"><span class="rank silver">2</span><div class="name">母父 Tiznow</div><div class="stat"><div class="value" style="color:#2E7D32">123%</div><div class="label">n=477</div></div></div>
+<div class="card-row"><span class="rank bronze">3</span><div class="name">母父 Gone West</div><div class="stat"><div class="value" style="color:#2E7D32">123%</div><div class="label">n=661</div></div></div>
+<div class="card-row"><span class="rank ">4</span><div class="name">母父 アドマイヤコジーン</div><div class="stat"><div class="value" style="color:#2E7D32">120%</div><div class="label">n=600</div></div></div>
+<div class="card-row"><span class="rank ">5</span><div class="name">母父 ノヴェリスト</div><div class="stat"><div class="value" style="color:#2E7D32">119%</div><div class="label">n=443</div></div></div>
+<div class="card-row"><span class="rank ">6</span><div class="name">母父 Redoute's Choice</div><div class="stat"><div class="value" style="color:#2E7D32">118%</div><div class="label">n=338</div></div></div>
+<div class="card-row"><span class="rank ">7</span><div class="name">母父 キャプテンスティーヴ</div><div class="stat"><div class="value" style="color:#2E7D32">114%</div><div class="label">n=749</div></div></div>
+<div class="card-row"><span class="rank ">8</span><div class="name">母父 カリズマティック</div><div class="stat"><div class="value" style="color:#2E7D32">111%</div><div class="label">n=433</div></div></div>
+<div class="card-row"><span class="rank ">9</span><div class="name">母父 アフリート</div><div class="stat"><div class="value" style="color:#2E7D32">111%</div><div class="label">n=1831</div></div></div>
+<div class="card-row"><span class="rank ">10</span><div class="name">母父 トワイニング</div><div class="stat"><div class="value" style="color:#2E7D32">110%</div><div class="label">n=796</div></div></div>
+<div class="card-row"><span class="rank ">11</span><div class="name">母父 ディープブリランテ</div><div class="stat"><div class="value" style="color:#2E7D32">110%</div><div class="label">n=491</div></div></div>
+<div class="card-row"><span class="rank ">12</span><div class="name">母父 ケイムホーム</div><div class="stat"><div class="value" style="color:#2E7D32">108%</div><div class="label">n=774</div></div></div>
+<div class="card-row"><span class="rank ">13</span><div class="name">母父 Ghostzapper</div><div class="stat"><div class="value" style="color:#2E7D32">107%</div><div class="label">n=450</div></div></div>
+<div class="card-row"><span class="rank ">14</span><div class="name">母父 Shamardal</div><div class="stat"><div class="value" style="color:#2E7D32">105%</div><div class="label">n=659</div></div></div>
+<div class="card-row"><span class="rank ">15</span><div class="name">母父 プリサイスエンド</div><div class="stat"><div class="value" style="color:#2E7D32">104%</div><div class="label">n=518</div></div></div>
+</div>
+</div>
+<div class="section" id="sec-himba">
+<div class="section-header"><h2>牝馬限定戦の隠れ名血</h2><p>牝馬限定レースで特に成績が良い種牡馬。</p></div>
+<div class="card">
+<div class="card-row"><span class="rank gold">1</span><div class="name">ヴァンセンヌ</div><div class="stat"><div class="value" style="color:#D32F2F">483%</div><div class="label">n=111</div></div></div>
+<div class="card-row"><span class="rank silver">2</span><div class="name">ダノンシャンティ</div><div class="stat"><div class="value" style="color:#D32F2F">297%</div><div class="label">n=119</div></div></div>
+<div class="card-row"><span class="rank bronze">3</span><div class="name">リーチザクラウン</div><div class="stat"><div class="value" style="color:#E65100">166%</div><div class="label">n=101</div></div></div>
+<div class="card-row"><span class="rank ">4</span><div class="name">ビーチパトロール</div><div class="stat"><div class="value" style="color:#E65100">164%</div><div class="label">n=91</div></div></div>
+<div class="card-row"><span class="rank ">5</span><div class="name">タリスマニック</div><div class="stat"><div class="value" style="color:#E65100">159%</div><div class="label">n=118</div></div></div>
+<div class="card-row"><span class="rank ">6</span><div class="name">カジノドライヴ</div><div class="stat"><div class="value" style="color:#E65100">158%</div><div class="label">n=111</div></div></div>
+<div class="card-row"><span class="rank ">7</span><div class="name">ニューイヤーズデイ</div><div class="stat"><div class="value" style="color:#2E7D32">145%</div><div class="label">n=232</div></div></div>
+<div class="card-row"><span class="rank ">8</span><div class="name">メイショウサムソン</div><div class="stat"><div class="value" style="color:#2E7D32">142%</div><div class="label">n=164</div></div></div>
+<div class="card-row"><span class="rank ">9</span><div class="name">リアルインパクト</div><div class="stat"><div class="value" style="color:#2E7D32">137%</div><div class="label">n=314</div></div></div>
+<div class="card-row"><span class="rank ">10</span><div class="name">トーセンホマレボシ</div><div class="stat"><div class="value" style="color:#2E7D32">135%</div><div class="label">n=109</div></div></div>
+<div class="card-row"><span class="rank ">11</span><div class="name">マインドユアビスケッツ</div><div class="stat"><div class="value" style="color:#2E7D32">122%</div><div class="label">n=293</div></div></div>
+<div class="card-row"><span class="rank ">12</span><div class="name">カリフォルニアクローム</div><div class="stat"><div class="value" style="color:#2E7D32">122%</div><div class="label">n=177</div></div></div>
+<div class="card-row"><span class="rank ">13</span><div class="name">オルフェーヴル</div><div class="stat"><div class="value" style="color:#2E7D32">114%</div><div class="label">n=860</div></div></div>
+<div class="card-row"><span class="rank ">14</span><div class="name">キズナ</div><div class="stat"><div class="value" style="color:#2E7D32">102%</div><div class="label">n=1013</div></div></div>
+<div class="card-row"><span class="rank ">15</span><div class="name">ゼンノロブロイ</div><div class="stat"><div class="value" style="color:#2E7D32">100%</div><div class="label">n=122</div></div></div>
+</div>
+</div>
+<div class="section" id="sec-shinba">
+<div class="section-header"><h2>新馬戦で狙える血統</h2><p>初出走の新馬戦で単勝回収率が高い種牡馬。</p></div>
+<div class="card">
+<div class="card-row"><span class="rank gold">1</span><div class="name">サンダースノー</div><div class="stat"><div class="value" style="color:#D32F2F">294%</div><div class="label">n=144</div></div></div>
+<div class="card-row"><span class="rank silver">2</span><div class="name">ゴールドドリーム</div><div class="stat"><div class="value" style="color:#D32F2F">239%</div><div class="label">n=94</div></div></div>
+<div class="card-row"><span class="rank bronze">3</span><div class="name">ベストウォーリア</div><div class="stat"><div class="value" style="color:#D32F2F">237%</div><div class="label">n=70</div></div></div>
+<div class="card-row"><span class="rank ">4</span><div class="name">レッドファルクス</div><div class="stat"><div class="value" style="color:#D32F2F">233%</div><div class="label">n=111</div></div></div>
+<div class="card-row"><span class="rank ">5</span><div class="name">クリエイター2</div><div class="stat"><div class="value" style="color:#D32F2F">225%</div><div class="label">n=67</div></div></div>
+<div class="card-row"><span class="rank ">6</span><div class="name">ダノンバラード</div><div class="stat"><div class="value" style="color:#D32F2F">215%</div><div class="label">n=143</div></div></div>
+<div class="card-row"><span class="rank ">7</span><div class="name">フリオーソ</div><div class="stat"><div class="value" style="color:#D32F2F">203%</div><div class="label">n=77</div></div></div>
+<div class="card-row"><span class="rank ">8</span><div class="name">トゥザワールド</div><div class="stat"><div class="value" style="color:#E65100">182%</div><div class="label">n=102</div></div></div>
+<div class="card-row"><span class="rank ">9</span><div class="name">カレンブラックヒル</div><div class="stat"><div class="value" style="color:#E65100">181%</div><div class="label">n=198</div></div></div>
+<div class="card-row"><span class="rank ">10</span><div class="name">エスポワールシチー</div><div class="stat"><div class="value" style="color:#E65100">175%</div><div class="label">n=116</div></div></div>
+<div class="card-row"><span class="rank ">11</span><div class="name">リーチザクラウン</div><div class="stat"><div class="value" style="color:#E65100">171%</div><div class="label">n=105</div></div></div>
+<div class="card-row"><span class="rank ">12</span><div class="name">ディープブリランテ</div><div class="stat"><div class="value" style="color:#E65100">164%</div><div class="label">n=173</div></div></div>
+<div class="card-row"><span class="rank ">13</span><div class="name">ミッキーロケット</div><div class="stat"><div class="value" style="color:#E65100">163%</div><div class="label">n=56</div></div></div>
+<div class="card-row"><span class="rank ">14</span><div class="name">グレーターロンドン</div><div class="stat"><div class="value" style="color:#E65100">162%</div><div class="label">n=59</div></div></div>
+<div class="card-row"><span class="rank ">15</span><div class="name">ゴールドアリュール</div><div class="stat"><div class="value" style="color:#E65100">161%</div><div class="label">n=82</div></div></div>
+</div>
+</div>
+<div class="section" id="sec-heavy">
+<div class="section-header"><h2>重馬場の芝×ダート対照表</h2><p>同じ種牡馬でも芝の重とダートの重で成績が真逆になることがある。</p></div>
+<div class="card">
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">シンボリクリスエス <span style="font-size:10px;color:var(--sub)">n=121</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#D32F2F">819%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">38%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">マジェスティックウォリアー <span style="font-size:10px;color:var(--sub)">n=283</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#D32F2F">446%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">53%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ゴールドアリュール <span style="font-size:10px;color:var(--sub)">n=266</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#D32F2F">397%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">96%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">イスラボニータ <span style="font-size:10px;color:var(--sub)">n=176</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#D32F2F">392%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">89%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">キングズベスト <span style="font-size:10px;color:var(--sub)">n=87</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#D32F2F">344%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">29%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ダノンバラード <span style="font-size:10px;color:var(--sub)">n=102</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#D32F2F">234%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">10%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">パイロ <span style="font-size:10px;color:var(--sub)">n=372</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#E65100">197%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#D32F2F">258%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ディープインパクト <span style="font-size:10px;color:var(--sub)">n=527</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#E65100">193%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">67%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">レイデオロ <span style="font-size:10px;color:var(--sub)">n=83</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#E65100">183%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">7%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">バトルプラン <span style="font-size:10px;color:var(--sub)">n=86</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#E65100">167%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">87%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ファインニードル <span style="font-size:10px;color:var(--sub)">n=72</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#E65100">166%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">98%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ヴァンセンヌ <span style="font-size:10px;color:var(--sub)">n=58</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#E65100">157%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">0%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ベーカバド <span style="font-size:10px;color:var(--sub)">n=77</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#2E7D32">145%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">55%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ナカヤマフェスタ <span style="font-size:10px;color:var(--sub)">n=50</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#2E7D32">140%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">0%</div></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ラブリーデイ <span style="font-size:10px;color:var(--sub)">n=146</span></div><div style="display:flex;gap:12px"><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・芝</div><div style="font-size:16px;font-weight:700;color:#2E7D32">140%</div></div><div style="flex:1"><div style="font-size:10px;color:var(--sub)">重・ダ</div><div style="font-size:16px;font-weight:700;color:#757575">38%</div></div></div></div>
+</div>
+</div>
+<div class="section" id="sec-kakusei">
+<div class="section-header"><h2>2走目で覚醒する「遅咲き血統」</h2><p>新馬戦では走らないが未勝利戦で急激に成績が上がる種牡馬。</p></div>
+<div class="card">
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ミッキーグローリー <span class="tag tag-hot">+315pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">0%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#D32F2F">315%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ベンバトル <span class="tag tag-hot">+286pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">74%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#D32F2F">360%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ディーマジェスティ <span class="tag tag-hot">+173pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">12%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#E65100">185%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ヴァンセンヌ <span class="tag tag-hot">+151pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">77%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#D32F2F">228%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">カジノドライヴ <span class="tag tag-hot">+144pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">11%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#E65100">155%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">タリスマニック <span class="tag tag-hot">+111pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">11%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#2E7D32">122%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ダノンプレミアム <span class="tag tag-hot">+103pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">0%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#2E7D32">103%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">メイショウサムソン <span class="tag tag-hot">+87pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">5%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#757575">92%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">シンボリクリスエス <span class="tag tag-hot">+78pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">14%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#757575">92%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ザファクター <span class="tag tag-hot">+73pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">15%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#757575">88%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ウインブライト <span class="tag tag-hot">+73pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">7%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#757575">80%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ブリックスアンドモルタル <span class="tag tag-hot">+68pt覚醒</span></div><div style="display:flex;gap:16px;font-size:12px"><div>新馬 <span style="font-weight:700;color:#757575">13%</span></div><div>→ 未勝利 <span style="font-weight:700;color:#757575">81%</span></div></div></div>
+</div>
+</div>
+<div class="section" id="sec-extension">
+<div class="section-header"><h2>距離延長で化ける種牡馬</h2><p>前走より距離が伸びたときに好走する「スタミナ開花型」の血統。</p></div>
+<div class="card">
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">American Pharoah</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#D32F2F">302%</span></div><div>短縮 <span style="font-weight:700;color:#2E7D32">134%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ラブリーデイ</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#D32F2F">221%</span></div><div>短縮 <span style="font-weight:700;color:#757575">51%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ドリームジャーニー</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#E65100">198%</span></div><div>短縮 <span style="font-weight:700;color:#757575">21%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">シンボリクリスエス</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#E65100">170%</span></div><div>短縮 <span style="font-weight:700;color:#757575">67%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">タリスマニック</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#E65100">163%</span></div><div>短縮 <span style="font-weight:700;color:#E65100">183%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">パイロ</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#E65100">157%</span></div><div>短縮 <span style="font-weight:700;color:#757575">67%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">トビーズコーナー</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#2E7D32">146%</span></div><div>短縮 <span style="font-weight:700;color:#757575">77%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">アドマイヤマーズ</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#2E7D32">137%</span></div><div>短縮 <span style="font-weight:700;color:#757575">96%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">シニスターミニスター</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#2E7D32">136%</span></div><div>短縮 <span style="font-weight:700;color:#2E7D32">118%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ファインニードル</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#2E7D32">126%</span></div><div>短縮 <span style="font-weight:700;color:#757575">56%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">イスラボニータ</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#2E7D32">126%</span></div><div>短縮 <span style="font-weight:700;color:#757575">50%</span></div></div></div>
+<div class="card-row" style="display:block;padding:10px 14px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">ダノンバラード</div><div style="display:flex;gap:16px;font-size:12px"><div>延長 <span style="font-weight:700;color:#2E7D32">122%</span></div><div>短縮 <span style="font-weight:700;color:#757575">69%</span></div></div></div>
+</div>
+</div>
+<div class="section" id="sec-season">
+<div class="section-header"><h2>季節で成績が変わる種牡馬</h2><p>春夏秋冬で回収率に大きな差がある種牡馬。季節の変わり目に注目。</p></div>
+<div class="card">
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">American Pharoah <span style="font-size:10px;color:var(--sub)">n=579</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#D32F2F">235%</div></div><div class="season-cell" style="background:#FFF3E0"><div class="szn">夏</div><div class="val" style="color:#2E7D32">136%</div></div><div class="season-cell" style="background:#FFF3E0"><div class="szn">秋</div><div class="val" style="color:#2E7D32">137%</div></div><div class="season-cell" style="background:#FFF3E0"><div class="szn">冬</div><div class="val" style="color:#2E7D32">145%</div></div></div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">グレーターロンドン <span style="font-size:10px;color:var(--sub)">n=574</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#E65100">197%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">夏</div><div class="val" style="color:#757575">48%</div></div><div class="season-cell" style="background:#FFF3E0"><div class="szn">秋</div><div class="val" style="color:#E65100">164%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">冬</div><div class="val" style="color:#757575">65%</div></div></div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ファインニードル <span style="font-size:10px;color:var(--sub)">n=923</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#E65100">173%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">夏</div><div class="val" style="color:#757575">83%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">秋</div><div class="val" style="color:#757575">92%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">冬</div><div class="val" style="color:#757575">90%</div></div></div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">モンテロッソ <span style="font-size:10px;color:var(--sub)">n=1153</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#2E7D32">148%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">夏</div><div class="val" style="color:#757575">70%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">秋</div><div class="val" style="color:#757575">11%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">冬</div><div class="val" style="color:#757575">73%</div></div></div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">プリサイスエンド <span style="font-size:10px;color:var(--sub)">n=929</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#2E7D32">143%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">夏</div><div class="val" style="color:#757575">24%</div></div><div class="season-cell" style="background:#FFF3E0"><div class="szn">秋</div><div class="val" style="color:#2E7D32">144%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">冬</div><div class="val" style="color:#757575">46%</div></div></div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">サンダースノー <span style="font-size:10px;color:var(--sub)">n=989</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#2E7D32">140%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">夏</div><div class="val" style="color:#757575">69%</div></div><div class="season-cell" style="background:#FFF3E0"><div class="szn">秋</div><div class="val" style="color:#2E7D32">104%</div></div><div class="season-cell" style="background:#FFF3E0"><div class="szn">冬</div><div class="val" style="color:#2E7D32">123%</div></div></div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ディーマジェスティ <span style="font-size:10px;color:var(--sub)">n=1015</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#2E7D32">138%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">夏</div><div class="val" style="color:#757575">51%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">秋</div><div class="val" style="color:#757575">28%</div></div><div class="season-cell" style="background:#FFF3E0"><div class="szn">冬</div><div class="val" style="color:#E65100">153%</div></div></div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ダノンバラード <span style="font-size:10px;color:var(--sub)">n=1538</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#2E7D32">126%</div></div><div class="season-cell" style="background:#FFF3E0"><div class="szn">夏</div><div class="val" style="color:#2E7D32">133%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">秋</div><div class="val" style="color:#757575">17%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">冬</div><div class="val" style="color:#757575">73%</div></div></div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">リアルインパクト <span style="font-size:10px;color:var(--sub)">n=2094</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#2E7D32">125%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">夏</div><div class="val" style="color:#757575">45%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">秋</div><div class="val" style="color:#757575">69%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">冬</div><div class="val" style="color:#757575">66%</div></div></div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">サトノクラウン <span style="font-size:10px;color:var(--sub)">n=1489</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#2E7D32">125%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">夏</div><div class="val" style="color:#757575">54%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">秋</div><div class="val" style="color:#757575">39%</div></div><div class="season-cell" style="background:#FFF3E0"><div class="szn">冬</div><div class="val" style="color:#2E7D32">137%</div></div></div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">ロジャーバローズ <span style="font-size:10px;color:var(--sub)">n=605</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#2E7D32">124%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">夏</div><div class="val" style="color:#757575">13%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">秋</div><div class="val" style="color:#757575">68%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">冬</div><div class="val" style="color:#757575">66%</div></div></div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #F5EDE5"><div style="font-weight:700;font-size:13px;margin-bottom:6px">スズカコーズウェイ <span style="font-size:10px;color:var(--sub)">n=536</span></div><div class="season-grid"><div class="season-cell" style="background:#FFF3E0"><div class="szn">春</div><div class="val" style="color:#2E7D32">123%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">夏</div><div class="val" style="color:#757575">18%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">秋</div><div class="val" style="color:#757575">95%</div></div><div class="season-cell" style="background:#F5F5F5"><div class="szn">冬</div><div class="val" style="color:#757575">74%</div></div></div></div>
+</div>
+</div>
+
+<div class="disclaimer">
+⚠️ 過去の統計データであり将来の結果を保証するものではありません<br>
+NORISHICO AI — keiba.db 2019-2026
+</div>
+<script>
+function switchTab(key) {
+  document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('sec-' + key).classList.add('active');
+}
+</script>
+</body></html>

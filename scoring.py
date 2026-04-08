@@ -440,6 +440,7 @@ def clear_score_cache():
     _avg_time_cache.clear()
     _last3f_cache.clear()
     _last3f_class_cache.clear()
+    _surface_switch_cache.clear()
 
 
 def score_past_performance(horse_name: str, race_date: str,
@@ -1165,6 +1166,125 @@ def score_training_proxy(prev_time_sec, prev_distance,
 
 
 # ══════════════════════════════════════════════════════════
+# 5b. 初ダート／初芝 転向評価
+# ══════════════════════════════════════════════════════════
+_surface_switch_cache: dict = {}  # (horse_name, race_date[:7], surface) → dict or None
+
+def score_surface_switch(horse_name: str, race_date: str,
+                         surface: str, distance: int, conn,
+                         sire: str = '', dam_sire: str = '') -> dict | None:
+    """
+    初ダート・初芝の馬を検出し、反対コース成績から換算スコアを返す。
+    転向でない場合は None を返す。
+
+    返り値:
+        {"past_adj": float, "course_adj": float, "detail": str}
+        past_adj / course_adj: score_past / score_course に加算する補正値
+    """
+    ym = race_date[:7]
+    ck = (horse_name, ym, surface)
+    if ck in _surface_switch_cache:
+        return _surface_switch_cache[ck]
+
+    # 今回の surface での過去走数
+    same_cnt = conn.execute(
+        "SELECT COUNT(*) FROM results WHERE horse_name=? AND date<? AND surface=? AND finish<90",
+        (horse_name, race_date, surface)
+    ).fetchone()[0]
+
+    if same_cnt > 0:
+        # 転向ではない（同surface経験あり）
+        _surface_switch_cache[ck] = None
+        return None
+
+    # 反対surface
+    opp_surface = 'ダ' if surface == '芝' else '芝'
+    rows = conn.execute("""
+        SELECT finish, last3f, num_horses, race_name, distance, odds
+        FROM results
+        WHERE horse_name=? AND date<? AND surface=? AND finish<90
+        ORDER BY date DESC LIMIT 10
+    """, (horse_name, race_date, opp_surface)).fetchall()
+
+    if not rows:
+        _surface_switch_cache[ck] = None
+        return None
+
+    rows = [dict(r) for r in rows]
+    n = len(rows)
+
+    # ── 反対surface での実力評価 ──
+    wins = sum(1 for r in rows if r['finish'] == 1)
+    top3 = sum(1 for r in rows if r['finish'] <= 3)
+    avg_finish = sum(r['finish'] for r in rows) / n
+
+    # クラスレベル判定（重賞実績 × 着順で重み付け）
+    grade_bonus = 0.0
+    for r in rows:
+        rn = r.get('race_name', '') or ''
+        fin = r['finish']
+        # 着順による重み: 1着=1.0, 2着=0.8, 3着=0.6, 4-5着=0.4, 6着以下=0.2
+        if   fin == 1: fin_w = 1.0
+        elif fin == 2: fin_w = 0.8
+        elif fin == 3: fin_w = 0.6
+        elif fin <= 5: fin_w = 0.4
+        else:          fin_w = 0.2
+        if   'G1' in rn: grade_bonus = max(grade_bonus, 12.0 * fin_w)
+        elif 'G2' in rn: grade_bonus = max(grade_bonus,  8.0 * fin_w)
+        elif 'G3' in rn: grade_bonus = max(grade_bonus,  5.0 * fin_w)
+        elif '(L)' in rn or 'OP' in rn: grade_bonus = max(grade_bonus, 3.0 * fin_w)
+
+    # 基礎スコア: 反対surfaceでの成績を0.6掛けで換算
+    raw = wins / n * 60 + top3 / n * 40
+    base = min(100, raw * 1.5 + 30) * 0.6
+
+    # 平均着順による補正
+    if avg_finish <= 2.0:   base += 8
+    elif avg_finish <= 3.5: base += 4
+    elif avg_finish >= 8.0: base -= 5
+
+    # 重賞実績加算
+    base += grade_bonus
+
+    # ── 血統ダート/芝適性 ──
+    # sire のtarget surface での成績を参照
+    blood_adj = 0.0
+    if sire:
+        dist_bucket = (distance // 400) * 400
+        sire_row = conn.execute(
+            "SELECT score FROM bloodline_stats WHERE col_type='sire' AND name=? AND surface=? AND dist_bucket=?",
+            (sire, surface, dist_bucket)
+        ).fetchone()
+        if sire_row:
+            sire_sc = sire_row['score']
+            # 血統閾値（bloodline_statsのスコア分布: 中央値≒55, σ≒12）
+            if   sire_sc >= 75: blood_adj = 5.0   # 上位10%: 明確なsurface適性
+            elif sire_sc >= 65: blood_adj = 3.0   # 上位25%
+            elif sire_sc >= 55: blood_adj = 0.0   # 中央値付近: 判断不能
+            elif sire_sc >= 45: blood_adj = -3.0  # 下位25%
+            else:               blood_adj = -5.0  # 下位10%: 明確に不向き
+
+    # past_adj: score_past のデフォルト50点からの補正（±10キャップ）
+    past_adj = max(-10.0, min(10.0, base - 50.0 + blood_adj))
+    # course_adj: score_course のデフォルトからの補正（±5キャップ）
+    course_adj = max(-5.0, min(5.0, (base - 50.0) * 0.5 + blood_adj * 0.5))
+
+    detail = f"初{'ダート' if surface == 'ダ' else '芝'}（{opp_surface}{n}走: {wins}勝 top3={top3}）"
+    result = {
+        "past_adj": round(past_adj, 1),
+        "course_adj": round(course_adj, 1),
+        "detail": detail,
+        "opp_wins": wins,
+        "opp_top3": top3,
+        "opp_n": n,
+        "grade_bonus": grade_bonus,
+        "blood_adj": blood_adj,
+    }
+    _surface_switch_cache[ck] = result
+    return result
+
+
+# ══════════════════════════════════════════════════════════
 # 6. 血統スコア（父・母父）
 # ══════════════════════════════════════════════════════════
 # 血統スコアキャッシュ: (sire_name, col, year_half, surface, dist_bucket) → score
@@ -1664,6 +1784,13 @@ def score_race(df_race: pd.DataFrame, race_date: str,
         s_blood  = score_bloodline(sire, dam_sire, race_date, surface, distance, conn)
         s_gs     = score_gate_style(horse, horse_num, race_date, venue, surface, distance, conn)
 
+        # 初ダート/初芝 転向補正
+        s_switch = score_surface_switch(horse, race_date, surface, distance, conn,
+                                        sire=sire, dam_sire=dam_sire)
+        if s_switch:
+            s_past['score']   = max(0, min(100, s_past['score']   + s_switch['past_adj']))
+            s_course['score'] = max(0, min(100, s_course['score'] + s_switch['course_adj']))
+
         # レース種別でウェイト切替（新馬・未勝利は血統・調教優先）
         W = get_weights(grade)
 
@@ -1695,6 +1822,9 @@ def score_race(df_race: pd.DataFrame, race_date: str,
             'style_diff':       s_gs['style_diff'],
             'past_data_n':      s_past['n'],
             'course_data_n':    s_course['n'],
+            'surface_switch':   s_switch['detail'] if s_switch else '',
+            'switch_past_adj':  s_switch['past_adj'] if s_switch else 0.0,
+            'switch_course_adj':s_switch['course_adj'] if s_switch else 0.0,
         })
 
     conn.close()

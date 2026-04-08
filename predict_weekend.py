@@ -10,6 +10,7 @@ importlib.reload(scoring)
 from scoring import (get_conn, score_past_performance, score_course_fitness,
     score_jockey_trainer, score_rotation, score_training_actual, score_bloodline,
     score_gate_style, get_weights, calc_pace_context, _infer_running_style,
+    score_surface_switch, _surface_switch_cache,
     calc_course_blood_bonus, calc_gate_cond_blood_bonus, calc_track_bias_bonus,
     calc_venue_sire_bonus, calc_venue_damsire_bonus, EV_CONDITIONS,
     _past_runs_cache, _course_runs_cache, _running_style_cache,
@@ -177,6 +178,13 @@ def score_weekend_race(race, conn, sc_conn):
         st  = score_training_actual(name, date, sc_conn)
         sg  = score_gate_style(name, hn, date, venue, surface, dist, sc_conn, pace_mult)
 
+        # 初ダート/初芝 転向補正
+        s_switch = score_surface_switch(name, date, surface, dist, sc_conn,
+                                        sire=sire, dam_sire=dam_sire)
+        if s_switch:
+            sp['score']  = max(0, min(100, sp['score']  + s_switch['past_adj']))
+            sc2['score'] = max(0, min(100, sc2['score'] + s_switch['course_adj']))
+
         total = (
             sp['score'] * W['past_performance'] +
             sc2['score'] * W['course_fitness'] +
@@ -254,6 +262,7 @@ def score_weekend_race(race, conn, sc_conn):
             'trainer': trainer, 'waku': h.get('waku', 0),
             'bias_overcome': bias_overcome,
             'bias_close_loss': bias_close_loss,
+            'surface_switch': s_switch['detail'] if s_switch else '',
         })
 
     results.sort(key=lambda x: x['total_score'], reverse=True)
@@ -335,6 +344,7 @@ def score_weekend_race(race, conn, sc_conn):
 
     # 根拠タグ
     reasons = []
+    if honmei.get('surface_switch'): reasons.append(honmei['surface_switch'])
     if raku_nige: reasons.append('楽逃げ候補')
     if honmei.get('bias_overcome'): reasons.append('前走不利克服')
     if honmei.get('bias_close_loss'): reasons.append('前走不利僅差惜敗')

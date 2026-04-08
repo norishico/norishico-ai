@@ -373,7 +373,7 @@ def race_card_html(p, show_full=True):
         priority_tags = []  # 特別バッジ（色付き）
         normal_tags = []    # 通常バッジ
         for tag in p['reasons']:
-            if tag in ('楽逃げ候補', '前走不利僅差惜敗', '前走不利克服'):
+            if tag in ('楽逃げ候補', '前走不利僅差惜敗', '前走不利克服') or tag.startswith('初ダート') or tag.startswith('初芝'):
                 priority_tags.append(tag)
             else:
                 normal_tags.append(tag)
@@ -391,6 +391,7 @@ def race_card_html(p, show_full=True):
             if tag == '前走不利僅差惜敗': return ' bias-close-loss'
             if tag == '楽逃げ候補': return ' raku-nige'
             if tag.startswith('逃げ候補'): return ' nige-count'
+            if tag.startswith('初ダート') or tag.startswith('初芝'): return ' surface-switch'
             return ''
 
         h += '  <div class="reason-section">'

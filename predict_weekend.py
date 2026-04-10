@@ -106,9 +106,10 @@ def score_weekend_race(race, conn, sc_conn):
     dist = race.get('distance', 1600)
     cond = race.get('track_cond', '良') or '良'
     rname = race.get('race_name', '')
-    date = '2026-04-04'  # 仮
-    if '04' in str(race.get('race_id',''))[-4:-2]:
-        date = '2026-04-05'
+    # race_idの下4桁目-3桁目が日次（05=土,06=日 etc）→実日付をマッピング
+    rid = str(race.get('race_id', ''))
+    day_code = rid[8:10] if len(rid) >= 10 else '05'
+    date = '2026-04-12' if day_code == '06' else '2026-04-11'
     heads = len(horses)
     gr = grade_for_prediction(race)
     W = get_weights(gr)

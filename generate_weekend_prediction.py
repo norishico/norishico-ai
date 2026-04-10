@@ -697,6 +697,8 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 
 /* なかのひとたち */
 /* 注目データ */
+.hotspot-venue-group{{margin-bottom:12px}}
+.hotspot-venue-label{{padding:8px 16px 4px;font-size:13px;font-weight:700;color:var(--green-pale);border-bottom:1px solid rgba(255,255,255,0.08);margin:0 16px 4px}}
 .hotspot-card{{margin:8px 16px;padding:10px 14px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:10px}}
 .hs-header{{display:flex;align-items:center;gap:8px;margin-bottom:6px}}
 .hs-race{{font-weight:700;font-size:12px;color:var(--green)}}
@@ -874,10 +876,20 @@ for i, dk in enumerate(all_dates):
         if p['_date_key'] != dk: continue
         for hp in p.get('hotspot_picks', []):
             day_hotspots.append(hp)
-    day_hotspots.sort(key=lambda x: (-x['best_conf'], -x['best_roi']))
+    # 会場→レース番号順にソート
+    venue_order = {v: i for i, v in enumerate(sorted(set(hp['venue'] for hp in day_hotspots)))} if day_hotspots else {}
+    day_hotspots.sort(key=lambda x: (venue_order.get(x['venue'], 99), x['race_num']))
 
     if day_hotspots:
+        current_venue = None
         for hp in day_hotspots:
+            if hp['venue'] != current_venue:
+                if current_venue is not None:
+                    html += '</div>\n'  # close previous venue group
+                current_venue = hp['venue']
+                html += f'<div class="hotspot-venue-group">\n'
+                html += f'<div class="hotspot-venue-label">{current_venue}</div>\n'
+
             stars = '★' * hp['best_conf']
             star_cls = 'hs-conf3' if hp['best_conf'] >= 3 else ('hs-conf2' if hp['best_conf'] >= 2 else 'hs-conf1')
             v6_tag = '<span class="hs-v6">v6◎</span>' if hp['is_v6_honmei'] else ('<span class="hs-v6buy">v6買い</span>' if hp['is_buy'] else '')
@@ -894,6 +906,7 @@ for i, dk in enumerate(all_dates):
                 html += f'<span class="hs-roi">単回{m["roi"]:.0f}%</span>'
                 html += f'<span class="hs-n">n={m["n"]}</span></div>\n'
             html += '</div>\n'
+        html += '</div>\n'  # close last venue group
     else:
         html += '<div style="padding:16px;text-align:center;color:var(--text-sub)">該当なし</div>\n'
     html += '</div>\n'

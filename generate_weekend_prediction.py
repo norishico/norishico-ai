@@ -527,6 +527,10 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .summary-item{{text-align:center;padding:10px 8px;background:rgba(255,255,255,0.1);border-radius:10px}}
 .summary-item .label{{font-size:11px;color:var(--green-pale)}}
 .summary-item .value{{font-size:20px;font-weight:700;color:#fff;margin-top:2px}}
+.summary-day-split{{display:flex;justify-content:center;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1)}}
+.summary-day{{display:flex;align-items:center;gap:6px}}
+.day-label{{font-size:12px;color:var(--text-sub)}}
+.day-picks{{font-size:16px;font-weight:700;color:var(--orange-pale)}}
 
 /* タブ（sticky） */
 .tab-bar{{display:flex;gap:6px;padding:10px 16px;overflow-x:auto;background:var(--cream);border-bottom:2px solid var(--card-border);position:sticky;z-index:90;-webkit-overflow-scrolling:touch}}
@@ -743,6 +747,9 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
     <div class="summary-item"><div class="label">厳選レース</div><div class="value">{len(buy_preds)}R</div></div>
     <div class="summary-item"><div class="label">全レース</div><div class="value">{len(preds)}R</div></div>
     <div class="summary-item"><div class="label">想定投資</div><div class="value">{total_inv:,}円</div></div>
+  </div>
+  <div class="summary-day-split">
+    {''.join(f'<div class="summary-day"><span class="day-label">{date_shorts[dk]}</span><span class="day-picks">{len([p for p in buy_preds if p["_date_key"]==dk])}R</span></div>' for dk in all_dates)}
   </div>
 </div>
 

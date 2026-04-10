@@ -888,7 +888,7 @@ for i, dk in enumerate(all_dates):
                     html += '</div>\n'  # close previous venue group
                 current_venue = hp['venue']
                 html += f'<div class="hotspot-venue-group">\n'
-                html += f'<div class="hotspot-venue-label">{current_venue}</div>\n'
+                html += f'<div class="hotspot-venue-label">{current_venue} {date_shorts[dk]}</div>\n'
 
             stars = '★' * hp['best_conf']
             star_cls = 'hs-conf3' if hp['best_conf'] >= 3 else ('hs-conf2' if hp['best_conf'] >= 2 else 'hs-conf1')

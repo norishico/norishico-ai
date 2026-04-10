@@ -490,6 +490,7 @@ def main():
                 best = max(matches, key=lambda m: m['conf'] * 1000 + m['roi'])
                 hotspot_all.append({
                     'venue': venue, 'race_num': race.get('race_num', 0),
+                    'race_id': race.get('race_id', ''),
                     'race_name': race.get('race_name', ''),
                     'horse_name': h['horse_name'], 'odds': odds,
                     'matches': matches, 'best_conf': best['conf'], 'best_roi': best['roi'],
@@ -510,7 +511,7 @@ def main():
     # Attach to predictions for JSON output
     for pred in predictions:
         pred['hotspot_picks'] = [hp for hp in hotspot_top
-                                  if hp['venue'] == pred['race'].get('venue') and hp['race_num'] == pred['race'].get('race_num')]
+                                  if hp['race_id'] == pred['race'].get('race_id')]
 
     conn.close(); sc_conn.close()
 

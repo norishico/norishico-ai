@@ -461,7 +461,7 @@ def score_past_performance(horse_name: str, race_date: str,
             SELECT finish, time_sec, last3f, surface, distance,
                    track_cond, venue, num_horses, date, margin, race_name
             FROM results
-            WHERE horse_name = ?
+            WHERE TRIM(horse_name) = ?
               AND date < ?
               AND finish IS NOT NULL
               AND finish < 90
@@ -635,7 +635,7 @@ def score_course_fitness(horse_name: str, race_date: str,
     if track_cond in ['稍重', '重', '不良']:
         wet_rows = conn.execute("""
             SELECT finish FROM results
-            WHERE horse_name = ?
+            WHERE TRIM(horse_name) = ?
               AND date < ?
               AND track_cond IN ('稍重', '重', '不良')
               AND finish < 90

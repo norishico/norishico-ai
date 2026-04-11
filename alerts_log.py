@@ -93,6 +93,7 @@ def compare_and_log(prev_preds: list, curr_preds: list) -> list:
             now_str = datetime.now().strftime('%H:%M')
             new_alerts.append({
                 'type': '追加',
+                'race_id': rid,
                 'text': f"🆕 {label} が期待値ありに追加（{now_str}時点）",
             })
 
@@ -104,6 +105,7 @@ def compare_and_log(prev_preds: list, curr_preds: list) -> list:
             now_str = datetime.now().strftime('%H:%M')
             new_alerts.append({
                 'type': '除外',
+                'race_id': rid,
                 'text': f"❌ {label} → 発走前オッズ確認で条件外に変更（{now_str}更新）",
             })
 
@@ -123,6 +125,7 @@ def compare_and_log(prev_preds: list, curr_preds: list) -> list:
             new_label = type_labels.get(new_bt, new_bt)
             new_alerts.append({
                 'type': '変更',
+                'race_id': rid,
                 'text': f"⚠ {label} 買い目変更: {old_label} → {new_label}",
             })
 

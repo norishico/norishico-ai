@@ -6,8 +6,14 @@ from alerts_log import load_alerts
 
 preds = json.load(open('weekend_predictions.json', encoding='utf-8'))
 
-# アラート: 蓄積ログから読み込み
+# アラート: 蓄積ログから読み込み（race_id付き）
 alerts_data = load_alerts()
+alerts_by_race_id = {}
+for a in alerts_data:
+    rid = a.get('race_id', '')
+    html_str = f"<span class=\"alert-time\">{a['time']}</span> {a['text']}"
+    if rid:
+        alerts_by_race_id.setdefault(rid, []).append(html_str)
 alerts = [f"<span class=\"alert-time\">{a['time']}</span> {a['text']}" for a in alerts_data]
 
 # 月間結果（あれば読み込み）
@@ -791,10 +797,16 @@ for i, dk in enumerate(all_dates):
     day_buys = sorted([p for p in buy_preds if p['_date_key']==dk],
                       key=lambda p: p['race'].get('start_time', '99:99'))
     html += f'<div class="sub-content active" id="sub-{dk}-picks">\n'
-    if alerts:
+    # この日のレースに該当するアラートだけ表示
+    day_race_ids = set(p['race'].get('race_id','') for p in preds if p['_date_key']==dk)
+    day_alerts = []
+    for rid, a_list in alerts_by_race_id.items():
+        if rid in day_race_ids:
+            day_alerts.extend(a_list)
+    if day_alerts:
         html += '<div class="alert-banner">\n'
         html += '<div class="alert-title">ODDS UPDATE</div>\n'
-        for a in alerts:
+        for a in day_alerts:
             html += f'<div class="alert-item">{a}</div>\n'
         html += '</div>\n'
     if day_buys:

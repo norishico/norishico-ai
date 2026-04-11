@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 PROJ_DIR = Path(__file__).parent
-PYEXE = sys.executable
+PYEXE = shutil.which('py') or sys.executable
 
 
 def load_all_race_schedule(minutes_before=10):
@@ -97,8 +97,21 @@ def quick_odds_refresh():
     d = webdriver.Chrome(options=opts)
 
     updated = 0
+    skipped = 0
+    now = datetime.now()
+    today_str = now.strftime('%Y-%m-%d')
     for race in races_json:
         rid = race['race_id']
+        # 発走済みレースはスキップ
+        stime = race.get('start_time', '')
+        if stime:
+            try:
+                race_dt = datetime.strptime(f"{today_str} {stime}", '%Y-%m-%d %H:%M')
+                if now > race_dt:
+                    skipped += 1
+                    continue
+            except:
+                pass
         url = f"https://race.netkeiba.com/race/shutuba.html?race_id={rid}"
         d.get(url)
         time.sleep(2)
@@ -131,7 +144,7 @@ def quick_odds_refresh():
             pass
 
     d.quit()
-    print(f"  📊 {updated}R のオッズ更新完了")
+    print(f"  📊 {updated}R のオッズ更新完了（発走済み{skipped}Rスキップ）")
 
     # JSON保存（prevも保存）
     shutil.copy2(

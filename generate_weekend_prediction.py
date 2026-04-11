@@ -733,6 +733,21 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .comment-text{{font-size:13px;line-height:1.6;margin-top:3px;color:var(--text)}}
 
 /* フッター */
+/* ルールタブ */
+.rules-section{{padding:16px}}
+.rules-section h2{{font-size:16px;color:var(--orange-pale);margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.15)}}
+.rules-section h2:first-child{{margin-top:0}}
+.rules-section h3{{font-size:13px;color:var(--green-pale);margin:14px 0 6px}}
+.rules-section p{{font-size:12px;line-height:1.7;color:var(--text);margin:4px 0}}
+.rules-section table{{width:100%;border-collapse:collapse;font-size:11px;margin:8px 0}}
+.rules-section th{{background:rgba(255,255,255,0.08);color:var(--green-pale);padding:6px 8px;text-align:left;font-weight:700}}
+.rules-section td{{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.06);color:var(--text)}}
+.rules-section .note{{font-size:10px;color:var(--text-sub);margin:4px 0 12px;padding-left:8px;border-left:2px solid rgba(255,255,255,0.1)}}
+.rules-toggle{{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;margin:8px 0;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text);font-weight:700}}
+.rules-toggle .arrow{{transition:transform 0.2s}}
+.rules-toggle.open .arrow{{transform:rotate(180deg)}}
+.rules-detail{{display:none;padding:0 4px}}
+.rules-toggle.open + .rules-detail{{display:block}}
 .footer{{margin:24px 0 0;padding:20px 16px;text-align:center;font-size:11px;color:var(--green-pale);background:linear-gradient(135deg,var(--green),#2A4023);border-top:3px solid var(--orange)}}
 .footer a{{color:var(--orange-pale)}}
 .footer .disclaimer{{margin-top:10px;padding:10px;background:rgba(255,255,255,0.1);border-radius:8px;color:var(--green-pale)}}
@@ -772,6 +787,7 @@ for i, dk in enumerate(all_dates):
     html += f'  <div class="tab{act}" onclick="switchDateTab(\'{dk}\')">{date_shorts[dk]}</div>\n'
 if monthly_data and monthly_data.get('days'):
     html += f'  <div class="tab" onclick="switchDateTab(\'results\')">結果</div>\n'
+html += f'  <div class="tab" onclick="switchDateTab(\'rules\')">AIの判断基準</div>\n'
 html += '</div>\n'
 
 # ===== 各日付の中身 =====
@@ -1006,6 +1022,117 @@ if monthly_data and monthly_data.get('days'):
             html += '</div>\n'
         html += '</div>\n'
     html += '</div>\n'
+
+# ===== AIの判断基準タブ =====
+html += """
+<div class="tab-content" id="daytab-rules">
+<div class="rules-section">
+
+<h2>★の意味と買い目</h2>
+<table>
+<tr><th>表示</th><th>意味</th><th>買い目</th><th>投資/R</th></tr>
+<tr><td>★★★ 自信の一戦</td><td>全条件が揃った最高評価</td><td>単勝＋馬連</td><td>2,000円</td></tr>
+<tr><td>★★ 注目レース</td><td>AIが期待値ありと判定</td><td>単勝＋馬連</td><td>2,000円</td></tr>
+<tr><td>★ チャレンジ枠</td><td>単勝のみで狙う穴馬券</td><td>単勝のみ</td><td>1,000円</td></tr>
+<tr><td>(なし)</td><td>軸馬のみ提示</td><td>--</td><td>0円</td></tr>
+</table>
+
+<h2>買い目の配分</h2>
+<h3>★★★ / ★★（通常ゾーン）</h3>
+<p>◎（本命）と○（対抗）の2頭で構成。</p>
+<table>
+<tr><th>◎のオッズ</th><th>単勝◎</th><th>馬連◎-○</th><th>合計</th></tr>
+<tr><td>8倍以上</td><td>500円</td><td>1,500円</td><td>2,000円</td></tr>
+<tr><td>8倍未満</td><td>1,000円</td><td>1,000円</td><td>2,000円</td></tr>
+</table>
+<p class="note">高オッズの◎は馬連の回収率が高いため、馬連に寄せる配分です。</p>
+
+<h3>★（チャレンジ枠）</h3>
+<p>単勝◎ 1,000円のみ。馬連ROIが低いため単勝一本で勝負します。</p>
+
+<h3>3連単フォーメーション（自動追加）</h3>
+<p>★★以上で、◎のgap（2位との差）が5pt以上 かつ ◎のオッズが8倍以上のとき自動追加。</p>
+<table>
+<tr><th>1着</th><th>2-3着</th><th>点数</th><th>金額</th></tr>
+<tr><td>◎ or ○</td><td>◎・○・人気1-3位</td><td>24点</td><td>2,400円</td></tr>
+</table>
+
+<button class="rules-toggle" onclick="this.classList.toggle('open')">クラス別の選定条件<span class="arrow">▼</span></button>
+<div class="rules-detail">
+<h2>どのレースが選ばれるか</h2>
+<p>AIがスコアリングした結果、◎のオッズが以下の範囲に入ったレースが買い対象になります。</p>
+<table>
+<tr><th>クラス</th><th>★★ 通常</th><th>★ チャレンジ</th><th>追加条件</th></tr>
+<tr><td>1勝</td><td>3〜5倍</td><td>5〜6倍</td><td>好調教の馬のみ</td></tr>
+<tr><td>2勝</td><td>20〜30倍</td><td>30〜40倍</td><td>--</td></tr>
+<tr><td>3勝</td><td>5〜20倍</td><td>20〜25倍</td><td>12頭以上 or gap8以上</td></tr>
+<tr><td>G3</td><td>3〜16倍</td><td>--</td><td>gap3〜8, 14頭以上</td></tr>
+<tr><td>G1・G2</td><td>--</td><td>5〜20倍</td><td>中穴帯を狙う</td></tr>
+</table>
+</div>
+
+<button class="rules-toggle" onclick="this.classList.toggle('open')">特別枠（新馬スカウト・覚醒シグナル）<span class="arrow">▼</span></button>
+<div class="rules-detail">
+<h2>特別枠</h2>
+<p>通常のAIスコアとは別に、調教データと血統の組み合わせで自動検出される枠です。</p>
+
+<h3>新馬スカウト（C2）</h3>
+<p>新馬戦 × 非主流血統 × 加速ラップ × 10〜20倍 × 15頭以上</p>
+<p class="note">市場が過小評価する非主流血統の新馬。加速ラップが出ていれば仕上がりは本物。</p>
+
+<h3>覚醒シグナル（F1）</h3>
+<p>未勝利戦 × 主流血統 × 好調教＋加速ラップ × 20〜30倍 × 1〜8番人気</p>
+<p class="note">良血馬が未勝利のまま人気落ち → 調教で覚醒サインが出たタイミングを狙います。</p>
+<p>どちらも1レース最大1頭（調教タイム最速の馬を優先）、単勝1,000円のみ。</p>
+</div>
+
+<button class="rules-toggle" onclick="this.classList.toggle('open')">買わない条件<span class="arrow">▼</span></button>
+<div class="rules-detail">
+<h2>買わない条件</h2>
+<p>以下に該当する場合、どんなにスコアが高くても買い推奨しません。</p>
+<table>
+<tr><th>条件</th><th>理由</th></tr>
+<tr><td>不良馬場</td><td>ROI26%。予測不能な馬場変化で的中率が極端に低下</td></tr>
+<tr><td>新潟芝・後半の内枠</td><td>外差し有利バイアスが強く、内枠ROI -69pt</td></tr>
+<tr><td>札幌芝・後半の内枠</td><td>洋芝の傷みで内側走路悪化、内枠ROI -63pt</td></tr>
+<tr><td>中山ダ・前半の内枠</td><td>砂被り＋スタート不利、内枠ROI -53pt</td></tr>
+</table>
+<p class="note">稍重（ROI106%）・重（ROI117%）は良馬場より好成績のため、買い対象のままです。</p>
+</div>
+
+<button class="rules-toggle" onclick="this.classList.toggle('open')">★★★の条件（自信の一戦）<span class="arrow">▼</span></button>
+<div class="rules-detail">
+<h2>★★★ 自信の一戦</h2>
+<p>★★（通常ゾーン）の中で、さらに以下を全て満たすレースです。</p>
+<table>
+<tr><th>条件</th><th>内容</th></tr>
+<tr><td>スコア差</td><td>◎と2位のgapが10pt以上</td></tr>
+<tr><td>調教</td><td>◎が好調教（坂路12.0秒未満 or WC11.5秒未満）</td></tr>
+<tr><td>血統ボーナス</td><td>コース×血統の相性が統計的に優位</td></tr>
+</table>
+</div>
+
+<button class="rules-toggle" onclick="this.classList.toggle('open')">バックテスト実績（7年分）<span class="arrow">▼</span></button>
+<div class="rules-detail">
+<h2>バックテスト実績</h2>
+<p>2019年からの7年分のJRA全レースデータで検証した結果です。</p>
+<table>
+<tr><th>年</th><th>買いR数</th><th>ROI</th><th>損益</th></tr>
+<tr><td>2020</td><td>201R</td><td>188.6%</td><td>+178,000円</td></tr>
+<tr><td>2021</td><td>221R</td><td>124.8%</td><td>+54,710円</td></tr>
+<tr><td>2022</td><td>341R</td><td>136.1%</td><td>+123,150円</td></tr>
+<tr><td>2023</td><td>383R</td><td>165.2%</td><td>+249,530円</td></tr>
+<tr><td>2024</td><td>403R</td><td>109.4%</td><td>+37,960円</td></tr>
+<tr><td>2025</td><td>424R</td><td>133.4%</td><td>+141,730円</td></tr>
+<tr><td>2026(途中)</td><td>96R</td><td>149.3%</td><td>+47,320円</td></tr>
+<tr style="font-weight:700;color:var(--orange-pale)"><td>7年合計</td><td>2,069R</td><td>140.2%</td><td>+832,400円</td></tr>
+</table>
+<p class="note">過去の実績であり、将来の結果を保証するものではありません。</p>
+</div>
+
+</div>
+</div>
+"""
 
 # フッター + JS
 html += f"""

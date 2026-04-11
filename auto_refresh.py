@@ -78,14 +78,17 @@ def quick_odds_refresh():
     races_json = json.load(open(PROJ_DIR / 'this_week_races.json', encoding='utf-8'))
     race_map = {r['race_id']: r for r in races_json}
 
-    # 現在の買いレースを記録
+    # 現在の買いレースを記録（◎オッズ+馬場状態も保持）
     old_buys = {}
+    old_cond = {}
     for p in preds:
         rid = p['race']['race_id']
         bt = p.get('buy_type', '')
         sp = p.get('special_horse')
         if bt or sp:
-            old_buys[rid] = bt or 'special'
+            honmei_odds = p.get('honmei', {}).get('odds', 0) or 0
+            old_buys[rid] = {'type': bt or 'special', 'odds': honmei_odds}
+        old_cond[rid] = p['race'].get('track_cond', '良') or '良'
 
     # Seleniumでオッズだけ取得
     opts = Options()
@@ -163,13 +166,48 @@ def quick_odds_refresh():
 
     # 新しい買いレースを確認
     new_preds = json.load(open(PROJ_DIR / 'weekend_predictions.json', encoding='utf-8'))
-    new_buys = {}
+
+    # ±20%ロック: 旧買いレースが消えても、◎オッズが±20%以内かつ馬場変更なしなら復元
+    new_buys_raw = {}
+    new_cond = {}
     for p in new_preds:
         rid = p['race']['race_id']
         bt = p.get('buy_type', '')
         sp = p.get('special_horse')
+        new_cond[rid] = p['race'].get('track_cond', '良') or '良'
         if bt or sp:
-            new_buys[rid] = bt or 'special'
+            new_buys_raw[rid] = {'type': bt or 'special', 'odds': p.get('honmei', {}).get('odds', 0) or 0}
+
+    locked = 0
+    for rid, old_info in old_buys.items():
+        if rid in new_buys_raw:
+            continue  # まだ買い判定→変更なし
+        # 旧買いが消えた→ロック判定
+        old_odds = old_info['odds']
+        # 新しい◎のオッズを取得
+        new_honmei_odds = 0
+        for p in new_preds:
+            if p['race']['race_id'] == rid:
+                new_honmei_odds = p.get('honmei', {}).get('odds', 0) or 0
+                break
+        # 馬場変更チェック
+        cond_changed = old_cond.get(rid, '良') != new_cond.get(rid, '良')
+        # ±20%以内 かつ 馬場変更なし → 除外をブロック（買い判定を復元）
+        if old_odds > 0 and new_honmei_odds > 0 and not cond_changed:
+            ratio = new_honmei_odds / old_odds
+            if 0.8 <= ratio <= 1.2:
+                # 元の買い判定を復元
+                for p in new_preds:
+                    if p['race']['race_id'] == rid:
+                        p['buy_type'] = old_info['type'] if old_info['type'] != 'special' else ''
+                        break
+                locked += 1
+
+    if locked:
+        print(f"  🔒 {locked}R の買い判定をロック維持（オッズ±20%以内）")
+        # ロック復元した予想を保存
+        with open(PROJ_DIR / 'weekend_predictions.json', 'w', encoding='utf-8') as f:
+            json.dump(new_preds, f, ensure_ascii=False, indent=2)
 
     # 変更検出 → アラートログに蓄積
     from alerts_log import compare_and_log

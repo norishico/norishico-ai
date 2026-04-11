@@ -36,19 +36,45 @@ def clear_alerts():
 
 def append_alerts(new_items: list):
     """アラートを追記（タイムスタンプ付き）
+    同一race_idの追加→除外→追加のような中間状態を圧縮し、最終状態のみ残す。
 
     Args:
-        new_items: [{'type': '追加'|'除外'|'変更', 'text': str, 'venue': str, 'race_num': int}]
+        new_items: [{'type': '追加'|'除外'|'変更', 'race_id': str, 'text': str}]
     """
     if not new_items:
         return
     alerts = load_alerts()
     now = datetime.now()
+
     for item in new_items:
+        rid = item.get('race_id', '')
+        new_type = item['type']
+        # 同一race_idの既存アラートを検索
+        if rid:
+            existing_idx = None
+            for i, a in enumerate(alerts):
+                if a.get('race_id') == rid:
+                    existing_idx = i
+                    break
+            if existing_idx is not None:
+                old_type = alerts[existing_idx]['type']
+                if old_type == '追加' and new_type == '除外':
+                    # 追加→除外: 両方消す（元に戻っただけ）
+                    alerts.pop(existing_idx)
+                    continue
+                elif old_type == '除外' and new_type == '追加':
+                    # 除外→追加: 両方消す（元に戻っただけ）
+                    alerts.pop(existing_idx)
+                    continue
+                else:
+                    # 同種 or 変更: 最新で上書き
+                    alerts.pop(existing_idx)
+
         alerts.append({
             'date': now.strftime('%Y-%m-%d'),
             'time': now.strftime('%H:%M'),
-            'type': item['type'],
+            'type': new_type,
+            'race_id': rid,
             'text': item['text'],
         })
     save_alerts(alerts)

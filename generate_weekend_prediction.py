@@ -253,7 +253,7 @@ def _calc_inv(p):
     elif p.get('special_horse'): base = 1000
     # 3連単フォーメーション追加 (gap5+ & odds8+)
     if bt and gap >= 5 and ho >= 8: base += 2400
-    return 0
+    return base
 total_inv = sum(_calc_inv(p) for p in buy_preds)
 
 # 日付・会場の一覧
@@ -1137,7 +1137,7 @@ html += """
 # フッター + JS
 html += f"""
 <div class="footer">
-  <p style="font-weight:700;color:var(--orange-pale);font-size:14px;letter-spacing:2px">NORISHICO AI v6.3</p>
+  <p style="font-weight:700;color:var(--orange-pale);font-size:14px;letter-spacing:2px">NORISHICO AI v6.6</p>
   <p>生成: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
   <div class="disclaimer">
     想定オッズは確定前です。発走5分前にオッズ確定後、最終買い判定を行います。<br>

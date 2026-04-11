@@ -135,8 +135,14 @@ def score_weekend_race(race, conn, sc_conn):
         name = h['name']
         jockey = h.get('jockey', '')
         trainer = h.get('trainer', '').replace('栗東','').replace('美浦','').strip()
-        odds = float(h.get('odds', '0') or '0')
-        pop = int(h.get('popularity', '0') or '0')
+        try:
+            odds = float(h.get('odds', '0') or '0')
+        except (ValueError, TypeError):
+            odds = 0.0
+        try:
+            pop = int(h.get('popularity', '0') or '0')
+        except (ValueError, TypeError):
+            pop = 0
 
         # DBから血統情報を取得
         db_horse = conn.execute("""

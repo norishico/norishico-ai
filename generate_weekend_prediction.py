@@ -880,7 +880,7 @@ for i, dk in enumerate(all_dates):
     # ── 注目データ ──
     html += f'<div class="sub-content" id="sub-{dk}-hotspot">\n'
     html += '<div class="section-title">注目データ</div>\n'
-    html += '<div style="padding:4px 16px 8px;font-size:11px;color:var(--text-sub)">過去の回収率100%超パターンに該当する馬をピックアップ</div>\n'
+    html += '<div style="padding:4px 16px 8px;font-size:11px;color:var(--text-sub)">過去の回収率100%超パターンに該当する馬をピックアップ<br>※オッズは前日取得時点の参考値です</div>\n'
 
     # Collect hotspot picks for this day
     day_hotspots = []

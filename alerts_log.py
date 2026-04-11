@@ -90,9 +90,10 @@ def compare_and_log(prev_preds: list, curr_preds: list) -> list:
         if rid not in prev_buys:
             r = curr_buys[rid]['race']
             label = f"{r.get('venue','')}{r.get('race_num','')}R {r.get('race_name','')}"
+            now_str = datetime.now().strftime('%H:%M')
             new_alerts.append({
                 'type': '追加',
-                'text': f"🆕 {label} が期待値ありに追加",
+                'text': f"🆕 {label} が期待値ありに追加（{now_str}時点）",
             })
 
     # 除外
@@ -100,9 +101,10 @@ def compare_and_log(prev_preds: list, curr_preds: list) -> list:
         if rid not in curr_buys:
             r = prev_buys[rid]['race']
             label = f"{r.get('venue','')}{r.get('race_num','')}R {r.get('race_name','')}"
+            now_str = datetime.now().strftime('%H:%M')
             new_alerts.append({
                 'type': '除外',
-                'text': f"❌ {label} がオッズ変動で条件外に",
+                'text': f"❌ {label} → 発走前オッズ確認で条件外に変更（{now_str}更新）",
             })
 
     # 買い方変更

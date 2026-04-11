@@ -413,11 +413,12 @@ if __name__ == '__main__':
 
     src_db = 'keiba.db'
     tmp_db = f'keiba_tmp_{year}.db'
-    if Path(f'{src_db}-wal').exists():
-        c = sqlite3.connect(src_db)
-        c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-        c.close()
-    shutil.copy2(src_db, tmp_db)
+    if not Path(tmp_db).exists():
+        if Path(f'{src_db}-wal').exists():
+            c = sqlite3.connect(src_db)
+            c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            c.close()
+        shutil.copy2(src_db, tmp_db)
 
     print(f'\n{"="*55}')
     print(f'  backtest_v6 [ゼロベース再設計]  {year}年')

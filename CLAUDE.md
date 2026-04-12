@@ -100,8 +100,9 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
         if 5 < odds <= 6: return 'challenge', True    # ROI141%, 4/6年黒字
 
     if grade == '2勝':
-        if 20 <= odds <= 30: return 'normal', True
-        if 30 < odds <= 40: return 'challenge', True   # ROI206%, 3/7年黒字
+        # 【v6.6】2勝クラス廃止（2026-04-13検証で決定）
+        # 7年BT: 単独赤字・的中率0-6%の構造的不振。廃止で全体+263,190円改善
+        return None, False
 
     if grade == '3勝':
         if sire in SUNDAY_SIRES and not good_train: return None, False
@@ -125,7 +126,7 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
 | クラス | 通常ゾーン（★★/★★★） | チャレンジゾーン（★） |
 |---|---|---|
 | 1勝 | odds 3-5（好調教のみ） | **odds 5-6**（ROI141%） |
-| 2勝 | odds 20-30 | **odds 30-40**（ROI206%） |
+| **2勝** | **廃止** | **廃止** |
 | 3勝 | odds 5-20（heads12+ or gap8+） | **odds 20-25**（ROI97%） |
 | G3 | odds 3-16（gap3-8, heads14+） | なし |
 | **G1/G2** | なし | **odds 5-20**（ROI167%） |
@@ -394,7 +395,7 @@ conn.execute("PRAGMA mmap_size=268435456")
 | 新馬 | -- | **C2別枠**（非主流血統×accel×15頭+）| 加速ラップ必須 |
 | 未勝利 | -- | **F1別枠**（主流血統×好調教×accel） | 好調教+accel必須 |
 | 1勝 | odds 3-5 | **odds 5-6** | 好調教のみ |
-| 2勝 | odds 20-30 | **odds 30-40** | なし |
+| **2勝** | **廃止(v6.6)** | **廃止(v6.6)** | -- |
 | 3勝 | odds 5-20 | **odds 20-25** | SS系非好調教除外 |
 | G3 | odds 3-16 & gap3-8 & 14頭+ | なし | なし |
 | **G1/G2** | **なし** | **odds 5-20** | なし |

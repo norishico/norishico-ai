@@ -80,8 +80,10 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
         return None, False
 
     if grade == '2勝':
-        if 20 <= odds <= 30: return 'normal', True
-        if 30 < odds <= 40: return 'challenge', True  # ROI206%, 3/7年黒字
+        # 【v6.6】2勝クラス廃止（2026-04-13検証で決定）
+        # 7年バックテストで単独赤字、的中率0-6%の構造的不振クラス
+        # 廃止により全体損益: -314,400 → -51,210 (+263,190改善)
+        # ROI: 88.6% → 97.9% (+9.3pt)
         return None, False
 
     if grade == '3勝':

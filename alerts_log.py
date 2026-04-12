@@ -1,5 +1,5 @@
 """アラートログ管理 — 買いレース変更の履歴を蓄積・取得"""
-import json
+import json, re
 from pathlib import Path
 from datetime import datetime
 
@@ -57,17 +57,45 @@ def append_alerts(new_items: list):
                     existing_idx = i
                     break
             if existing_idx is not None:
-                old_type = alerts[existing_idx]['type']
+                old = alerts[existing_idx]
+                old_type = old['type']
+                # 案C: 追加→除外は合体状態として残す
+                # （両方消すと「朝追加を見たユーザー」が除外を知る手段を失うため）
                 if old_type == '追加' and new_type == '除外':
-                    # 追加→除外: 両方消す（元に戻っただけ）
-                    alerts.pop(existing_idx)
+                    # 追加情報を抽出（レース名部分）
+                    old_time = old.get('time', '?')
+                    new_time = now.strftime('%H:%M')
+                    # item['text']例: "❌ 中山9R 印西特別 → 発走前オッズ確認で条件外に変更（12:07更新）"
+                    # 馬名/レース名部分だけ抽出
+                    label_match = re.match(r'❌\s*(.+?)\s*→', item['text'])
+                    label = label_match.group(1) if label_match else item['text']
+                    alerts[existing_idx] = {
+                        'date': now.strftime('%Y-%m-%d'),
+                        'time': new_time,
+                        'type': '追加→除外',
+                        'race_id': rid,
+                        'text': f"🔄 {label} : {old_time}追加 → {new_time}除外（オッズ変動で条件外）",
+                    }
                     continue
                 elif old_type == '除外' and new_type == '追加':
-                    # 除外→追加: 両方消す（元に戻っただけ）
-                    alerts.pop(existing_idx)
+                    # 除外→追加も合体（復活パターン）
+                    old_time = old.get('time', '?')
+                    new_time = now.strftime('%H:%M')
+                    label_match = re.match(r'🆕\s*(.+?)\s*が', item['text'])
+                    label = label_match.group(1) if label_match else item['text']
+                    alerts[existing_idx] = {
+                        'date': now.strftime('%Y-%m-%d'),
+                        'time': new_time,
+                        'type': '除外→追加',
+                        'race_id': rid,
+                        'text': f"🔄 {label} : {old_time}除外 → {new_time}追加（オッズ変動で条件内に復活）",
+                    }
                     continue
+                elif old_type in ('追加→除外', '除外→追加'):
+                    # 複合状態に更に変化があった場合は素直に新イベントで上書き
+                    alerts.pop(existing_idx)
                 else:
-                    # 同種 or 変更: 最新で上書き
+                    # 同種 or 買い方変更: 最新で上書き
                     alerts.pop(existing_idx)
 
         alerts.append({

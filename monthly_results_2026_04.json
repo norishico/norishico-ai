@@ -232,14 +232,120 @@
         "profit": -10000,
         "roi": 0.0
       }
+    },
+    {
+      "date": "2026-04-11",
+      "track_conditions": {
+        "中山": "稍重",
+        "阪神": "重",
+        "福島": "良"
+      },
+      "buy_results": [
+        {
+          "venue": "中山",
+          "race_num": 12,
+          "race_name": "4歳以上2勝クラス",
+          "grade": "2勝",
+          "buy_type": "v6_star2",
+          "honmei": "ルーフオブヘヴン",
+          "honmei_finish": 2,
+          "honmei_odds": 24.4,
+          "ni": "クインズシフォン",
+          "ni_finish": 6,
+          "winner": "プレゼンティーア",
+          "winner_odds": "13.2",
+          "track_cond": "稍重",
+          "cost": 2000,
+          "return": 0,
+          "profit": -2000
+        }
+      ],
+      "summary": {
+        "races": 1,
+        "cost": 2000,
+        "return": 0,
+        "profit": -2000,
+        "roi": 0.0
+      }
+    },
+    {
+      "date": "2026-04-12",
+      "track_conditions": {
+        "中山": "良",
+        "阪神": "良",
+        "福島": "良"
+      },
+      "buy_results": [
+        {
+          "venue": "中山",
+          "race_num": 10,
+          "race_name": "あけぼのステークス",
+          "grade": "3勝",
+          "buy_type": "v6_star2",
+          "honmei": "チャンネルトンネル",
+          "honmei_finish": 2,
+          "honmei_odds": 8.4,
+          "ni": "マテンロウブラボー",
+          "ni_finish": 5,
+          "winner": "ストレイトトーカー",
+          "winner_odds": "8.0",
+          "track_cond": "良",
+          "cost": 2000,
+          "return": 0,
+          "profit": -2000
+        },
+        {
+          "venue": "阪神",
+          "race_num": 9,
+          "race_name": "忘れな草賞",
+          "grade": "3勝",
+          "buy_type": "v6_star2",
+          "honmei": "ニシノサリーナ",
+          "honmei_finish": 12,
+          "honmei_odds": 11.5,
+          "ni": "レダアトミカ",
+          "ni_finish": 3,
+          "winner": "ジュウリョクピエロ",
+          "winner_odds": "18.9",
+          "track_cond": "良",
+          "cost": 2000,
+          "return": 0,
+          "profit": -2000
+        },
+        {
+          "venue": "福島",
+          "race_num": 9,
+          "race_name": "燧ヶ岳特別",
+          "grade": "3勝",
+          "buy_type": "v6_star3",
+          "honmei": "ゲンジ",
+          "honmei_finish": 5,
+          "honmei_odds": 4.3,
+          "ni": "イフルジャンス",
+          "ni_finish": 9,
+          "winner": "ビップチェイス",
+          "winner_odds": "11.9",
+          "track_cond": "良",
+          "cost": 2000,
+          "return": 0,
+          "profit": -2000
+        }
+      ],
+      "summary": {
+        "races": 3,
+        "cost": 6000,
+        "return": 0,
+        "profit": -6000,
+        "roi": 0.0
+      }
     }
   ],
   "total": {
-    "days": 2,
-    "races": 11,
-    "cost": 18000,
+    "days": 4,
+    "races": 15,
+    "cost": 26000,
     "return": 0,
-    "profit": -18000,
+    "profit": -26000,
     "roi": 0.0
   }
 }

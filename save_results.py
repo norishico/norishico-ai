@@ -13,11 +13,13 @@ from datetime import datetime
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: python save_results.py <results.json> <predictions.json>")
+        print("Usage: python save_results.py <results.json> <predictions.json> [YYYYMMDD]")
         return
 
     results_path = sys.argv[1]
     preds_path = sys.argv[2]
+    # 3番目の引数で対象日を明示指定可能（指定なしならファイル名 or 今日）
+    override_date = sys.argv[3] if len(sys.argv) >= 4 else None
 
     results = json.load(open(results_path, encoding='utf-8'))
     preds = json.load(open(preds_path, encoding='utf-8'))
@@ -28,8 +30,16 @@ def main():
         rid = p['race']['race_id']
         pred_dict[rid] = p
 
-    # Determine date from results
-    today = datetime.now()
+    # 対象日の決定: 引数 → results_YYYYMMDD.jsonから抽出 → datetime.now()
+    import re as _re
+    if override_date:
+        today = datetime.strptime(override_date, '%Y%m%d')
+    else:
+        m = _re.search(r'results_(\d{8})\.json', str(results_path))
+        if m:
+            today = datetime.strptime(m.group(1), '%Y%m%d')
+        else:
+            today = datetime.now()
     month_key = today.strftime('%Y_%m')
     monthly_file = Path(f'monthly_results_{month_key}.json')
 

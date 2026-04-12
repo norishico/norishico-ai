@@ -9,12 +9,23 @@ preds = json.load(open('weekend_predictions.json', encoding='utf-8'))
 # アラート: 蓄積ログから読み込み（race_id付き）
 alerts_data = load_alerts()
 alerts_by_race_id = {}
+def _alert_type_cls(t):
+    # 追加=緑、除外=赤、追加→除外/除外→追加=黄、変更=青
+    return {
+        '追加': 'alert-add',
+        '除外': 'alert-remove',
+        '追加→除外': 'alert-flip',
+        '除外→追加': 'alert-flip',
+        '変更': 'alert-change',
+    }.get(t, '')
 for a in alerts_data:
     rid = a.get('race_id', '')
+    cls = _alert_type_cls(a.get('type', ''))
     html_str = f"<span class=\"alert-time\">{a['time']}</span> {a['text']}"
+    item_html = f'<div class="alert-item {cls}">{html_str}</div>'
     if rid:
-        alerts_by_race_id.setdefault(rid, []).append(html_str)
-alerts = [f"<span class=\"alert-time\">{a['time']}</span> {a['text']}" for a in alerts_data]
+        alerts_by_race_id.setdefault(rid, []).append(item_html)
+alerts = [f'<div class="alert-item {_alert_type_cls(a.get("type",""))}"><span class="alert-time">{a["time"]}</span> {a["text"]}</div>' for a in alerts_data]
 
 # 月間結果（あれば読み込み）
 monthly_files = sorted(glob.glob('monthly_results_*.json'))
@@ -676,7 +687,11 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 /* アラート */
 .alert-banner{{margin:12px 16px;padding:10px 14px;background:#FFF3E0;border:2px solid var(--orange-light);border-radius:10px;font-size:12px;line-height:1.8;color:var(--text)}}
 .alert-banner .alert-title{{font-size:11px;font-weight:700;color:var(--orange);margin-bottom:4px;letter-spacing:1px}}
-.alert-banner .alert-item{{padding:2px 0}}
+.alert-banner .alert-item{{padding:3px 6px;margin:2px 0;border-radius:4px}}
+.alert-banner .alert-item.alert-add{{background:rgba(46,160,67,0.12);border-left:3px solid #2EA043}}
+.alert-banner .alert-item.alert-remove{{background:rgba(218,54,51,0.12);border-left:3px solid #DA3633}}
+.alert-banner .alert-item.alert-flip{{background:rgba(255,193,7,0.15);border-left:3px solid #FFC107;font-weight:600}}
+.alert-banner .alert-item.alert-change{{background:rgba(33,150,243,0.12);border-left:3px solid #2196F3}}
 .alert-banner .alert-time{{font-size:10px;color:var(--text-sub);font-weight:700;margin-right:4px}}
 
 /* 結果タブ */
@@ -778,12 +793,17 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 
 """
 
+# 当日の曜日に応じてデフォルトタブを決定（日曜=6→日曜タブ、それ以外→土曜タブ）
+from datetime import date as _date
+_today_wd = _date.today().weekday()  # 0=Mon ... 6=Sun
+_default_dk = all_dates[-1] if _today_wd == 6 and len(all_dates) > 1 else all_dates[0]
+
 # 日付タブ + 結果タブ
 html += """
 <div class="tab-bar date-tabs" id="dateTabs">
 """
 for i, dk in enumerate(all_dates):
-    act = ' active' if i == 0 else ''
+    act = ' active' if dk == _default_dk else ''
     html += f'  <div class="tab{act}" onclick="switchDateTab(\'{dk}\')">{date_shorts[dk]}</div>\n'
 if monthly_data and monthly_data.get('days'):
     html += f'  <div class="tab" onclick="switchDateTab(\'results\')">結果</div>\n'
@@ -792,7 +812,7 @@ html += '</div>\n'
 
 # ===== 各日付の中身 =====
 for i, dk in enumerate(all_dates):
-    act = ' active' if i == 0 else ''
+    act = ' active' if dk == _default_dk else ''
     html += f'<div class="tab-content{act}" id="daytab-{dk}">\n'
 
     day_venues = sorted(set(p['race'].get('venue','') for p in preds if p['_date_key']==dk))
@@ -823,7 +843,7 @@ for i, dk in enumerate(all_dates):
         html += '<div class="alert-banner">\n'
         html += '<div class="alert-title">ODDS UPDATE</div>\n'
         for a in day_alerts:
-            html += f'<div class="alert-item">{a}</div>\n'
+            html += f'{a}\n'  # 既に<div class="alert-item ...">でラップ済み
         html += '</div>\n'
     if day_buys:
         html += '<div class="section-title">期待値ありレース</div>\n'

@@ -313,6 +313,27 @@ def main():
 
         if len(executed) == len(schedule):
             print(f"\n🏁 全{len(schedule)}回の更新完了")
+            # ── 結果自動保存 ──
+            # 全レース発走済み後、netkeibaから結果取得→月間JSON追記→HTML再生成
+            print(f"\n📥 本日の結果を取得・保存開始 {datetime.now().strftime('%H:%M:%S')}")
+            today_date = datetime.now().strftime('%Y%m%d')
+            try:
+                result = subprocess.run(
+                    [PYEXE, '-X', 'utf8', str(PROJ_DIR / 'publish_weekend.py'),
+                     '--save-results', today_date],
+                    cwd=str(PROJ_DIR), capture_output=True, text=True, encoding='utf-8',
+                    timeout=1800,  # 30分タイムアウト
+                )
+                if result.returncode == 0:
+                    print(f"  ✅ 結果保存完了（{today_date}分をHTML結果タブに反映）")
+                else:
+                    print(f"  ⚠️ 結果保存失敗 (rc={result.returncode})")
+                    if result.stderr:
+                        print(f"  stderr: {result.stderr[-500:]}")
+            except subprocess.TimeoutExpired:
+                print(f"  ⚠️ 結果保存タイムアウト（30分超過）")
+            except Exception as e:
+                print(f"  ⚠️ 結果保存エラー: {e}")
             break
 
         if next_trigger:

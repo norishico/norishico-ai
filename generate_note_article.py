@@ -1,8 +1,9 @@
 """weekend_predictions.jsonからYukiキャラのnote記事+X投稿を生成
 土曜版/日曜版を両方出力
 """
-import json
+import json, sys, io
 from datetime import datetime
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 preds = json.load(open('weekend_predictions.json', encoding='utf-8'))
 
@@ -59,7 +60,7 @@ def generate_article(day_buys, day, date_label):
     if day == 'sat':
         intro = "今週もやってきました土曜日！🐴\nお仕事終わりに予想まとめてたら日付変わってました…笑\nでも今週はAIのスコアがいい感じなので期待してます！"
     else:
-        intro = "日曜日！今日は大阪杯ですね〜🏆\n朝からソワソワしてAI予想を何回も見直してしまいました笑\nさて、今週の本気予想いきます！"
+        intro = "日曜日！今日は桜花賞ですね〜🌸\n朝からソワソワしてAI予想を何回も見直してしまいました笑\nさて、今週の本気予想いきます！"
 
     art = f"""📝 **頑張って予想した｜{date_label}**
 
@@ -175,8 +176,12 @@ def generate_article(day_buys, day, date_label):
 
 #競馬 #競馬予想 #競馬女子 #AI予想 #頑張って予想した"""
 
-    if any(p['grade'] == 'G1' for p in day_buys):
-        art += " #大阪杯"
+    # G1ハッシュタグ: レース名から動的に生成
+    for p in day_buys:
+        if p['grade'] == 'G1':
+            rname = p['race'].get('race_name', '')
+            art += f" #{rname}"
+            break
     if any('ダービー卿' in p['race'].get('race_name','') for p in day_buys):
         art += " #ダービー卿CT"
 

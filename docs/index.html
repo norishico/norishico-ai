@@ -2974,16 +2974,17 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 
 <button class="rules-toggle" onclick="this.classList.toggle('open')">クラス別の選定条件<span class="arrow">▼</span></button>
 <div class="rules-detail">
-<h2>どのレースが選ばれるか</h2>
+<h2>どのレースが選ばれるか (v6.6)</h2>
 <p>AIがスコアリングした結果、◎のオッズが以下の範囲に入ったレースが買い対象になります。</p>
 <table>
 <tr><th>クラス</th><th>★★ 通常</th><th>★ チャレンジ</th><th>追加条件</th></tr>
-<tr><td>1勝</td><td>3〜5倍</td><td>5〜6倍</td><td>好調教の馬のみ</td></tr>
-<tr><td>2勝</td><td>20〜30倍</td><td>30〜40倍</td><td>--</td></tr>
-<tr><td>3勝</td><td>5〜20倍</td><td>20〜25倍</td><td>12頭以上 or gap8以上</td></tr>
-<tr><td>G3</td><td>3〜16倍</td><td>--</td><td>gap3〜8, 14頭以上</td></tr>
-<tr><td>G1・G2</td><td>--</td><td>5〜20倍</td><td>中穴帯を狙う</td></tr>
+<tr><td>1勝</td><td colspan="2">廃止</td><td>狭帯で実運用不可</td></tr>
+<tr><td>2勝</td><td colspan="2">廃止</td><td>的中率0-6%の構造不振</td></tr>
+<tr><td>3勝</td><td>8〜11倍</td><td>20〜25倍</td><td>(12頭以上 or gap8以上) かつ <b>加速ラップ必須</b></td></tr>
+<tr><td>G3</td><td colspan="2">廃止</td><td>小サンプル不振</td></tr>
+<tr><td>G1・G2</td><td>--</td><td>7〜10 + 13〜20倍</td><td>内部赤字帯を除外した中穴</td></tr>
 </table>
+<p class="note">v6.6では低的中率の赤字クラスを廃止し、残るクラスの帯域を絞り込みました。</p>
 </div>
 
 <button class="rules-toggle" onclick="this.classList.toggle('open')">特別枠（新馬スカウト・覚醒シグナル）<span class="arrow">▼</span></button>
@@ -2992,12 +2993,12 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <p>通常のAIスコアとは別に、調教データと血統の組み合わせで自動検出される枠です。</p>
 
 <h3>新馬スカウト（C2）</h3>
-<p>新馬戦 × 非主流血統 × 加速ラップ × 10〜20倍 × 15頭以上</p>
-<p class="note">市場が過小評価する非主流血統の新馬。加速ラップが出ていれば仕上がりは本物。</p>
+<p>新馬戦 × 非主流血統 × 加速ラップ × 10〜20倍 × 15頭以上 × <b>ダート限定</b></p>
+<p class="note">市場が過小評価する非主流血統の新馬。加速ラップが出ていれば仕上がりは本物。芝は成績悪いためダート限定。</p>
 
 <h3>覚醒シグナル（F1）</h3>
-<p>未勝利戦 × 主流血統 × 好調教＋加速ラップ × 20〜30倍 × 1〜8番人気</p>
-<p class="note">良血馬が未勝利のまま人気落ち → 調教で覚醒サインが出たタイミングを狙います。</p>
+<p>未勝利戦 × 主流血統 × 好調教＋加速ラップ × <b>15〜33倍</b>（v6.6拡張） × 1〜8番人気</p>
+<p class="note">良血馬が未勝利のまま人気落ち → 調教で覚醒サインが出たタイミングを狙います。v6.6で15-33倍に拡張。</p>
 <p>どちらも1レース最大1頭（調教タイム最速の馬を優先）、単勝1,000円のみ。</p>
 </div>
 
@@ -3027,22 +3028,22 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </table>
 </div>
 
-<button class="rules-toggle" onclick="this.classList.toggle('open')">バックテスト実績（7年分）<span class="arrow">▼</span></button>
+<button class="rules-toggle" onclick="this.classList.toggle('open')">バックテスト実績（v6.6 / 7年分）<span class="arrow">▼</span></button>
 <div class="rules-detail">
-<h2>バックテスト実績</h2>
-<p>2019年からの7年分のJRA全レースデータで検証した結果です。</p>
+<h2>バックテスト実績 (v6.6)</h2>
+<p>2020年からの7年分のJRA全レースデータで検証した結果です。決定論性確保済み。</p>
 <table>
 <tr><th>年</th><th>買いR数</th><th>ROI</th><th>損益</th></tr>
-<tr><td>2020</td><td>201R</td><td>188.6%</td><td>+178,000円</td></tr>
-<tr><td>2021</td><td>221R</td><td>124.8%</td><td>+54,710円</td></tr>
-<tr><td>2022</td><td>341R</td><td>136.1%</td><td>+123,150円</td></tr>
-<tr><td>2023</td><td>383R</td><td>165.2%</td><td>+249,530円</td></tr>
-<tr><td>2024</td><td>403R</td><td>109.4%</td><td>+37,960円</td></tr>
-<tr><td>2025</td><td>424R</td><td>133.4%</td><td>+141,730円</td></tr>
-<tr><td>2026(途中)</td><td>96R</td><td>149.3%</td><td>+47,320円</td></tr>
-<tr style="font-weight:700;color:var(--orange-pale)"><td>7年合計</td><td>2,069R</td><td>140.2%</td><td>+832,400円</td></tr>
+<tr><td>2020</td><td>84R</td><td>167.2%</td><td>+61,400円</td></tr>
+<tr><td>2021</td><td>87R</td><td>135.9%</td><td>+34,400円</td></tr>
+<tr><td>2022</td><td>255R</td><td>174.1%</td><td>+214,450円</td></tr>
+<tr><td>2023</td><td>272R</td><td>116.1%</td><td>+47,850円</td></tr>
+<tr><td>2024</td><td>317R</td><td>95.5%</td><td>-15,310円</td></tr>
+<tr><td>2025</td><td>336R</td><td>99.6%</td><td>-1,600円</td></tr>
+<tr><td>2026(途中)</td><td>68R</td><td>260.1%</td><td>+113,700円</td></tr>
+<tr style="font-weight:700;color:var(--orange-pale)"><td>7年合計</td><td>1,419R</td><td>129.3%</td><td>+454,890円</td></tr>
 </table>
-<p class="note">過去の実績であり、将来の結果を保証するものではありません。</p>
+<p class="note">過去の実績であり、将来の結果を保証するものではありません。実運用では±5pt程度のマージンを想定してください。</p>
 </div>
 
 </div>
@@ -3050,7 +3051,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 
 <div class="footer">
   <p style="font-weight:700;color:var(--orange-pale);font-size:14px;letter-spacing:2px">NORISHICO AI v6.6</p>
-  <p>生成: 2026-04-13 10:02</p>
+  <p>生成: 2026-04-13 18:50</p>
   <div class="disclaimer">
     想定オッズは確定前です。発走5分前にオッズ確定後、最終買い判定を行います。<br>
     本予想はAIによる自動判定です。馬券の購入は自己責任でお願いいたします。

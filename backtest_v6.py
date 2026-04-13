@@ -87,16 +87,23 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
         return None, False
 
     if grade == '3勝':
-        # 【v6.6】normal上限を 20→12倍 に縮小（2026-04-13検証で決定）
-        # 12-20倍帯は7年で壊滅的な低的中率（4年集計で68R中2勝=2.9%）
-        # 縮小効果: 7年合計+71,930円改善, ROI 98.6→101.8%で黒字転換
-        # Walk-Forward CV: 6/6採用, 5/6テスト年改善
+        # 【v6.6】normal帯を 5-20倍 → 8-11倍 に大幅縮小（2026-04-13検証で決定）
+        # 細帯分析:
+        #   5-7倍: ROI 62.9%, -58,600 (構造赤字)
+        #   7-8倍: ROI 98.9%, -1,300 (トントン)
+        #   8-9倍: ROI 97.4%, -1,850 (トントン)
+        #   9-10倍: ROI 87.6%, -11,200
+        #   10-11倍: ROI 173.5%, +42,650 (唯一黒字)
+        #   11-12倍: ROI 38.2%, -37,050 (壊滅)
+        #   12-20倍: 68R中2勝=2.9% (壊滅)
+        # 8-11倍に絞った結果: +166,580円改善, ROI 98.6→107.5%
+        # Walk-Forward CV: 6/6採用, 6/6テスト年改善 (100%)
         if sire in SUNDAY_SIRES and not good_train:
             return None, False
         cond_a = (heads >= 12)
         cond_b = (gap >= 8)
         if not (cond_a or cond_b): return None, False
-        if (5 <= odds <= 12 and cond_a) or (8 <= odds <= 12 and cond_b):
+        if 8 <= odds <= 11 and (cond_a or cond_b):
             return 'normal', True
         if 20 < odds <= 25:                           # challenge ROI97%
             return 'challenge', True

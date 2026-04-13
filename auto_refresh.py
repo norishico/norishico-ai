@@ -302,9 +302,21 @@ def main():
     # 待機ループ
     day_flag = '--sunday' if args.sunday else '--saturday'
     executed = set()
+    # ヘルスチェック用: 毎時最新タイムスタンプをファイルに記録
+    health_file = PROJ_DIR / 'auto_refresh_health.txt'
+    last_health_hour = -1
     while True:
         now = datetime.now()
         next_trigger = None
+        # ヘルスチェック: 時間が変わるごとに記録
+        if now.hour != last_health_hour:
+            last_health_hour = now.hour
+            try:
+                with open(health_file, 'w', encoding='utf-8') as hf:
+                    hf.write(f'alive {now.strftime("%Y-%m-%d %H:%M:%S")}\n')
+                    hf.write(f'executed {len(executed)}/{len(schedule)}\n')
+            except Exception:
+                pass
 
         for i, s in enumerate(schedule):
             if i in executed:

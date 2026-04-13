@@ -379,10 +379,12 @@ def score_one_race(race_rows, sc_conn):
             'has_good_train': st.get('has_good_train', False),
         })
 
-    res.sort(key=lambda x: x['total_score'], reverse=True)
+    # 決定論性のため、同点ブレイクで馬名を安定キーに使用
+    # (Pythonの安定ソートでも入力順の状態次第で結果が揺れる問題対策)
+    res.sort(key=lambda x: (-x['total_score'], x['horse_name']))
 
     # 血統ランク → 相乗ボーナス
-    blood_sorted = sorted(res, key=lambda x: x['_blood_score'], reverse=True)
+    blood_sorted = sorted(res, key=lambda x: (-x['_blood_score'], x['horse_name']))
     for rank, h2 in enumerate(blood_sorted, 1):
         h2['_blood_rank'] = rank
 
@@ -397,7 +399,7 @@ def score_one_race(race_rows, sc_conn):
         vdsb  = calc_venue_damsire_bonus(venue, dist, h2['_dam_sire'], sc_conn)
         h2['total_score'] = round(h2['total_score'] + bonus + gcbb + tbb + vsb + vdsb, 1)
 
-    res.sort(key=lambda x: x['total_score'], reverse=True)
+    res.sort(key=lambda x: (-x['total_score'], x['horse_name']))
     for rank, h2 in enumerate(res, 1):
         h2['rank'] = rank
 

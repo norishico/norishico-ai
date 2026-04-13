@@ -114,8 +114,11 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
         return None, False
 
     if grade == 'G3':
-        if 3 <= odds <= 16 and 3 <= gap <= 8 and heads >= 14:
-            return 'normal', True
+        # 【v6.6】G3完全廃止（2026-04-13検証で決定）
+        # 58R/7年の小サンプルで勝率13.8% ROI 65.2% -42,590円
+        # 7-9倍で15R中0勝、13-16倍で9R中0勝と構造的不振
+        # 廃止効果: +42,590円, ROI 113.2→117.4%
+        # CV: 5/6正解（2020の単発黒字年のみ揺れる）
         return None, False
 
     if grade in ('G1', 'G2'):

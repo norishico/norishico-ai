@@ -273,6 +273,52 @@ all_venues = sorted(set(p['race'].get('venue','') for p in preds))
 date_labels = {p['_date_key']: p['_date_label'] for p in preds}
 date_shorts = {p['_date_key']: p['_date_short'] for p in preds}
 
+# ───────────────────────────────────────────────
+# 予想データが古い(先週末以前)か判定 — stale_mode
+# weekend_predictions.json の更新時刻で判定。今日が月曜以降で
+# ファイルが前回の日曜より古いなら「次週末の予想準備中」状態にする
+# ───────────────────────────────────────────────
+from datetime import date as _date_chk, datetime as _dt_chk, timedelta as _td_chk
+import os as _os_chk
+_today_chk = _date_chk.today()
+stale_mode = False
+try:
+    # this_week_races.json は fetch_shutsuba で更新される「出馬表取得時刻」
+    # これが今日以前 = 新しい週末用の出馬表がまだ取られていない = stale
+    _races_mtime = _dt_chk.fromtimestamp(_os_chk.path.getmtime('this_week_races.json')).date()
+    _wd = _today_chk.weekday()  # 0=Mon..6=Sun
+    # 月火水木: 直近の日曜以前に出馬表取得されていたら前週データとみなす
+    _days_since_sun = (_wd + 1) % 7  # Sun=0,Mon=1,...,Sat=6
+    _last_sun = _today_chk - _td_chk(days=_days_since_sun)
+    if _wd in (0, 1, 2, 3) and _races_mtime <= _last_sun:
+        stale_mode = True
+        print(f"⚠️ stale_mode: this_week_races.json更新日{_races_mtime} <= 先週日曜{_last_sun}")
+except Exception as _e:
+    print(f"stale判定エラー: {_e}")
+
+# サマリーHTML を事前に生成 (stale_mode時は空)
+if stale_mode:
+    _summary_html = ''
+else:
+    _day_split_html = ''.join(
+        f'<div class="summary-day"><span class="day-label">{date_shorts[dk]}</span><span class="day-picks">{len([p for p in buy_preds if p["_date_key"]==dk])}R</span></div>'
+        for dk in all_dates
+    )
+    _summary_html = (
+        '<div class="summary">\n'
+        '  <div class="summary-title">WEEKEND PICKS</div>\n'
+        '  <div class="summary-grid">\n'
+        f'    <div class="summary-item"><div class="label">厳選レース</div><div class="value">{len(buy_preds)}R</div></div>\n'
+        f'    <div class="summary-item"><div class="label">全レース</div><div class="value">{len(preds)}R</div></div>\n'
+        f'    <div class="summary-item"><div class="label">想定投資</div><div class="value">{total_inv:,}円</div></div>\n'
+        '  </div>\n'
+        f'  <div class="summary-day-split">{_day_split_html}</div>\n'
+        '</div>\n'
+    )
+# stale時のヘッダー日付表示
+_header_date_display = '次週末 予想準備中' if stale_mode else ' / '.join(date_shorts[dk] for dk in all_dates)
+_header_venues_display = '' if stale_mode else '・'.join(all_venues)
+
 def race_card_html(p, show_full=True):
     """1レースのカードHTML"""
     r = p['race']
@@ -774,22 +820,12 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 <div class="sticky-header">
   <div class="logo"><span>NORISHICO</span> AI</div>
   <div class="sub">
-    <div class="sub-date">{' / '.join(date_shorts[dk] for dk in all_dates)}</div>
-    {'・'.join(all_venues)}
+    <div class="sub-date">{_header_date_display}</div>
+    {_header_venues_display}
   </div>
 </div>
 
-<div class="summary">
-  <div class="summary-title">WEEKEND PICKS</div>
-  <div class="summary-grid">
-    <div class="summary-item"><div class="label">厳選レース</div><div class="value">{len(buy_preds)}R</div></div>
-    <div class="summary-item"><div class="label">全レース</div><div class="value">{len(preds)}R</div></div>
-    <div class="summary-item"><div class="label">想定投資</div><div class="value">{total_inv:,}円</div></div>
-  </div>
-  <div class="summary-day-split">
-    {''.join(f'<div class="summary-day"><span class="day-label">{date_shorts[dk]}</span><span class="day-picks">{len([p for p in buy_preds if p["_date_key"]==dk])}R</span></div>' for dk in all_dates)}
-  </div>
-</div>
+{_summary_html}
 
 """
 
@@ -802,16 +838,38 @@ _default_dk = all_dates[-1] if _today_wd == 6 and len(all_dates) > 1 else all_da
 html += """
 <div class="tab-bar date-tabs" id="dateTabs">
 """
-for i, dk in enumerate(all_dates):
-    act = ' active' if dk == _default_dk else ''
-    html += f'  <div class="tab{act}" onclick="switchDateTab(\'{dk}\')">{date_shorts[dk]}</div>\n'
+if stale_mode:
+    # 次週末準備中モード: 日付タブの代わりに「準備中」タブを表示
+    html += '  <div class="tab active" onclick="switchDateTab(\'waiting\')">⏳ 次週末準備中</div>\n'
+else:
+    for i, dk in enumerate(all_dates):
+        act = ' active' if dk == _default_dk else ''
+        html += f'  <div class="tab{act}" onclick="switchDateTab(\'{dk}\')">{date_shorts[dk]}</div>\n'
 if monthly_data and monthly_data.get('days'):
     html += f'  <div class="tab" onclick="switchDateTab(\'results\')">結果</div>\n'
 html += f'  <div class="tab" onclick="switchDateTab(\'rules\')">AIの判断基準</div>\n'
 html += '</div>\n'
 
+# stale_mode: 待機中コンテンツを表示して各日付タブはスキップ
+if stale_mode:
+    html += '<div class="tab-content active" id="daytab-waiting">\n'
+    html += '<div style="padding:60px 20px;text-align:center;color:var(--text-sub)">\n'
+    html += '<div style="font-size:60px;margin-bottom:16px">⏳</div>\n'
+    html += '<div style="font-size:18px;font-weight:700;color:var(--orange-pale);margin-bottom:12px">次週末の予想準備中</div>\n'
+    html += '<div style="font-size:13px;line-height:1.8;max-width:400px;margin:0 auto">\n'
+    html += '先週末のレースは終了しました。<br>\n'
+    html += '次週末の出馬表が公開され次第、<br>新しい予想を生成します。\n'
+    html += '</div>\n'
+    html += '<div style="margin-top:24px;font-size:11px;color:var(--text-sub);opacity:0.7">\n'
+    html += '※ 通常は木曜〜金曜に更新されます<br>\n'
+    html += '※ 結果タブで先週までの実績を確認できます\n'
+    html += '</div>\n'
+    html += '</div>\n'
+    html += '</div>\n'
+
 # ===== 各日付の中身 =====
-for i, dk in enumerate(all_dates):
+# stale_mode の場合はループ全体をスキップ
+for i, dk in enumerate(all_dates if not stale_mode else []):
     act = ' active' if dk == _default_dk else ''
     html += f'<div class="tab-content{act}" id="daytab-{dk}">\n'
 

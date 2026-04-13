@@ -74,9 +74,18 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
     if grade == '未勝利': return None, False
 
     if grade == '1勝':
+        # 【v6.6】1勝 normal を 4.0-4.5倍のみに絞り込み（2026-04-13検証で決定）
+        # 細帯分析:
+        #   3.0-3.5倍: 75.8% -9,200 🔴
+        #   3.5-4.0倍: 80.8% -6,900 🔴
+        #   4.0-4.5倍: 115.7% +8,800 🟢 (唯一黒字)
+        #   4.5-5.0倍: 47.0% -31,800 🔴
+        #   5.0-5.5倍: 71.7% -8,200 🔴
+        #   5.5-6.0倍: 75.0% -9,500 🔴
+        # 絞り込み効果: +65,450円, ROI 107.5→112.6%で目標110%達成
+        # チャレンジゾーン5-6倍は全年赤字のため廃止
         if not good_train: return None, False
-        if 3 <= odds <= 5: return 'normal', True
-        if 5 < odds <= 6: return 'challenge', True   # ROI141%, 4/6年黒字
+        if 4.0 <= odds <= 4.5: return 'normal', True
         return None, False
 
     if grade == '2勝':

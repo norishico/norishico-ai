@@ -78,7 +78,8 @@ def quick_odds_refresh():
     races_json = json.load(open(PROJ_DIR / 'this_week_races.json', encoding='utf-8'))
     race_map = {r['race_id']: r for r in races_json}
 
-    # 現在の買いレースを記録（◎オッズ+馬場状態も保持）
+    # 現在の買いレースを記録（◎オッズ+馬場状態+special_horseフル情報も保持）
+    # v6.6改善: special_horse の完全な辞書を保存してロック復元に使えるように
     old_buys = {}
     old_cond = {}
     for p in preds:
@@ -87,7 +88,12 @@ def quick_odds_refresh():
         sp = p.get('special_horse')
         if bt or sp:
             honmei_odds = p.get('honmei', {}).get('odds', 0) or 0
-            old_buys[rid] = {'type': bt or 'special', 'odds': honmei_odds}
+            old_buys[rid] = {
+                'type': bt or 'special',
+                'odds': honmei_odds,
+                'buy_type': bt,  # 元のbuy_type('v6_normal'等)を保存
+                'special_horse': sp,  # C2/F1の完全情報（Noneの場合もある）
+            }
         old_cond[rid] = p['race'].get('track_cond', '良') or '良'
 
     # Seleniumでオッズだけ取得
@@ -196,10 +202,13 @@ def quick_odds_refresh():
         if old_odds > 0 and new_honmei_odds > 0 and not cond_changed:
             ratio = new_honmei_odds / old_odds
             if 0.8 <= ratio <= 1.2:
-                # 元の買い判定を復元
+                # 元の買い判定を復元（v6.6: special_horseも正しく復元）
                 for p in new_preds:
                     if p['race']['race_id'] == rid:
-                        p['buy_type'] = old_info['type'] if old_info['type'] != 'special' else ''
+                        if old_info.get('buy_type'):
+                            p['buy_type'] = old_info['buy_type']
+                        if old_info.get('special_horse'):
+                            p['special_horse'] = old_info['special_horse']
                         break
                 locked += 1
 

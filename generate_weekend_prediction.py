@@ -1061,6 +1061,15 @@ V66_START_DATE = '2026-04-14'  # v6.6 ルール適用開始日
 BT_EXPECTED_ROI_LONG = 129.3   # 7年バックテスト平均
 BT_EXPECTED_ROI_RECENT = 105.0 # 直近2年(2025-2026)平均・保守的基準
 
+# クラス別BT期待値 (v6.6 7年BT実測より)
+BT_CLASS_EXPECTED = {
+    '新馬':   {'roi': 123.8, 'label': 'C2新馬'},
+    '未勝利': {'roi': 128.3, 'label': 'F1未勝利'},
+    '3勝':    {'roi': 141.4, 'label': '3勝'},
+    'G1':     {'roi': 105.6, 'label': 'G1'},
+    'G2':     {'roi': 129.2, 'label': 'G2'},
+}
+
 def _aggregate_v66_results(monthly):
     """v6.6運用開始以降の結果を集計"""
     total = {'n':0, 'cost':0, 'ret':0, 'profit':0}
@@ -1139,19 +1148,60 @@ if monthly_data and monthly_data.get('days'):
         html += '</div>\n'
         html += f'<div style="padding:6px 16px 0;font-size:10px;color:var(--text-sub);text-align:center">{gap_label} / BT直近2年基準 105.0%</div>\n'
 
-        # クラス別
+        # クラス別 (BT期待値との比較付き)
         if v66_by_class:
-            html += '<div style="padding:10px 16px 4px;font-size:11px;color:var(--green-pale);font-weight:700">クラス別</div>\n'
+            html += '<div style="padding:10px 16px 4px;font-size:11px;color:var(--green-pale);font-weight:700">クラス別 (実績 vs BT期待値)</div>\n'
             html += '<table style="width:calc(100% - 32px);margin:0 16px 8px;font-size:10px;border-collapse:collapse">\n'
-            html += '<tr style="border-bottom:1px solid var(--card-border)"><th style="text-align:left;padding:4px 6px">クラス</th><th style="text-align:right;padding:4px 6px">件数</th><th style="text-align:right;padding:4px 6px">ROI</th><th style="text-align:right;padding:4px 6px">損益</th></tr>\n'
+            html += '<tr style="border-bottom:1px solid var(--card-border)"><th style="text-align:left;padding:4px 6px">クラス</th><th style="text-align:right;padding:4px 6px">件数</th><th style="text-align:right;padding:4px 6px">実ROI</th><th style="text-align:right;padding:4px 6px">BT期待</th><th style="text-align:right;padding:4px 6px">乖離</th><th style="text-align:right;padding:4px 6px">損益</th></tr>\n'
             for g in ['新馬','未勝利','3勝','G1','G2']:
                 if g not in v66_by_class: continue
                 v = v66_by_class[g]
                 roi = v['ret']/v['cost']*100 if v['cost'] else 0
                 prof = v['ret']-v['cost']
+                bt_roi = BT_CLASS_EXPECTED.get(g,{}).get('roi', 0)
+                class_gap = roi - bt_roi
                 pc = 'rs-plus' if prof>0 else ('rs-minus' if prof<0 else 'rs-zero')
-                html += f'<tr><td style="padding:3px 6px">{g}</td><td style="text-align:right;padding:3px 6px">{v["n"]}R</td><td style="text-align:right;padding:3px 6px">{roi:.0f}%</td><td class="{pc}" style="text-align:right;padding:3px 6px">{prof:+,}</td></tr>\n'
+                gc = 'rs-plus' if class_gap >= -5 else ('rs-minus' if class_gap < -10 else 'rs-zero')
+                html += f'<tr><td style="padding:3px 6px">{g}</td><td style="text-align:right;padding:3px 6px">{v["n"]}R</td><td style="text-align:right;padding:3px 6px">{roi:.0f}%</td><td style="text-align:right;padding:3px 6px;color:var(--text-sub)">{bt_roi:.0f}%</td><td class="{gc}" style="text-align:right;padding:3px 6px">{class_gap:+.0f}pt</td><td class="{pc}" style="text-align:right;padding:3px 6px">{prof:+,}</td></tr>\n'
             html += '</table>\n'
+
+        # 週次推移
+        if v66_weekly and len(v66_weekly) >= 1:
+            html += '<div style="padding:10px 16px 4px;font-size:11px;color:var(--green-pale);font-weight:700">週次推移</div>\n'
+            html += '<table style="width:calc(100% - 32px);margin:0 16px 8px;font-size:10px;border-collapse:collapse">\n'
+            html += '<tr style="border-bottom:1px solid var(--card-border)"><th style="text-align:left;padding:4px 6px">週</th><th style="text-align:right;padding:4px 6px">件数</th><th style="text-align:right;padding:4px 6px">ROI</th><th style="text-align:right;padding:4px 6px">損益</th></tr>\n'
+            # 最新4週だけ表示
+            sorted_weeks = sorted(v66_weekly.items())
+            for wk, wv in sorted_weeks[-4:]:
+                w_roi = wv['ret']/wv['cost']*100 if wv['cost'] else 0
+                w_prof = wv['ret']-wv['cost']
+                pc = 'rs-plus' if w_prof>0 else ('rs-minus' if w_prof<0 else 'rs-zero')
+                html += f'<tr><td style="padding:3px 6px">{wk}</td><td style="text-align:right;padding:3px 6px">{wv["n"]}R</td><td style="text-align:right;padding:3px 6px">{w_roi:.0f}%</td><td class="{pc}" style="text-align:right;padding:3px 6px">{w_prof:+,}</td></tr>\n'
+            html += '</table>\n'
+
+        # アラート状態インジケーター
+        alert_msgs = []
+        for g in ['新馬','未勝利','3勝','G1','G2']:
+            if g not in v66_by_class: continue
+            v = v66_by_class[g]
+            if v['n'] < 10: continue  # 小サンプルはスキップ
+            roi = v['ret']/v['cost']*100 if v['cost'] else 0
+            bt_roi = BT_CLASS_EXPECTED.get(g,{}).get('roi', 0)
+            gap = roi - bt_roi
+            if gap < -10:
+                alert_msgs.append(f'🔴 {g}クラスがBT期待値-{abs(gap):.0f}pt (警告)')
+            elif gap < -5:
+                alert_msgs.append(f'🟡 {g}クラスがBT期待値-{abs(gap):.0f}pt (注意)')
+        if alert_msgs:
+            html += '<div style="padding:8px 16px;margin:8px 16px;background:rgba(218,54,51,0.08);border-left:3px solid var(--orange);border-radius:4px;font-size:10px">\n'
+            html += '<div style="font-weight:700;color:var(--orange-pale);margin-bottom:4px">⚠️ アラート</div>\n'
+            for msg in alert_msgs:
+                html += f'<div style="padding:2px 0">{msg}</div>\n'
+            html += '</div>\n'
+        elif v66_total['n'] >= 20:
+            html += '<div style="padding:8px 16px;margin:8px 16px;background:rgba(46,160,67,0.08);border-left:3px solid var(--green);border-radius:4px;font-size:10px">\n'
+            html += '<div style="font-weight:700;color:var(--green-pale)">🟢 全クラスで想定範囲内</div>\n'
+            html += '</div>\n'
     html += '</div>\n'
 
     # ── 参考: 月間全体 (v6.6前後混在) ──

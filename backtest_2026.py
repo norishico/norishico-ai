@@ -120,9 +120,13 @@ def prefetch_month(conn, year, month):
     ph = ','.join(['?'] * len(horse_list))
 
     # past_runs_cache
+    # バグ修正(2026-04-13): race_name がSELECTに無く、scoring.py L517の
+    # _grade_from_race_name(row.get('race_name','')) が常に空文字を返していた。
+    # → 過去走スコアの上がり3F成分が全走で同じクラス扱いになり歪んでいた。
     rows_pp = conn.execute(f"""
         SELECT horse_name, finish, time_sec, last3f, surface, distance,
-               track_cond, venue, num_horses, date, horse_weight, margin, race_num, pos4
+               track_cond, venue, num_horses, date, horse_weight, margin, race_num, pos4,
+               race_name
         FROM results
         WHERE horse_name IN ({ph}) AND date < ? AND finish < 90
         ORDER BY horse_name, date DESC

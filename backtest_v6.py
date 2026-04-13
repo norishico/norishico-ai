@@ -59,8 +59,11 @@ def is_bias_disadvantaged(venue, surface, week_num, honmei_num, num_horses):
     return False
 
 
-def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond=''):
-    """v6.5 通常買い条件 + 調教フィルタ + 不良馬場フィルタ（バイアスフィルタはrun_month_v6で適用）
+def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond='', accel=False):
+    """v6.6 通常買い条件 + 調教フィルタ + 不良馬場フィルタ + 3勝accel必須
+
+    Args:
+        accel: 加速ラップフラグ (lap1 < lap2)。3勝クラスで必須。
 
     Returns: ('normal', True/False) for 通常ゾーン
              ('challenge', True/False) for チャレンジゾーン
@@ -91,17 +94,12 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
         return None, False
 
     if grade == '3勝':
-        # 【v6.6】normal帯を 5-20倍 → 8-11倍 に大幅縮小（2026-04-13検証で決定）
-        # 細帯分析:
-        #   5-7倍: ROI 62.9%, -58,600 (構造赤字)
-        #   7-8倍: ROI 98.9%, -1,300 (トントン)
-        #   8-9倍: ROI 97.4%, -1,850 (トントン)
-        #   9-10倍: ROI 87.6%, -11,200
-        #   10-11倍: ROI 173.5%, +42,650 (唯一黒字)
-        #   11-12倍: ROI 38.2%, -37,050 (壊滅)
-        #   12-20倍: 68R中2勝=2.9% (壊滅)
-        # 8-11倍に絞った結果: +166,580円改善, ROI 98.6→107.5%
-        # Walk-Forward CV: 6/6採用, 6/6テスト年改善 (100%)
+        # 【v6.6】3勝クラス
+        # - normal帯: 8-11倍 (細帯分析で他帯は赤字)
+        # - accel(加速ラップ)必須: accel=True 113R/+90,900 vs accel=False 80R/-80,300
+        # - 効果: ROI 121.4→127.0% (+68,990円)
+        if not accel:
+            return None, False
         if sire in SUNDAY_SIRES and not good_train:
             return None, False
         cond_a = (heads >= 12)
@@ -215,8 +213,10 @@ def run_month_v6(conn, sc_conn, year, month):
         ev7 = calc_ev_scale7(scores, honmei_odds or 0)
         honmei_good = honmei.get('has_good_train', False)
         honmei_sire = honmei.get('_sire', '')
+        honmei_accel = honmei.get('accel_lap', False)
         buy_zone, ev_ok = is_buy_v6(gr, len(result), gap, honmei_odds or 0, ev7,
-                                    good_train=honmei_good, sire=honmei_sire)
+                                    good_train=honmei_good, sire=honmei_sire,
+                                    accel=honmei_accel)
 
         honmei_ev = win_prob * (honmei_odds or 0)
         winner_rank = next((h['rank'] for h in result if h['finish'] == 1), None)

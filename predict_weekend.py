@@ -309,7 +309,8 @@ def score_weekend_race(race, conn, sc_conn):
     buy_type = None
     honmei_good = honmei.get('has_good_train', False)
     honmei_sire = honmei.get('_sire', '')
-    buy_zone, ev_ok = is_buy_v6(gr, heads, gap, honmei_odds, ev7, good_train=honmei_good, sire=honmei_sire, track_cond=cond)
+    honmei_accel = honmei.get('accel_lap', False)
+    buy_zone, ev_ok = is_buy_v6(gr, heads, gap, honmei_odds, ev7, good_train=honmei_good, sire=honmei_sire, track_cond=cond, accel=honmei_accel)
     if ev_ok:
         # 強バイアス不利枠フィルタ: honmeiが内枠(≤35%)で不利な3パターンは見送り
         from scoring import _get_opening_week

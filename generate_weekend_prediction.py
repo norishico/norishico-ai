@@ -998,15 +998,112 @@ for i, dk in enumerate(all_dates):
     html += '</div>\n'  # daytab閉じ
 
 # ===== 結果タブ =====
+# v6.6 運用実績の集計用
+V66_START_DATE = '2026-04-14'  # v6.6 ルール適用開始日
+BT_EXPECTED_ROI_LONG = 129.3   # 7年バックテスト平均
+BT_EXPECTED_ROI_RECENT = 105.0 # 直近2年(2025-2026)平均・保守的基準
+
+def _aggregate_v66_results(monthly):
+    """v6.6運用開始以降の結果を集計"""
+    total = {'n':0, 'cost':0, 'ret':0, 'profit':0}
+    by_class = {}  # grade → {n, cost, ret}
+    weekly = {}    # 'YYYY-WW' → {n, cost, ret}
+    recent_days = []  # 直近の日別
+    for day in monthly.get('days', []):
+        if day['date'] < V66_START_DATE: continue
+        day_total = {'n':0, 'cost':0, 'ret':0}
+        for br in day.get('buy_results', []):
+            g = br.get('grade', '?')
+            c = br.get('cost', 0)
+            r = br.get('return', 0)
+            total['n'] += 1
+            total['cost'] += c
+            total['ret'] += r
+            if g not in by_class:
+                by_class[g] = {'n':0, 'cost':0, 'ret':0}
+            by_class[g]['n'] += 1
+            by_class[g]['cost'] += c
+            by_class[g]['ret'] += r
+            # 週キー
+            from datetime import datetime as _dt
+            try:
+                d = _dt.strptime(day['date'], '%Y-%m-%d')
+                yw = d.strftime('%G-W%V')
+                if yw not in weekly:
+                    weekly[yw] = {'n':0, 'cost':0, 'ret':0}
+                weekly[yw]['n'] += 1
+                weekly[yw]['cost'] += c
+                weekly[yw]['ret'] += r
+            except: pass
+            day_total['n'] += 1
+            day_total['cost'] += c
+            day_total['ret'] += r
+        if day_total['n'] > 0:
+            recent_days.append((day['date'], day_total))
+    total['profit'] = total['ret'] - total['cost']
+    total['roi'] = total['ret']/total['cost']*100 if total['cost'] else 0
+    return total, by_class, weekly, recent_days
+
 if monthly_data and monthly_data.get('days'):
     html += '<div class="tab-content" id="daytab-results">\n'
+
+    # ── v6.6 運用実績セクション ──
+    v66_total, v66_by_class, v66_weekly, v66_days = _aggregate_v66_results(monthly_data)
+
+    html += '<div class="result-summary" style="border:2px solid var(--green);background:rgba(46,160,67,0.08)">\n'
+    html += '<div class="rs-title" style="color:var(--green-pale)">📊 v6.6 運用実績（2026-04-14〜）</div>\n'
+    if v66_total['n'] == 0:
+        html += '<div style="padding:12px 16px;font-size:12px;color:var(--text-sub);text-align:center">\n'
+        html += '<div style="font-size:20px;margin-bottom:6px">⏳</div>\n'
+        html += 'v6.6 ルール適用開始前です。<br>2026-04-18(土)の週末から実績が蓄積されます。\n'
+        html += '<div style="margin-top:8px;font-size:10px;">BT期待値: <b>129.3%</b>（7年）/ <b>105%</b>（直近2年・保守的）</div>\n'
+        html += '</div>\n'
+    else:
+        v_roi = v66_total['roi']
+        v_profit = v66_total['profit']
+        # 乖離判定 (vs BT直近2年 105%)
+        gap_pt = v_roi - BT_EXPECTED_ROI_RECENT
+        if gap_pt >= 5: gap_cls = 'rs-plus'; gap_label = '想定超え 🟢'
+        elif gap_pt >= -5: gap_cls = 'rs-zero'; gap_label = '想定内 🟢'
+        elif gap_pt >= -10: gap_cls = 'rs-minus'; gap_label = '注意 🟡'
+        else: gap_cls = 'rs-minus'; gap_label = '警告 🔴'
+        p_cls = 'rs-plus' if v_profit > 0 else ('rs-minus' if v_profit < 0 else 'rs-zero')
+        r_cls = 'rs-plus' if v_roi >= 100 else 'rs-minus'
+        html += '<div class="rs-grid">\n'
+        html += f'<div class="rs-item"><div class="rs-label">投資</div><div class="rs-value">{v66_total["cost"]:,}円</div></div>\n'
+        html += f'<div class="rs-item"><div class="rs-label">回収</div><div class="rs-value">{v66_total["ret"]:,}円</div></div>\n'
+        html += f'<div class="rs-item"><div class="rs-label">収支</div><div class="rs-value {p_cls}">{v_profit:+,}円</div></div>\n'
+        html += '</div>\n'
+        html += '<div class="rs-grid" style="margin-top:8px">\n'
+        html += f'<div class="rs-item"><div class="rs-label">実ROI</div><div class="rs-value {r_cls}">{v_roi:.1f}%</div></div>\n'
+        html += f'<div class="rs-item"><div class="rs-label">レース数</div><div class="rs-value">{v66_total["n"]}R</div></div>\n'
+        html += f'<div class="rs-item"><div class="rs-label">BT乖離</div><div class="rs-value {gap_cls}">{gap_pt:+.1f}pt</div></div>\n'
+        html += '</div>\n'
+        html += f'<div style="padding:6px 16px 0;font-size:10px;color:var(--text-sub);text-align:center">{gap_label} / BT直近2年基準 105.0%</div>\n'
+
+        # クラス別
+        if v66_by_class:
+            html += '<div style="padding:10px 16px 4px;font-size:11px;color:var(--green-pale);font-weight:700">クラス別</div>\n'
+            html += '<table style="width:calc(100% - 32px);margin:0 16px 8px;font-size:10px;border-collapse:collapse">\n'
+            html += '<tr style="border-bottom:1px solid var(--card-border)"><th style="text-align:left;padding:4px 6px">クラス</th><th style="text-align:right;padding:4px 6px">件数</th><th style="text-align:right;padding:4px 6px">ROI</th><th style="text-align:right;padding:4px 6px">損益</th></tr>\n'
+            for g in ['新馬','未勝利','3勝','G1','G2']:
+                if g not in v66_by_class: continue
+                v = v66_by_class[g]
+                roi = v['ret']/v['cost']*100 if v['cost'] else 0
+                prof = v['ret']-v['cost']
+                pc = 'rs-plus' if prof>0 else ('rs-minus' if prof<0 else 'rs-zero')
+                html += f'<tr><td style="padding:3px 6px">{g}</td><td style="text-align:right;padding:3px 6px">{v["n"]}R</td><td style="text-align:right;padding:3px 6px">{roi:.0f}%</td><td class="{pc}" style="text-align:right;padding:3px 6px">{prof:+,}</td></tr>\n'
+            html += '</table>\n'
+    html += '</div>\n'
+
+    # ── 参考: 月間全体 (v6.6前後混在) ──
     mt = monthly_data.get('total', {})
     m_profit = mt.get('profit', 0)
     m_roi = mt.get('roi', 0)
     p_cls = 'rs-plus' if m_profit > 0 else ('rs-minus' if m_profit < 0 else 'rs-zero')
     r_cls = 'rs-plus' if m_roi > 100 else ('rs-minus' if m_roi < 100 else 'rs-zero')
-    html += '<div class="result-summary">\n'
-    html += f'<div class="rs-title">{monthly_data["month"].replace("_","/")} MONTHLY</div>\n'
+    html += '<div class="result-summary" style="opacity:0.85">\n'
+    html += f'<div class="rs-title" style="font-size:11px">参考: {monthly_data["month"].replace("_","/")} MONTHLY (旧ルール混在)</div>\n'
     html += '<div class="rs-grid">\n'
     html += f'<div class="rs-item"><div class="rs-label">投資</div><div class="rs-value">{mt.get("cost",0):,}円</div></div>\n'
     html += f'<div class="rs-item"><div class="rs-label">回収</div><div class="rs-value">{mt.get("return",0):,}円</div></div>\n'

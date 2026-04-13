@@ -122,7 +122,11 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
         return None, False
 
     if grade in ('G1', 'G2'):
-        if 5 <= odds <= 20:                            # ROI167%(G2), 129%(G1)
+        # 【v6.6】内部赤字帯 5-7 と 10-13 を除外
+        # 細帯分析: 5-7倍 -3,600🔴 / 7-10倍 +7,700🟢 / 10-13倍 -9,500🔴
+        #          13-16倍 +6,300🟢 / 16-20倍 +17,800🟢
+        # 絞込効果: +14,500円 (G2 79R→48R)
+        if 7 <= odds < 10 or 13 <= odds <= 20:
             return 'challenge', True
         return None, False
 
@@ -168,7 +172,9 @@ def is_special_buy(grade, odds, popularity, heads, accel, good_train, sire, surf
     # F1: 未勝利×主流血統(SS+KK)×穴馬×好調教+加速ラップ
     if is_mainstream and good_train:
         pop = popularity or 99
-        if grade == '未勝利' and 20 <= odds < 30 and 1 <= pop <= 8:
+        # 【v6.6】F1未勝利 odds 20-30 → 15-35 に拡張
+        # 拡張効果: +52,300円 (348R追加, ROI 115.0%)
+        if grade == '未勝利' and 15 <= odds < 35 and 1 <= pop <= 8:
             return True, 'F1_未勝利主流accel'
 
     return False, ''

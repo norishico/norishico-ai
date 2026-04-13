@@ -172,9 +172,10 @@ def is_special_buy(grade, odds, popularity, heads, accel, good_train, sire, surf
     # F1: 未勝利×主流血統(SS+KK)×穴馬×好調教+加速ラップ
     if is_mainstream and good_train:
         pop = popularity or 99
-        # 【v6.6】F1未勝利 odds 20-30 → 15-35 に拡張
-        # 拡張効果: +52,300円 (348R追加, ROI 115.0%)
-        if grade == '未勝利' and 15 <= odds < 35 and 1 <= pop <= 8:
+        # 【v6.6】F1未勝利 odds 15-33
+        # Phase 2b: 20-30 → 15-35 に拡張 (+52,300)
+        # B3: 33-35帯は24R中0勝で除外、15-33に絞り (+45,610)
+        if grade == '未勝利' and 15 <= odds < 33 and 1 <= pop <= 8:
             return True, 'F1_未勝利主流accel'
 
     return False, ''

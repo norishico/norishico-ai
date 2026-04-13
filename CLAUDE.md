@@ -107,7 +107,7 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
     if grade == '3勝':
         if sire in SUNDAY_SIRES and not good_train: return None, False
         if not ((heads >= 12) or (gap >= 8)): return None, False
-        if (5 <= odds <= 20 and heads >= 12) or (8 <= odds <= 20 and gap >= 8):
+        if (5 <= odds <= 12 and heads >= 12) or (8 <= odds <= 12 and gap >= 8):  # v6.6: 上限20→12
             return 'normal', True
         if 20 < odds <= 25: return 'challenge', True   # ROI97%, 4/7年黒字
 
@@ -126,8 +126,8 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
 | クラス | 通常ゾーン（★★/★★★） | チャレンジゾーン（★） |
 |---|---|---|
 | 1勝 | odds 3-5（好調教のみ） | **odds 5-6**（ROI141%） |
-| **2勝** | **廃止** | **廃止** |
-| 3勝 | odds 5-20（heads12+ or gap8+） | **odds 20-25**（ROI97%） |
+| **2勝** | **廃止(v6.6)** | **廃止(v6.6)** |
+| 3勝 | odds **5-12**（heads12+ or gap8+）【v6.6で上限20→12に縮小】 | **odds 20-25**（ROI97%） |
 | G3 | odds 3-16（gap3-8, heads14+） | なし |
 | **G1/G2** | なし | **odds 5-20**（ROI167%） |
 
@@ -396,7 +396,7 @@ conn.execute("PRAGMA mmap_size=268435456")
 | 未勝利 | -- | **F1別枠**（主流血統×好調教×accel） | 好調教+accel必須 |
 | 1勝 | odds 3-5 | **odds 5-6** | 好調教のみ |
 | **2勝** | **廃止(v6.6)** | **廃止(v6.6)** | -- |
-| 3勝 | odds 5-20 | **odds 20-25** | SS系非好調教除外 |
+| 3勝 | **odds 5-12(v6.6)** | **odds 20-25** | SS系非好調教除外 |
 | G3 | odds 3-16 & gap3-8 & 14頭+ | なし | なし |
 | **G1/G2** | **なし** | **odds 5-20** | なし |
 | 全クラス | **venue_sire_bonus** | **venue_damsire_bonus** | -- |

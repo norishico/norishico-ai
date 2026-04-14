@@ -31,3 +31,12 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# JRA-VAN SDK (vendor, not our code)
+JRA-VAN Data Lab. SDK*/
+
+# JV-Link spec extract (regenerable from PDF)
+jvopen_spec.txt
+
+# Monitoring report (regenerable by monitor_actual.py)
+docs/monitoring_report.md

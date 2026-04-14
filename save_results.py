@@ -7,9 +7,62 @@ Usage:
   python save_results.py sunday_results_0405.json sunday_predictions.json
 """
 
-import json, sys, os
+import json, sys, os, sqlite3
 from pathlib import Path
 from datetime import datetime
+
+DB_PATH = 'keiba.db'
+
+
+def lookup_dividends(conn, race_id, date, venue, race_num):
+    """Return dict of dividend fields for a race, or None if not in DB yet."""
+    if conn is None:
+        return None
+    row = conn.execute(
+        "SELECT tansho_payout, umaren_uma1, umaren_uma2, umaren_payout "
+        "FROM dividends WHERE race_id=?",
+        (race_id,),
+    ).fetchone()
+    if row is None:
+        row = conn.execute(
+            "SELECT tansho_payout, umaren_uma1, umaren_uma2, umaren_payout "
+            "FROM dividends WHERE date=? AND venue=? AND race_num=?",
+            (date, venue, race_num),
+        ).fetchone()
+    if row is None:
+        return None
+    return {
+        'tansho_payout': row[0],
+        'umaren_uma1': row[1],
+        'umaren_uma2': row[2],
+        'umaren_payout': row[3],
+    }
+
+
+def calc_v6_return(honmei_odds, h_finish, ni_finish, dividends):
+    """v6 normal payout per CLAUDE.md.
+    Return (return_yen, source) where source in {'db','approx'}.
+    odds>=8: bet 500/1500 (tansho/umaren). odds<8: bet 1000/1000.
+    """
+    try:
+        odds = float(honmei_odds or 0)
+    except Exception:
+        odds = 0.0
+    high = odds >= 8
+    tansho_units = 5 if high else 10   # 100yen units
+    umaren_units = 15 if high else 10
+    ret = 0
+    if dividends is not None:
+        if h_finish == 1 and dividends['tansho_payout']:
+            ret += dividends['tansho_payout'] * tansho_units
+        if dividends['umaren_payout'] and h_finish in (1, 2) and ni_finish in (1, 2) and h_finish != ni_finish:
+            ret += dividends['umaren_payout'] * umaren_units
+        return ret, 'db'
+    # Fallback: tansho-only approximation from honmei odds
+    if h_finish == 1:
+        ret = int(odds * (500 if high else 1000))
+    return ret, 'approx'
+
 
 def main():
     if len(sys.argv) < 3:
@@ -23,6 +76,14 @@ def main():
 
     results = json.load(open(results_path, encoding='utf-8'))
     preds = json.load(open(preds_path, encoding='utf-8'))
+
+    db_conn = None
+    if Path(DB_PATH).exists():
+        try:
+            db_conn = sqlite3.connect(DB_PATH)
+        except Exception as e:
+            print(f"WARN: failed to open {DB_PATH}: {e}")
+            db_conn = None
 
     # Build prediction lookup
     pred_dict = {}
@@ -101,25 +162,36 @@ def main():
         # Calculate P&L
         cost = 0
         ret = 0
+        payout_source = None
         winner = horses[0] if horses else {}
+
+        dividends = lookup_dividends(
+            db_conn,
+            rid,
+            today.strftime('%Y-%m-%d'),
+            race.get('venue', ''),
+            race.get('race_num', 0),
+        )
 
         if bt:
             if bt == 'v6_challenge':
                 cost = 1000
                 if h_finish == 1:
-                    try:
-                        ret = int(float(honmei.get('odds', 0)) * 1000)
-                    except:
-                        ret = 0
+                    if dividends and dividends['tansho_payout']:
+                        ret = dividends['tansho_payout'] * 10
+                        payout_source = 'db'
+                    else:
+                        try:
+                            ret = int(float(honmei.get('odds', 0)) * 1000)
+                            payout_source = 'approx'
+                        except Exception:
+                            ret = 0
             else:
+                # v6_star2 / v6_star3 = normal buy (tansho + umaren)
                 cost = 2000
-                if h_finish == 1:
-                    try:
-                        ret += int(float(honmei.get('odds', 0)) * 1000)
-                    except:
-                        pass
-                # umaren check would need dividend data - approximate
-                # For now just track tansho
+                ret, payout_source = calc_v6_return(
+                    honmei.get('odds', 0), h_finish, ni_finish, dividends
+                )
 
         if sp:
             sp_finish = None
@@ -129,10 +201,15 @@ def main():
                     break
             cost += 1000
             if sp_finish == 1:
-                try:
-                    ret += int(float(sp.get('odds', 0)) * 1000)
-                except:
-                    pass
+                if dividends and dividends['tansho_payout']:
+                    ret += dividends['tansho_payout'] * 10
+                    payout_source = payout_source or 'db'
+                else:
+                    try:
+                        ret += int(float(sp.get('odds', 0)) * 1000)
+                        payout_source = payout_source or 'approx'
+                    except Exception:
+                        pass
 
         entry = {
             'venue': race.get('venue', ''),
@@ -151,6 +228,7 @@ def main():
             'cost': cost,
             'return': ret,
             'profit': ret - cost,
+            'payout_source': payout_source or 'none',
         }
         if sp:
             entry['special'] = sp['horse_name']

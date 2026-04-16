@@ -19,7 +19,9 @@ sys.path.insert(0, '.')
 
 for f in ['gate_style_bias.json', 'gate_cond_blood_stats.json']:
     if not Path(f).exists():
-        shutil.copy(f'/mnt/user-data/uploads/{f}', f)
+        src = Path(f'/mnt/user-data/uploads/{f}')
+        if src.exists():
+            shutil.copy(str(src), f)
 
 import scoring as sc
 from scoring import (get_conn, score_past_performance, score_course_fitness,
@@ -155,6 +157,33 @@ def prefetch_score_caches(conn, cutoff_date=None):
     from build_venue_damsire_bonus import build_venue_damsire_bonus
     build_venue_damsire_bonus(conn, cutoff_date=_cutoff)
     _sc3._load_vdsb_all(conn)
+
+    # cushion_sire_bonus も同様にリーク防止で再構築
+    _sc3._csb_cache.clear(); _sc3._csb_loaded = False
+    try:
+        from build_cushion_sire_bonus import build_cushion_sire_bonus
+        build_cushion_sire_bonus(conn, cutoff_date=_cutoff)
+        _sc3._load_csb_all(conn)
+    except Exception as e:
+        print(f"  cushion_sire_bonus rebuild skipped: {e}")
+
+    # nicks_bonus もリーク防止で再構築
+    _sc3._nicks_cache.clear(); _sc3._nicks_loaded = False
+    try:
+        from build_nicks_bonus import build_nicks_bonus
+        build_nicks_bonus(conn, cutoff_date=_cutoff)
+        _sc3._load_nicks_all(conn)
+    except Exception as e:
+        print(f"  nicks_bonus rebuild skipped: {e}")
+
+    # daily_track_bias もリーク防止で再構築 (cutoff前の結果のみで判定+分布計算)
+    try:
+        _sc3._dtb_cache.clear(); _sc3._dtb_loaded = False
+        from build_daily_track_bias import build_daily_track_bias
+        build_daily_track_bias(conn, cutoff_date=_cutoff)
+        _sc3._load_dtb_all(conn)
+    except Exception as e:
+        print(f"  daily_track_bias rebuild skipped: {e}")
 
 
 

@@ -5,13 +5,84 @@ saturday_results_0404.json + weekend_predictions (Saturday) → monthly_results_
 Usage:
   python save_results.py saturday_results_0404.json saturday_predictions.json
   python save_results.py sunday_results_0405.json sunday_predictions.json
+  python save_results.py --reclassify              # 既存monthly_resultsの外れ分類を再計算
 """
 
 import json, sys, os, sqlite3
 from pathlib import Path
 from datetime import datetime
+from collections import Counter
 
 DB_PATH = 'keiba.db'
+
+
+# ---------------------------------------------------------------------------
+# 外れの4タイプ分類 (凱旋門太郎フレームワーク)
+# ---------------------------------------------------------------------------
+# luck     : 運のぶれ (本命1-3着、惜敗)     → 行動維持が正解
+# narrow   : 読み甘   (本命4-5着)           → 見立て微調整
+# misread  : 読み違い (本命6着+)            → モデル要振り返り
+# scenario : 展開依存 (同日同会場3敗+で4着+) → 条件読み一括ミス
+# ---------------------------------------------------------------------------
+
+def classify_misses(buy_results):
+    """buy_results リストに miss_type を付与 (in-place)。
+
+    的中(profit>0)は miss_type=None。
+    外れは着順ベースで分類し、同日同会場に外れが3件以上集中して
+    本命4着以下なら 'scenario' (展開依存) で上書きする。
+    """
+    # Phase 1: 着順ベース分類
+    for entry in buy_results:
+        if entry.get('profit', 0) > 0:
+            entry['miss_type'] = None
+            continue
+        finish = entry.get('honmei_finish')
+        if finish is None:
+            entry['miss_type'] = 'unknown'
+        elif finish <= 3:
+            entry['miss_type'] = 'luck'
+        elif finish <= 5:
+            entry['miss_type'] = 'narrow'
+        else:
+            entry['miss_type'] = 'misread'
+
+    # Phase 2: 展開依存の検出 (同日同会場で3敗以上)
+    venue_losses = Counter()
+    for entry in buy_results:
+        if entry.get('profit', 0) <= 0:
+            finish = entry.get('honmei_finish') or 99
+            if finish >= 4:
+                venue_losses[entry.get('venue', '')] += 1
+
+    scenario_venues = {v for v, cnt in venue_losses.items() if cnt >= 3}
+
+    for entry in buy_results:
+        if (entry.get('venue', '') in scenario_venues
+                and entry.get('profit', 0) <= 0
+                and (entry.get('honmei_finish') or 99) >= 4):
+            entry['miss_type'] = 'scenario'
+
+
+def reclassify_all():
+    """既存の monthly_results_*.json 全てに外れ分類を再計算して上書き。"""
+    import glob as _glob
+    files = sorted(_glob.glob('monthly_results_*.json'))
+    if not files:
+        print('No monthly_results_*.json found.')
+        return
+    for fp in files:
+        data = json.load(open(fp, encoding='utf-8'))
+        changed = 0
+        for day in data.get('days', []):
+            buys = day.get('buy_results', [])
+            if buys:
+                classify_misses(buys)
+                changed += len(buys)
+        with open(fp, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f'  {fp}: {changed} entries reclassified')
+    print('Done.')
 
 
 def lookup_dividends(conn, race_id, date, venue, race_num):
@@ -242,6 +313,9 @@ def main():
     day_entry['summary']['profit'] = day_entry['summary']['return'] - day_entry['summary']['cost']
     day_entry['summary']['roi'] = round(day_entry['summary']['return'] / day_entry['summary']['cost'] * 100, 1) if day_entry['summary']['cost'] > 0 else 0
 
+    # 外れ分類
+    classify_misses(day_entry['buy_results'])
+
     # Add or update
     if day_entry['date'] in existing_dates:
         monthly['days'] = [d for d in monthly['days'] if d['date'] != day_entry['date']]
@@ -269,4 +343,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if '--reclassify' in sys.argv:
+        reclassify_all()
+    else:
+        main()

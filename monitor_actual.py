@@ -218,6 +218,48 @@ def main():
         print(fmt_line(bt, agg, ci))
     print()
 
+    # ------ [4] 外れの4タイプ分析 ------
+    MISS_LABELS = {
+        "luck": "運のぶれ(1-3着)",
+        "narrow": "読み甘(4-5着)",
+        "misread": "読み違い(6着+)",
+        "scenario": "展開依存(会場集中)",
+        "unknown": "不明",
+    }
+    losses = [b for b in all_buys if b.get("profit", 0) <= 0]
+    by_miss = defaultdict(list)
+    for b in losses:
+        mt = b.get("miss_type", "unknown")
+        by_miss[mt].append(b)
+
+    if losses:
+        print("[4] 外れの4タイプ分析 (凱旋門太郎フレームワーク)")
+        total_losses = len(losses)
+        for mt in ["luck", "narrow", "misread", "scenario", "unknown"]:
+            items = by_miss.get(mt, [])
+            if not items:
+                continue
+            pct = len(items) / total_losses * 100
+            avg_finish = sum(b.get("honmei_finish", 0) or 0 for b in items) / len(items)
+            label = MISS_LABELS.get(mt, mt)
+            print(f"  {label:<22} {len(items):>3}件 ({pct:>5.1f}%)  平均着順{avg_finish:.1f}")
+        print()
+
+        # 週次サマリ: 最頻タイプ + 改善方針
+        most_common = max(by_miss.keys(), key=lambda k: len(by_miss[k]))
+        mc_label = MISS_LABELS.get(most_common, most_common)
+        mc_count = len(by_miss[most_common])
+        print(f"  [最頻] {mc_label} ({mc_count}/{total_losses}件)")
+        advice = {
+            "luck": "→ 行動維持が正解。モデルは機能している。サンプル蓄積を待つ",
+            "narrow": "→ 見立ては近い。EV閾値の微調整 or ボーナス精度向上を検討",
+            "misread": "→ スコアリング要素の振り返り必要。着順分布をクラス別に確認",
+            "scenario": "→ 同一会場集中の見送りルール検討。馬場/天候の条件読みを改善",
+            "unknown": "→ honmei_finish が記録されていない。データ確認必要",
+        }
+        print(f"  {advice.get(most_common, '')}")
+        print()
+
     md = []
     md.append("# v6.6 実運用モニタリング レポート\n")
     md.append(f"_累積 {cum['n']}R / 月数 {len(months)} / 自動生成: monitor_actual.py_\n")
@@ -282,10 +324,37 @@ def main():
             f"[{ci[0]:.1f}, {ci[1]:.1f}] | {agg['profit']:+,} |"
         )
     md.append("")
+    if losses:
+        md.append("## 外れの4タイプ分析")
+        md.append("")
+        md.append("凱旋門太郎フレームワーク: 外れを分類し改善方向を特定する")
+        md.append("")
+        md.append("| タイプ | 件数 | 割合 | 平均着順 | 方針 |")
+        md.append("|---|---|---|---|---|")
+        miss_labels_short = {
+            "luck": ("運のぶれ", "行動維持"),
+            "narrow": ("読み甘", "EV微調整"),
+            "misread": ("読み違い", "要振り返り"),
+            "scenario": ("展開依存", "条件読み改善"),
+            "unknown": ("不明", "データ確認"),
+        }
+        for mt in ["luck", "narrow", "misread", "scenario", "unknown"]:
+            items = by_miss.get(mt, [])
+            if not items:
+                continue
+            pct = len(items) / total_losses * 100
+            avg_f = sum(b.get("honmei_finish", 0) or 0 for b in items) / len(items)
+            lbl, act = miss_labels_short.get(mt, (mt, "-"))
+            md.append(f"| {lbl} | {len(items)}件 | {pct:.0f}% | {avg_f:.1f}着 | {act} |")
+        md.append("")
+        mc_lbl = miss_labels_short.get(most_common, (most_common, ""))[0]
+        md.append(f"**最頻タイプ: {mc_lbl}** ({mc_count}/{total_losses}件)")
+        md.append("")
     md.append("## 注記")
     md.append("- CI95はブートストラップ法 (n=2000, seed=42) で算出")
     md.append("- 1勝/2勝/G3はv6.6で廃止クラス。表示は過去買い目の参考値")
     md.append("- BT基準値は docs/OPERATIONAL_MONITORING.md からパース")
+    md.append("- 外れ4タイプ: luck=1-3着, narrow=4-5着, misread=6着+, scenario=同会場3敗+集中")
 
     REPORT_OUT.write_text("\n".join(md), encoding="utf-8")
     print(f"Markdown report -> {REPORT_OUT}")

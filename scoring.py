@@ -1594,6 +1594,250 @@ def calc_venue_damsire_bonus(venue: str, distance: int, dam_sire: str, conn) -> 
 
 
 # ══════════════════════════════════════════════════════════
+# クッション値×父 ボーナス（cushion_sire_bonus テーブル）
+# JRA公式クッション値(芝のみ)と父の相性を加点
+# ビン分割: soft(<=8.9) / normal(9.0-9.9) / firm(>=10.0)
+# venue_sire_bonus より控えめ (0〜3pt、二重計上回避)
+# ══════════════════════════════════════════════════════════
+_csb_cache: dict = {}   # {(cushion_bin, sire): bonus}
+_csb_loaded: bool = False
+
+def _cushion_bin(c: float) -> str:
+    if c is None:
+        return None
+    if c <= 8.9:
+        return 'soft'
+    if c <= 9.9:
+        return 'normal'
+    return 'firm'
+
+def _load_csb_all(conn):
+    """cushion_sire_bonusテーブルを全件一括ロード"""
+    global _csb_loaded
+    if _csb_loaded:
+        return
+    try:
+        rows = conn.execute('SELECT cushion_bin, sire, bonus FROM cushion_sire_bonus').fetchall()
+        for r in rows:
+            _csb_cache[(r['cushion_bin'], r['sire'])] = r['bonus']
+        _csb_loaded = True
+    except Exception:
+        _csb_loaded = True  # テーブルなくてもエラーにしない
+
+# ══════════════════════════════════════════════════════════
+# 父×母父 ニックスボーナス（nicks_bonus テーブル）
+# 特定の sire × dam_sire 組み合わせの相性加点
+# ══════════════════════════════════════════════════════════
+_nicks_cache: dict = {}
+_nicks_loaded: bool = False
+
+def _load_nicks_all(conn):
+    global _nicks_loaded
+    if _nicks_loaded:
+        return
+    try:
+        rows = conn.execute('SELECT sire, dam_sire, bonus FROM nicks_bonus').fetchall()
+        for r in rows:
+            _nicks_cache[(r['sire'], r['dam_sire'])] = r['bonus']
+        _nicks_loaded = True
+    except Exception:
+        _nicks_loaded = True
+
+def calc_nicks_bonus(sire: str, dam_sire: str, surface: str, conn) -> float:
+    """父×母父ニックスボーナスを返す（0〜1.5pt、芝のみ有効）
+    パターン数10件未満の場合はデータ不十分として全馬0を返す"""
+    if surface != '芝' or not sire or not dam_sire:
+        return 0.0
+    if not _nicks_loaded:
+        _load_nicks_all(conn)
+    if len(_nicks_cache) < 10:
+        return 0.0
+    return _nicks_cache.get((sire.strip(), dam_sire.strip()), 0.0)
+
+
+def calc_cushion_sire_bonus(cushion: float, sire: str, surface: str, conn) -> float:
+    """クッション値×父のボーナスを返す（0〜3pt、芝のみ有効）
+
+    Args:
+        cushion: JRA公式クッション値 (例 9.5)
+        sire: 父名
+        surface: '芝' or 'ダート' (ダートは常に0)
+    """
+    if surface != '芝' or cushion is None or not sire:
+        return 0.0
+    if not _csb_loaded:
+        _load_csb_all(conn)
+    cb = _cushion_bin(cushion)
+    if cb is None:
+        return 0.0
+    return _csb_cache.get((cb, sire.strip()), 0.0)
+
+
+# ══════════════════════════════════════════════════════════
+# 当日トラックバイアス (daily_track_bias テーブル)
+# 前日同会場の1-3着馬の枠番・脚質から当日バイアスを推測
+# 分布パーセンタイル(p25/p75)で分類するので相対的な強/弱を反映
+# ══════════════════════════════════════════════════════════
+_dtb_cache: dict = {}  # {(date, venue): (bias_type, bias_score)}
+_dtb_loaded: bool = False
+
+def _load_dtb_all(conn):
+    global _dtb_loaded
+    if _dtb_loaded:
+        return
+    try:
+        rows = conn.execute(
+            'SELECT date, venue, bias_type, bias_score FROM daily_track_bias'
+        ).fetchall()
+        for r in rows:
+            _dtb_cache[(r['date'], r['venue'])] = (r['bias_type'], r['bias_score'])
+        _dtb_loaded = True
+    except Exception:
+        _dtb_loaded = True  # テーブル無くてもエラーにしない
+
+def _find_prior_bias(venue: str, date: str) -> str:
+    """指定日の前日(同会場) 最大7日遡る。見つかればbias_type、無ければ'flat'"""
+    from datetime import datetime, timedelta
+    try:
+        d0 = datetime.strptime(date, '%Y-%m-%d')
+    except Exception:
+        return 'flat'
+    for delta in range(1, 8):
+        prev = (d0 - timedelta(days=delta)).strftime('%Y-%m-%d')
+        key = (prev, venue)
+        if key in _dtb_cache:
+            return _dtb_cache[key][0]
+    return 'flat'
+
+def calc_daily_bias_bonus(venue: str, date: str, umaban: int, num_horses: int,
+                           running_style: str, conn) -> float:
+    """前日同会場の bias_type から当日の内外×脚質補正を返す
+
+    Args:
+        venue: 今日の開催会場
+        date: 今日の日付 'YYYY-MM-DD'
+        umaban: 馬番 (実馬番)
+        num_horses: 頭数
+        running_style: '逃げ'/'先行'/'差し'/'追込' 等
+    Returns:
+        -1.0 〜 +1.5 の補正値
+    """
+    if not umaban or not num_horses or num_horses < 8:
+        return 0.0
+    if not _dtb_loaded:
+        _load_dtb_all(conn)
+
+    bias_type = _find_prior_bias(venue, date)
+    if bias_type == 'flat':
+        return 0.0
+
+    ratio_w = float(umaban) / num_horses
+    is_inner = ratio_w <= 0.4
+    is_outer = ratio_w >= 0.6
+
+    s = (running_style or '').strip()
+    is_front = s in ('逃げ', '先行')
+    is_late = s in ('差し', '追込')
+
+    # P4 (3.0/1.5) — parameter sweep で選定された local max
+    # P0-P7 試験の結果、4年CVで最大改善 (+6,400円 vs cushion単体)
+    # 特徴: 2024悪年で+6,400、2025cushion効果を維持、2022-2023は微小な影響
+    if bias_type == 'inner_front':
+        if is_inner and is_front:
+            return 3.0
+        if is_inner or is_front:
+            return 1.5
+        return 0.0
+    if bias_type == 'outer_late':
+        if is_outer and is_late:
+            return 3.0
+        if is_outer or is_late:
+            return 1.5
+        return 0.0
+    return 0.0
+
+
+# ══════════════════════════════════════════════════════════
+# 状態懸念馬の減点フィルタ
+# 休養明け×前走大敗×今回追い切り悪化 の AND 条件で-3pt減点
+# 「買う馬を選ぶ」から「怪しい馬を避ける」への方向転換 (れいな提案)
+# ══════════════════════════════════════════════════════════
+_cond_lap_cache: dict = {}  # {(horse_name, date): past_avg_lap1}
+
+def _get_past_avg_lap1(horse_name: str, ref_date: str, conn) -> float:
+    """指定馬の ref_date より180日前〜7日前までの training lap1 平均"""
+    key = (horse_name, ref_date)
+    if key in _cond_lap_cache:
+        return _cond_lap_cache[key]
+    try:
+        from datetime import datetime, timedelta
+        d0 = datetime.strptime(ref_date, '%Y-%m-%d')
+        d_from = (d0 - timedelta(days=180)).strftime('%Y-%m-%d')
+        d_to = (d0 - timedelta(days=7)).strftime('%Y-%m-%d')
+        row = conn.execute(
+            "SELECT AVG(lap1) FROM training WHERE horse_name=? AND date BETWEEN ? AND ? "
+            "AND lap1 IS NOT NULL AND lap1 > 0",
+            (horse_name.strip(), d_from, d_to),
+        ).fetchone()
+        avg = row[0] if row and row[0] is not None else None
+    except Exception:
+        avg = None
+    _cond_lap_cache[key] = avg
+    return avg
+
+
+def _get_current_lap1(horse_name: str, ref_date: str, conn) -> float:
+    """指定馬の ref_date 直前7日以内の最新 training lap1"""
+    try:
+        from datetime import datetime, timedelta
+        d0 = datetime.strptime(ref_date, '%Y-%m-%d')
+        d_from = (d0 - timedelta(days=7)).strftime('%Y-%m-%d')
+        row = conn.execute(
+            "SELECT lap1 FROM training WHERE horse_name=? AND date BETWEEN ? AND ? "
+            "AND lap1 IS NOT NULL AND lap1 > 0 ORDER BY date DESC LIMIT 1",
+            (horse_name.strip(), d_from, ref_date),
+        ).fetchone()
+        return row[0] if row and row[0] is not None else None
+    except Exception:
+        return None
+
+
+def calc_condition_penalty(horse_name: str, date: str, interval_weeks: float,
+                            prev_finish, conn) -> float:
+    """状態懸念馬の減点 (0.0 または -3.0)
+
+    3条件すべて満たす場合のみ -3.0pt 減点:
+      1. 休養90日以上 (interval_weeks >= 12.86)
+      2. 前走着順4着以下 (prev_finish >= 4)
+      3. 今回追い切りlap1が過去平均(180日)より0.5秒以上悪化
+
+    Returns:
+        0.0 または -3.0
+    """
+    # Condition 1: 休養期間
+    if interval_weeks is None or interval_weeks < 12.86:
+        return 0.0
+    # Condition 2: 前走大敗
+    try:
+        pf = int(prev_finish) if prev_finish is not None else 0
+    except (ValueError, TypeError):
+        pf = 0
+    if pf < 4 or pf > 18:
+        return 0.0
+    # Condition 3: 追い切り悪化
+    past_avg = _get_past_avg_lap1(horse_name, date, conn)
+    if past_avg is None:
+        return 0.0  # 過去データなしなら判定不可、ペナなし
+    cur = _get_current_lap1(horse_name, date, conn)
+    if cur is None:
+        return 0.0  # 今回の追い切りなしなら判定不可
+    if cur <= past_avg + 0.5:
+        return 0.0
+    # 全条件合致: 減点
+    return -3.0
+
+
+# ══════════════════════════════════════════════════════════
 # 4コーナー先頭予測ボーナス
 # 過去走のpos4から「4コーナーで先頭グループにいる確率」を推定
 # 先頭確率が高い馬 → 勝率17-20%/複勝率42-54%で圧倒的に強い
@@ -1603,9 +1847,8 @@ _front4_cache: dict = {}  # (horse_name, ym) -> front4_rate
 def calc_front4_bonus(horse_name: str, race_date: str, prev_runs: list) -> float:
     """4コーナー先頭予測ボーナス（0〜4pt）
 
-    過去3走のpos4/num_horsesから「4コーナー先頭率」を推定。
-    先頭率50%+ → +4pt, 30%+ → +2pt
-    データ検証: 4コーナー先頭の複勝率42-54%（全体比+20pt以上）
+    H3改善: 直近走を重視する加重平均 (直近=1.0, 2走前=0.7, 3走前=0.4)
+    pos4/num_horses の加重平均で連続値として評価 → 精度向上
     """
     ym = race_date[:7]
     ck = (horse_name, ym)
@@ -1616,27 +1859,29 @@ def calc_front4_bonus(horse_name: str, race_date: str, prev_runs: list) -> float
         _front4_cache[ck] = 0.0
         return 0.0
 
-    # 過去3走でpos4が上位25%以内だった割合
-    front_count = 0
-    valid = 0
-    for run in prev_runs[:3]:
+    weights = [1.0, 0.7, 0.4]
+    w_sum = 0.0
+    ratio_sum = 0.0
+    for i, run in enumerate(prev_runs[:3]):
         pos4 = run.get('pos4', 0)
         num = run.get('num_horses', 0)
         if pos4 > 0 and num >= 6:
-            valid += 1
-            if pos4 / num <= 0.25:
-                front_count += 1
+            w = weights[i] if i < len(weights) else 0.3
+            ratio_sum += w * (pos4 / num)
+            w_sum += w
 
-    if valid == 0:
+    if w_sum == 0:
         _front4_cache[ck] = 0.0
         return 0.0
 
-    front_rate = front_count / valid
+    avg_ratio = ratio_sum / w_sum
 
-    if front_rate >= 0.67:    # 3走中2走以上で先頭
+    if avg_ratio <= 0.15:      # 先頭グループ常連
         bonus = 4.0
-    elif front_rate >= 0.34:  # 3走中1走で先頭
-        bonus = 2.0
+    elif avg_ratio <= 0.25:    # 前目安定
+        bonus = 2.5
+    elif avg_ratio <= 0.33:    # やや前
+        bonus = 1.0
     else:
         bonus = 0.0
 

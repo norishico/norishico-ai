@@ -361,7 +361,13 @@ def race_card_html(p, show_full=True):
     h += f'  <div class="race-header">\n'
     h += f'    <div class="race-info"><span class="{num_cls}">{venue}{rnum}R</span><div>'
     h += f'<div class="race-name">{rname}</div>'
-    h += f'<div class="race-detail">{surf}{dist}m {heads}頭</div>'
+    # #5 馬場状態アイコン + #10 不良馬場赤枠
+    _cond = r.get('track_cond', '良') or '良'
+    _cond_icons = {'良': '☀️', '稍重': '🌤️', '重': '🌧️', '不良': '⛈️', '不': '⛈️'}
+    _cond_icon = _cond_icons.get(_cond, '')
+    if _cond in ('不良', '不'):
+        card_cls = 'race-card badtrack'  # 不良馬場赤枠
+    h += f'<div class="race-detail">{surf}{dist}m {heads}頭 {_cond_icon}{_cond}</div>'
     h += f'<div class="race-time">発走 {stime}</div></div></div>\n'
     if stars:
         h += f'    <div class="confidence"><div class="stars">{stars}</div><div class="conf-label">{conf}</div></div>\n'
@@ -377,6 +383,19 @@ def race_card_html(p, show_full=True):
             h += f'<div class="horse-info"><span class="horse-name">{honmei["horse_name"]}</span>'
             h += f'<span class="jockey-name">{honmei.get("jockey","")}</span></div>'
             h += f'<div class="pick-right"><div class="score-value">{honmei["total_score"]:.1f}</div><div class="score-sub">/100</div></div></div>\n'
+            # U1 スコア内訳表示
+            sb = honmei.get('_score_breakdown')
+            if sb:
+                parts = []
+                parts.append(f'基礎{sb["base"]:.0f}')
+                for key, label in [('venue_sire','コース父'), ('cushion_sire','馬場父'),
+                                   ('venue_damsire','コース母父'), ('nicks','ニックス'),
+                                   ('course_blood','血統相乗'),
+                                   ('gate_cond_blood','枠血統'), ('track_bias','バイアス')]:
+                    v = sb.get(key, 0)
+                    if v != 0:
+                        parts.append(f'{label}{v:+.1f}')
+                h += f'    <div class="score-breakdown">{" ".join(parts)}</div>\n'
             if ni:
                 wc_n = waku_class(ni.get('waku',0))
                 hn_n = ni.get('horse_num','-')
@@ -445,11 +464,21 @@ def race_card_html(p, show_full=True):
         if nc > 0 and '楽逃げ候補' not in priority_tags:
             normal_tags.append(f'逃げ候補{nc}頭')
 
+        # A1 市場動向バッジ (momentum)
+        mm = p.get('momentum')
+        if mm and mm.get('label'):
+            lbl = mm['label']
+            chg = mm.get('change_pct', 0)
+            priority_tags.insert(0, f'{lbl}({chg:+.0f}%)')
+
         all_tags = priority_tags + normal_tags
         show_tags = all_tags[:3]  # 常時表示は3つまで
         extra_tags = all_tags[3:]
 
         def _tag_cls(tag):
+            if tag.startswith('🔥') or tag.startswith('↑'): return ' momentum-up'
+            if tag.startswith('⚠'): return ' momentum-down'
+            if tag.startswith('→安定'): return ' momentum-flat'
             if tag == '前走不利克服': return ' bias-overcome'
             if tag == '前走不利僅差惜敗': return ' bias-close-loss'
             if tag == '楽逃げ候補': return ' raku-nige'
@@ -470,12 +499,18 @@ def race_card_html(p, show_full=True):
 
         # オッズ
         h += '  <div class="odds-section"><div class="odds-display">'
+        def _odds_cls(o):
+            if o <= 0: return ''
+            if o < 3: return ' odds-honmei'
+            if o < 10: return ' odds-middle'
+            if o < 20: return ' odds-ana'
+            return ' odds-oana'
         if buy:
             ho = honmei.get('odds',0) or 0
             no = ni.get('odds',0) if ni else 0
-            h += f'<div class="odds-item"><span class="mark-sm">◎</span> <span class="odds-val">{f"{ho:.1f}" if ho > 0 else "--"}</span>{"倍" if ho > 0 else ""}</div>'
+            h += f'<div class="odds-item"><span class="mark-sm">◎</span> <span class="odds-val{_odds_cls(ho)}">{f"{ho:.1f}" if ho > 0 else "--"}</span>{"倍" if ho > 0 else ""}</div>'
             if ni and no > 0:
-                h += f'<div class="odds-item"><span class="mark-sm">○</span> <span class="odds-val">{no:.1f}</span>倍</div>'
+                h += f'<div class="odds-item"><span class="mark-sm">○</span> <span class="odds-val{_odds_cls(no)}">{no:.1f}</span>倍</div>'
         if sp:
             so = sp.get('odds',0) or 0
             h += f'<div class="odds-item"><span class="mark-sm">◆</span> <span class="odds-val">{f"{so:.1f}" if so > 0 else "--"}</span>{"倍" if so > 0 else ""}</div>'
@@ -498,7 +533,22 @@ def race_card_html(p, show_full=True):
                 be_cls = 'be-warn'
                 be_text = f'分岐{be:.1f}倍 ⚠ 馬連込みで勝負'
             h += f'<span class="breakeven {be_cls}">{be_text}</span>'
-        h += '</div><span class="odds-status pending">オッズ判定中</span></div>\n'
+        # オッズ判定ステータス (3段階: 前日→確認済→買いGO)
+        _mm = p.get('momentum')
+        _last_check = p.get('_last_odds_check', '')  # 発走前最終チェックのタイムスタンプ
+        if _last_check and is_buy:
+            h += '</div><span class="odds-status confirmed">✅ 買いGO（直前確認済み）</span></div>\n'
+        elif _mm and is_buy:
+            h += '</div><span class="odds-status checked">🔄 オッズ確認済み（発走前に最終判定）</span></div>\n'
+        elif _mm and not is_buy:
+            pass  # nobuyカードでグレーアウト済み
+        else:
+            h += '</div><span class="odds-status pending">📋 前日オッズ（当日朝に更新）</span></div>\n'
+
+    # U2 パス理由表示（買い対象外レースに理由明記）
+    pr = p.get('pass_reason', '')
+    if pr and not is_buy:
+        h += f'  <div class="pass-reason">💡 AIパス: {pr}</div>\n'
 
     # スコアバー（全レース共通）
     all_horses = p.get('results', [])
@@ -557,7 +607,7 @@ html = f"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NORISHICO AI - 今週末の予想</title>
+<title>NORISHICO KEIBA AI - 今週末の予想</title>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root {{
@@ -626,6 +676,9 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .race-card.star2{{border-color:var(--orange);border-left:5px solid var(--orange);box-shadow:0 4px 16px rgba(213,123,14,0.15)}}
 /* ★: コンパクトカード */
 .race-card.star1{{border-color:var(--orange-light);border-left:4px solid var(--orange-light)}}
+.race-card.nobuy{{opacity:0.55;border-color:#ccc;border-left:3px solid #999}}
+.race-card.nobuy .race-header{{padding:8px 14px}}
+.race-card.badtrack{{border-color:#D32F2F;border-left:5px solid #D32F2F;background:#FFF5F5}}
 .race-card.star1 .race-header{{padding:10px 16px}}
 .race-card.star1 .horse-name{{font-size:14px}}
 .race-card.star1 .score-value{{font-size:16px}}
@@ -654,6 +707,16 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .pick-right{{text-align:right;flex-shrink:0}}
 .score-value{{font-size:18px;font-weight:700;color:var(--orange)}}
 .score-sub{{font-size:10px;color:var(--text-sub)}}
+.score-breakdown{{font-size:13px;color:var(--text-sub);padding:3px 0 5px 28px;letter-spacing:0.3px}}
+.pass-reason{{margin:8px 16px;padding:8px 12px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:8px;font-size:12px;color:#E65100;font-weight:500}}
+.legend-section{{margin:0 16px 12px;background:var(--card-bg);border-radius:12px;border:1px solid var(--card-border);overflow:hidden}}
+.legend-toggle{{padding:10px 14px;font-size:13px;font-weight:600;color:var(--text-main);cursor:pointer;display:flex;align-items:center;gap:6px}}
+.legend-toggle:hover{{background:var(--cream-light)}}
+.legend-body{{padding:0 14px 14px}}
+.legend-group{{margin-bottom:10px}}
+.legend-title{{font-size:12px;font-weight:700;color:var(--orange);margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid var(--card-border)}}
+.legend-item{{font-size:11px;color:var(--text-sub);padding:3px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}}
+.legend-badge{{font-weight:700;min-width:36px}}
 .bet-inline{{margin-top:10px;padding:10px 12px;background:var(--cream-light);border-radius:10px;border:1px solid var(--card-border)}}
 .bet-3rentan{{background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border:1px solid #FFB74D;border-radius:10px;margin:8px 16px;padding:12px 14px}}
 .san-header{{font-size:12px;font-weight:700;color:#E65100;margin-bottom:8px}}
@@ -671,6 +734,9 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .reason-tag.bias-overcome{{background:linear-gradient(135deg,#FF6B35,#F7931E);color:white;border:none;font-weight:700}}
 .reason-tag.bias-close-loss{{background:linear-gradient(135deg,#E91E63,#FF5722);color:white;border:none;font-weight:700}}
 .reason-tag.raku-nige{{background:linear-gradient(135deg,#2196F3,#00BCD4);color:white;border:none;font-weight:700}}
+.reason-tag.momentum-up{{background:linear-gradient(135deg,#E91E63,#FF5722);color:white;border:none;font-weight:700}}
+.reason-tag.momentum-down{{background:linear-gradient(135deg,#607D8B,#455A64);color:white;border:none;font-weight:700}}
+.reason-tag.momentum-flat{{background:#E0E0E0;color:#666;border:none}}
 .reason-tag.nige-count{{background:#E3F2FD;color:#1565C0;border:1px solid #BBDEFB}}
 .reason-more{{background:var(--cream);border:1px dashed var(--card-border);padding:4px 10px;border-radius:12px;font-size:11px;color:var(--text-sub);cursor:pointer}}
 .breakeven{{font-size:10px;padding:2px 8px;border-radius:8px;margin-left:8px;font-weight:600}}
@@ -680,10 +746,17 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .reason-extra{{display:inline;gap:6px}}
 .odds-section{{padding:12px 16px;border-top:1px solid var(--card-border);display:flex;justify-content:space-between;align-items:center}}
 .odds-display{{display:flex;gap:20px}}
+.odds-val.odds-honmei{{color:#D32F2F;font-weight:700}}
+.odds-val.odds-middle{{color:#E65100;font-weight:700}}
+.odds-val.odds-ana{{color:#1565C0;font-weight:700}}
+.odds-val.odds-oana{{color:#7B1FA2;font-weight:700}}
 .odds-item{{font-size:13px;color:var(--text-sub)}}
 .odds-item .mark-sm{{font-weight:700;color:var(--text)}}
 .odds-item .odds-val{{font-size:18px;font-weight:700;color:var(--orange)}}
-.odds-status{{font-size:12px;padding:5px 14px;border-radius:12px;font-weight:700;background:#FFF3E0;color:var(--orange);border:1px solid var(--card-border)}}
+.odds-status{{font-size:12px;padding:5px 14px;border-radius:12px;font-weight:700;border:1px solid var(--card-border)}}
+.odds-status.pending{{background:#FFF3E0;color:var(--orange)}}
+.odds-status.checked{{background:#E3F2FD;color:#1565C0;border-color:#42A5F5}}
+.odds-status.confirmed{{background:#E8F5E9;color:#2E7D32;border-color:#66BB6A}}
 
 /* スコアバー: 上位3頭表示+展開 */
 .sb-preview{{padding:8px 16px;border-top:1px solid var(--card-border)}}
@@ -818,7 +891,7 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 <body>
 
 <div class="sticky-header">
-  <div class="logo"><span>NORISHICO</span> AI</div>
+  <div class="logo"><span>NORISHICO</span> KEIBA AI</div>
   <div class="sub">
     <div class="sub-date">{_header_date_display}</div>
     {_header_venues_display}
@@ -833,6 +906,51 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 from datetime import date as _date
 _today_wd = _date.today().weekday()  # 0=Mon ... 6=Sun
 _default_dk = all_dates[-1] if _today_wd == 6 and len(all_dates) > 1 else all_dates[0]
+
+# アイコン凡例セクション
+html += """
+<div class="legend-section" id="legendSection">
+  <div class="legend-toggle" onclick="var b=document.getElementById('legendBody');b.style.display=b.style.display==='none'?'block':'none';this.querySelector('.arrow').textContent=b.style.display==='none'?'▶':'▼'">
+    <span class="arrow">▶</span> アイコン・バッジの見方
+  </div>
+  <div class="legend-body" id="legendBody" style="display:none">
+    <div class="legend-group">
+      <div class="legend-title">信頼度</div>
+      <div class="legend-item"><span class="legend-badge" style="color:#E65100">★★★</span> 自信の一戦（スコア突出+好調教+血統ボーナス）</div>
+      <div class="legend-item"><span class="legend-badge" style="color:#FF8F00">★★</span> 注目レース（AI本命予想）</div>
+      <div class="legend-item"><span class="legend-badge" style="color:#FFA000">★</span> チャレンジ枠（穴狙い・単勝のみ）</div>
+    </div>
+    <div class="legend-group">
+      <div class="legend-title">市場動向（当日朝更新）</div>
+      <div class="legend-item"><span class="reason-tag momentum-up">🔥強力支持</span> オッズが20%以上下落 = 市場が強く買い支え</div>
+      <div class="legend-item"><span class="reason-tag momentum-up">↑支持上昇</span> オッズが10〜20%下落 = 支持拡大中</div>
+      <div class="legend-item"><span class="reason-tag momentum-flat">→安定</span> オッズ変動10%以内 = 評価安定</div>
+      <div class="legend-item"><span class="reason-tag momentum-down">⚠️支持低下</span> オッズが20%以上上昇 = 市場が嫌気</div>
+    </div>
+    <div class="legend-group">
+      <div class="legend-title">スコア内訳</div>
+      <div class="legend-item"><b>基礎</b> 過去走+コース+騎手+調教+血統+枠の加重合計</div>
+      <div class="legend-item"><b>コース父</b> 会場×距離で父が好成績のパターン加点</div>
+      <div class="legend-item"><b>馬場父</b> クッション値(芝の硬さ)×父の相性加点</div>
+      <div class="legend-item"><b>ニックス</b> 父×母父の血統相性(芝限定)加点</div>
+      <div class="legend-item"><b>枠血統</b> 枠順×馬場×血統の相性加点</div>
+      <div class="legend-item"><b>バイアス</b> コースの内外有利不利による補正</div>
+    </div>
+    <div class="legend-group">
+      <div class="legend-title">オッズ判定ステータス</div>
+      <div class="legend-item"><span class="odds-status pending" style="font-size:10px;padding:3px 8px">📋 前日オッズ</span> 前日時点のオッズ。当日に自動更新されます</div>
+      <div class="legend-item"><span class="odds-status checked" style="font-size:10px;padding:3px 8px">🔄 確認済み</span> 当日朝のオッズで確認OK。発走前に最終判定します</div>
+      <div class="legend-item"><span class="odds-status confirmed" style="font-size:10px;padding:3px 8px">✅ 買いGO</span> 発走直前のオッズで最終確認済み。このまま買ってください</div>
+    </div>
+    <div class="legend-group">
+      <div class="legend-title">その他バッジ</div>
+      <div class="legend-item"><span class="reason-tag raku-nige">楽逃げ候補</span> 逃げ馬が1頭だけ = ペース有利</div>
+      <div class="legend-item"><span class="reason-tag bias-overcome">前走不利克服</span> 前走で不利な展開を跳ね返した実績</div>
+      <div class="legend-item"><span class="reason-tag surface-switch">初ダート転向</span> 芝→ダートまたはダート→芝の初転向</div>
+    </div>
+  </div>
+</div>
+"""
 
 # 日付タブ + 結果タブ
 html += """
@@ -1021,7 +1139,7 @@ for i, dk in enumerate(all_dates if not stale_mode else []):
     html += f'<div class="sub-content" id="sub-{dk}-nakanohito">\n'
     html += '<div class="section-title">なかのひとたち</div>\n'
     html += '<div style="padding:8px 16px;font-size:12px;color:var(--text-sub);line-height:1.7">'
-    html += 'NORISHICO AIの予想を支える7人のアナリスト。<br>期待値ありレースについて、それぞれの専門視点からコメントします。'
+    html += 'NORISHICO KEIBA AIの予想を支える7人のアナリスト。<br>期待値ありレースについて、それぞれの専門視点からコメントします。'
     html += '</div>\n'
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;margin-bottom:8px">\n'
     for name, info in MEMBERS.items():
@@ -1363,7 +1481,7 @@ html += """
 # フッター + JS
 html += f"""
 <div class="footer">
-  <p style="font-weight:700;color:var(--orange-pale);font-size:14px;letter-spacing:2px">NORISHICO AI v6.6</p>
+  <p style="font-weight:700;color:var(--orange-pale);font-size:14px;letter-spacing:2px">NORISHICO KEIBA AI v6.6</p>
   <p>生成: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
   <div class="disclaimer">
     想定オッズは確定前です。発走5分前にオッズ確定後、最終買い判定を行います。<br>

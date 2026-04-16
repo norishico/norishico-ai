@@ -15,6 +15,7 @@ import sqlite3
 import numpy as np
 import pandas as pd
 import sys
+import os
 import json
 import shutil
 from pathlib import Path
@@ -47,7 +48,9 @@ from scoring import (
     calc_pace_context, _infer_running_style,
     calc_course_blood_bonus, calc_gate_cond_blood_bonus,
     calc_track_bias_bonus, calc_venue_sire_bonus,
-    calc_venue_damsire_bonus, EV_CONDITIONS,
+    calc_venue_damsire_bonus, calc_cushion_sire_bonus,
+    calc_nicks_bonus,
+    calc_daily_bias_bonus, calc_condition_penalty, EV_CONDITIONS,
     _past_runs_cache, _course_runs_cache, _running_style_cache,
     _jockey_cache, _trainer_cache, _combo_cache, _ace_cache,
     _avg_time_cache, _last3f_cache, _training_actual_cache,
@@ -291,6 +294,12 @@ def score_one_race(race_rows, sc_conn):
     rname   = race_rows[0]['race_name']
     heads   = len(race_rows)
 
+    # クッション値 (芝レースのみ有効、父血統ボーナスに使用)
+    cushion_row = sc_conn.execute(
+        "SELECT cushion FROM cushion_value WHERE date=? AND venue=?", (date, venue)
+    ).fetchone()
+    cushion = cushion_row['cushion'] if cushion_row else None
+
     gr = grade_from_name(rname)
     W  = get_weights(gr)
 
@@ -312,9 +321,10 @@ def score_one_race(race_rows, sc_conn):
     pace_mult  = pace_ctx['mult']
 
     res = []
-    for row in race_rows:
+    for _ri, row in enumerate(race_rows):
         h  = str(row['horse_name']).strip()
         hn = int(row['horse_num']) if row['horse_num'] else 0
+        umaban_real = int(row['umaban']) if row.get('umaban') else 0
         j  = str(row['jockey']).strip()
         tr = str(row['trainer']).strip()
         si = str(row['sire'] or '').strip()
@@ -367,6 +377,7 @@ def score_one_race(race_rows, sc_conn):
         res.append({
             'horse_name':   h,
             'horse_num':    hn,
+            'umaban':       umaban_real,
             'jockey':       j,
             'finish':       int(row['finish']) if row['finish'] and row['finish'] < 90 else 99,
             'odds':         float(row['odds']) if row.get('odds') else None,
@@ -375,6 +386,7 @@ def score_one_race(race_rows, sc_conn):
             '_sire':        si,
             '_dam_sire':    ds,
             '_prev_pos4':   int(prev_runs[0]['pos4']) if prev_runs and prev_runs[0].get('pos4') else 0,
+            '_running_style': race_styles[_ri] if _ri < len(race_styles) else '',
             'accel_lap':    st.get('accel_lap', False),
             'has_good_train': st.get('has_good_train', False),
         })
@@ -397,15 +409,19 @@ def score_one_race(race_rows, sc_conn):
                                        h2['_prev_pos4'], sc_conn)
         vsb   = calc_venue_sire_bonus(venue, dist, h2['_sire'], sc_conn)
         vdsb  = calc_venue_damsire_bonus(venue, dist, h2['_dam_sire'], sc_conn)
-        h2['total_score'] = round(h2['total_score'] + bonus + gcbb + tbb + vsb + vdsb, 1)
+        csb   = calc_cushion_sire_bonus(cushion, h2['_sire'], surf, sc_conn)
+        nkb   = calc_nicks_bonus(h2['_sire'], h2['_dam_sire'], surf, sc_conn)
+        h2['total_score'] = round(h2['total_score'] + bonus + gcbb + tbb + vsb + vdsb + csb + nkb, 1)
 
     res.sort(key=lambda x: (-x['total_score'], x['horse_name']))
     for rank, h2 in enumerate(res, 1):
         h2['rank'] = rank
 
-    # EV計算
+    # EV計算 (M1: softmax温度パラメータ)
+    # M1: softmax温度 T=11 (sweep T=6-15で4年Win最適化、+24,750改善)
+    SOFTMAX_TEMP = float(os.environ.get('NORISHIKO_SOFTMAX_TEMP', '11'))
     scores = np.array([h2['total_score'] for h2 in res])
-    exp_s  = np.exp((scores - scores.mean()) / 10)
+    exp_s  = np.exp((scores - scores.mean()) / SOFTMAX_TEMP)
     probs  = exp_s / exp_s.sum()
     gap    = round(res[0]['total_score'] - res[1]['total_score'], 1) if len(res) > 1 else 0
 

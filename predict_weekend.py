@@ -12,7 +12,9 @@ from scoring import (get_conn, score_past_performance, score_course_fitness,
     score_gate_style, get_weights, calc_pace_context, _infer_running_style,
     score_surface_switch, _surface_switch_cache,
     calc_course_blood_bonus, calc_gate_cond_blood_bonus, calc_track_bias_bonus,
-    calc_venue_sire_bonus, calc_venue_damsire_bonus, EV_CONDITIONS,
+    calc_venue_sire_bonus, calc_venue_damsire_bonus, calc_cushion_sire_bonus,
+    calc_nicks_bonus,
+    calc_daily_bias_bonus, calc_condition_penalty, EV_CONDITIONS,
     _past_runs_cache, _course_runs_cache, _running_style_cache,
     _jockey_cache, _trainer_cache, _combo_cache, _ace_cache,
     _avg_time_cache, _last3f_cache, _training_actual_cache,
@@ -113,6 +115,12 @@ def score_weekend_race(race, conn, sc_conn):
     heads = len(horses)
     gr = grade_for_prediction(race)
     W = get_weights(gr)
+
+    # クッション値 (芝レースのみ有効、父血統ボーナスに使用)
+    cushion_row = sc_conn.execute(
+        "SELECT cushion FROM cushion_value WHERE date=? AND venue=?", (date, venue)
+    ).fetchone()
+    cushion = cushion_row['cushion'] if cushion_row else None
 
     # 展開コンテキスト
     race_styles = []
@@ -264,6 +272,7 @@ def score_weekend_race(race, conn, sc_conn):
             'odds': odds, 'popularity': pop, 'total_score': round(total, 1),
             '_blood_score': sb['score'], '_sire': sire, '_dam_sire': dam_sire,
             '_prev_pos4': int(prev_runs[0]['pos4']) if prev_runs and prev_runs[0].get('pos4') else 0,
+            '_running_style': style,
             'accel_lap': st.get('accel_lap', False),
             'has_good_train': st.get('has_good_train', False),
             'trainer': trainer, 'waku': h.get('waku', 0),
@@ -280,6 +289,7 @@ def score_weekend_race(race, conn, sc_conn):
         h2['_blood_rank'] = rank
 
     for h2 in results:
+        base_score = h2['total_score']
         bonus = calc_course_blood_bonus(h2['horse_name'], date, venue, surface, dist,
                                         h2['_blood_rank'], sc_conn)
         gcbb  = calc_gate_cond_blood_bonus(h2['horse_name'], date, venue, surface, dist,
@@ -288,7 +298,19 @@ def score_weekend_race(race, conn, sc_conn):
                                        h2['_prev_pos4'], sc_conn)
         vsb   = calc_venue_sire_bonus(venue, dist, h2['_sire'], sc_conn)
         vdsb  = calc_venue_damsire_bonus(venue, dist, h2['_dam_sire'], sc_conn)
-        h2['total_score'] = round(h2['total_score'] + bonus + gcbb + tbb + vsb + vdsb, 1)
+        csb   = calc_cushion_sire_bonus(cushion, h2['_sire'], surface, sc_conn)
+        nkb   = calc_nicks_bonus(h2['_sire'], h2['_dam_sire'], surface, sc_conn)
+        h2['total_score'] = round(base_score + bonus + gcbb + tbb + vsb + vdsb + csb + nkb, 1)
+        h2['_score_breakdown'] = {
+            'base': round(base_score, 1),
+            'course_blood': round(bonus, 1),
+            'gate_cond_blood': round(gcbb, 1),
+            'track_bias': round(tbb, 1),
+            'venue_sire': round(vsb, 1),
+            'venue_damsire': round(vdsb, 1),
+            'cushion_sire': round(csb, 1),
+            'nicks': round(nkb, 1),
+        }
 
     results.sort(key=lambda x: x['total_score'], reverse=True)
     for rank, h2 in enumerate(results, 1):
@@ -296,7 +318,10 @@ def score_weekend_race(race, conn, sc_conn):
 
     # EV計算
     scores = np.array([h2['total_score'] for h2 in results])
-    exp_s = np.exp((scores - scores.mean()) / 10)
+    # M1: softmax温度 T=11 (backtest_2026.pyと統一、env変数で調整可能)
+    import os as _os_m1
+    _softmax_t = float(_os_m1.environ.get('NORISHIKO_SOFTMAX_TEMP', '11'))
+    exp_s = np.exp((scores - scores.mean()) / _softmax_t)
     probs = exp_s / exp_s.sum()
     gap = round(results[0]['total_score'] - results[1]['total_score'], 1) if len(results) > 1 else 0
 
@@ -350,6 +375,26 @@ def score_weekend_race(race, conn, sc_conn):
     honmei_is_nige = honmei_style == '逃げ'
     raku_nige = honmei_is_nige and nige_candidates == 1  # ◎が唯一の逃げ候補
 
+    # U2 パス理由 (買わないレースに「なぜ買わないか」を明記)
+    pass_reason = ''
+    if not buy_type and not special_horse:
+        if cond in ('不', '不良'):
+            pass_reason = '不良馬場のため全クラス見送り'
+        elif gr in ('1勝', '2勝', 'G3'):
+            pass_reason = f'{gr}クラスはv6.6で対象外'
+        elif gr == '3勝' and not honmei_accel:
+            pass_reason = '3勝クラス: 加速ラップなし(必須条件)'
+        elif honmei_odds and (honmei_odds < 3 or honmei_odds > 30):
+            pass_reason = f'◎オッズ{honmei_odds:.1f}倍: 買い対象帯域外'
+        elif ev7 and not (2.0 <= ev7 <= 20.0):
+            pass_reason = f'EV指数{ev7:.1f}: 基準範囲外(2.0-20.0)'
+        elif bias_skip if 'bias_skip' in dir() else False:
+            pass_reason = '強バイアス不利枠(内枠見送り)'
+        else:
+            pass_reason = f'{gr}クラス: オッズ{honmei_odds:.1f}倍がv6.6買い帯域外'
+    elif not buy_type and special_horse:
+        pass_reason = ''  # 別枠あり = パスではない
+
     # 根拠タグ
     reasons = []
     if honmei.get('surface_switch'): reasons.append(honmei['surface_switch'])
@@ -380,6 +425,7 @@ def score_weekend_race(race, conn, sc_conn):
     return {
         'race': race, 'grade': gr, 'results': results, 'gap': gap, 'ev7': ev7,
         'buy_type': buy_type, 'special_horse': special_horse, 'reasons': reasons,
+        'pass_reason': pass_reason,
         'nige_candidates': nige_candidates, 'honmei_is_nige': honmei_is_nige,
         'honmei': honmei, 'ni': ni, 'heads': heads,
         'breakeven_odds': breakeven_odds,

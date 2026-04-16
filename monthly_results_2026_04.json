@@ -24,7 +24,8 @@
           "track_cond": "稍重",
           "cost": 2000,
           "return": 0,
-          "profit": -2000
+          "profit": -2000,
+          "miss_type": "scenario"
         },
         {
           "venue": "中山",
@@ -42,7 +43,8 @@
           "track_cond": "稍重",
           "cost": 2000,
           "return": 0,
-          "profit": -2000
+          "profit": -2000,
+          "miss_type": "scenario"
         },
         {
           "venue": "中山",
@@ -60,7 +62,8 @@
           "track_cond": "重",
           "cost": 2000,
           "return": 0,
-          "profit": -2000
+          "profit": -2000,
+          "miss_type": "scenario"
         },
         {
           "venue": "阪神",
@@ -78,7 +81,8 @@
           "track_cond": "稍重",
           "cost": 2000,
           "return": 0,
-          "profit": -2000
+          "profit": -2000,
+          "miss_type": "misread"
         }
       ],
       "summary": {
@@ -112,7 +116,8 @@
           "track_cond": "重",
           "cost": 2000,
           "return": 0,
-          "profit": -2000
+          "profit": -2000,
+          "miss_type": "luck"
         },
         {
           "venue": "阪神",
@@ -130,7 +135,8 @@
           "track_cond": "稍重",
           "cost": 1000,
           "return": 0,
-          "profit": -1000
+          "profit": -1000,
+          "miss_type": "luck"
         },
         {
           "venue": "阪神",
@@ -150,7 +156,8 @@
           "return": 0,
           "profit": -1000,
           "special": "ドリームプレミア",
-          "special_rule": "F1_未勝利主流accel"
+          "special_rule": "F1_未勝利主流accel",
+          "miss_type": "scenario"
         },
         {
           "venue": "阪神",
@@ -168,7 +175,8 @@
           "track_cond": "重",
           "cost": 2000,
           "return": 0,
-          "profit": -2000
+          "profit": -2000,
+          "miss_type": "scenario"
         },
         {
           "venue": "阪神",
@@ -186,7 +194,8 @@
           "track_cond": "重",
           "cost": 2000,
           "return": 0,
-          "profit": -2000
+          "profit": -2000,
+          "miss_type": "scenario"
         },
         {
           "venue": "阪神",
@@ -204,7 +213,8 @@
           "track_cond": "良",
           "cost": 1000,
           "return": 0,
-          "profit": -1000
+          "profit": -1000,
+          "miss_type": "scenario"
         },
         {
           "venue": "阪神",
@@ -222,7 +232,8 @@
           "track_cond": "重",
           "cost": 1000,
           "return": 0,
-          "profit": -1000
+          "profit": -1000,
+          "miss_type": "scenario"
         }
       ],
       "summary": {
@@ -257,7 +268,8 @@
           "track_cond": "稍重",
           "cost": 2000,
           "return": 0,
-          "profit": -2000
+          "profit": -2000,
+          "miss_type": "luck"
         }
       ],
       "summary": {
@@ -292,7 +304,8 @@
           "track_cond": "良",
           "cost": 2000,
           "return": 0,
-          "profit": -2000
+          "profit": -2000,
+          "miss_type": "luck"
         },
         {
           "venue": "阪神",
@@ -310,7 +323,8 @@
           "track_cond": "良",
           "cost": 2000,
           "return": 0,
-          "profit": -2000
+          "profit": -2000,
+          "miss_type": "misread"
         },
         {
           "venue": "福島",
@@ -328,7 +342,8 @@
           "track_cond": "良",
           "cost": 2000,
           "return": 0,
-          "profit": -2000
+          "profit": -2000,
+          "miss_type": "narrow"
         }
       ],
       "summary": {

@@ -440,12 +440,14 @@ if __name__ == '__main__':
 
     src_db = 'keiba.db'
     tmp_db = f'keiba_tmp_{year}.db'
-    if not Path(tmp_db).exists():
-        if Path(f'{src_db}-wal').exists():
-            c = sqlite3.connect(src_db)
-            c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            c.close()
-        shutil.copy2(src_db, tmp_db)
+    # NEW2: 常にfreshコピー (古いtmp_dbの再利用による汚染を防止)
+    if Path(tmp_db).exists():
+        Path(tmp_db).unlink()
+    if Path(f'{src_db}-wal').exists():
+        c = sqlite3.connect(src_db)
+        c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        c.close()
+    shutil.copy2(src_db, tmp_db)
 
     print(f'\n{"="*55}')
     print(f'  backtest_v6 [ゼロベース再設計]  {year}年')
@@ -465,11 +467,22 @@ if __name__ == '__main__':
     total_roi = total_ret / total_inv * 100 if total_inv else 0
     total_prof = int(total_ret - total_inv)
 
+    # NEW1: Outlier耐性メトリクス (Winsorized ROI)
+    # 1レースあたりの return を 50,000円 でキャップ → メガヒット1件に依存しない
+    WINSORIZE_CAP = 50000
+    win_ret = sum(min(b['ret'], WINSORIZE_CAP) for b in bet_records)
+    win_roi = win_ret / total_inv * 100 if total_inv else 0
+    win_prof = int(win_ret - total_inv)
+    outlier_count = sum(1 for b in bet_records if b['ret'] > WINSORIZE_CAP)
+
     s = summarize_v3(year, all_races, bet_records)
     # cost可変の正確な値で上書き
     s['investment'] = total_inv
     s['profit'] = total_prof
     s['roi'] = round(total_roi, 1)
+    s['winsorized_roi'] = round(win_roi, 1)
+    s['winsorized_profit'] = win_prof
+    s['outlier_count'] = outlier_count
     s['elapsed_sec'] = round(elapsed, 1)
 
     fname = f'btv6_{year}.json'
@@ -487,6 +500,8 @@ if __name__ == '__main__':
     print(f'\n  -- {year}年 結果 (v6.2+C2+F1) --')
     print(f'  全{s["total_races"]}R → 買{s["n_bet"]}R  投資{total_inv:,}円  ({elapsed:.0f}s)')
     print(f'  損益: {total_prof:+,}円   ROI: {total_roi:.1f}%')
+    if outlier_count:
+        print(f'  [Winsorized] 損益: {win_prof:+,}円  ROI: {win_roi:.1f}%  (>{WINSORIZE_CAP:,}円キャップ {outlier_count}件)')
     for label, sub in [('v6本体', v6_bets), ('C2新馬', c2_bets), ('F1未勝利', f1_bets)]:
         if not sub: continue
         si = sum(b['cost'] for b in sub)

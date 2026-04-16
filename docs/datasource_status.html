@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang='ja'><head><meta charset='utf-8'>
+<title>norishiko_ai データソース状態</title>
+<style>
+body { font-family: -apple-system, "Segoe UI", sans-serif; max-width: 900px; margin: 20px auto; padding: 0 16px; }
+h1 { border-bottom: 2px solid #333; padding-bottom: 4px; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
+th { background: #f4f4f4; width: 22%; }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.85em; margin-left: 6px; }
+.badge.ok { background: #d4edda; color: #155724; }
+.badge.ng { background: #f8d7da; color: #721c24; }
+.small { color: #666; font-size: 0.85em; }
+.na { color: #888; }
+.ng { color: #c0392b; }
+</style></head><body>
+<h1>📊 データソース状態 (Phase 2)</h1>
+<p class='small'>生成: 2026-04-15T07:09:50.580732 / lock source of truth: <b>netkeiba</b></p>
+<table>
+<tr><th>データソース</th><td>netkeiba (主系) ★active</td><td>JV-Link (並行検証)</td></tr><tr><th>DBパス</th><td>C:\Users\westr\norishiko_ai\keiba.db</td><td>C:\Users\westr\norishiko_ai\keiba_staging.db</td></tr><tr><th>DBサイズ</th><td>809.0MB</td><td>809.0MB</td></tr><tr><th>DB最終更新</th><td>2026-04-12T16:50:38</td><td>2026-04-12T16:50:38</td></tr><tr><th>last_fetch</th><td><span class='na'>未取得</span></td><td><span class='na'>未取得</span></td></tr>
+</table>
+<h2>並行検証レポート</h2><p class='na'>まだレポートがありません (scripts/diff_sources.py を実行してください)</p>
+<h2>実運用モニタリング</h2>
+            <p class='small'>生成: 2026-04-15T07:09:50.541692</p>
+            <table>
+              <tr><th>判定</th><td><span class='badge '>INSUFFICIENT</span></td></tr>
+              <tr><th>累積ROI</th><td>0.0%</td></tr>
+              <tr><th>買い件数</th><td>15R (INSUFFICIENT閾値 N&lt;30)</td></tr>
+              <tr><th>累計損益</th><td>-26000円</td></tr>
+              <tr><th>詳細</th><td><a href='monitoring_report.md'>monitoring_report.md</a></td></tr>
+            </table>
+            
+<hr><p class='small'>このページは scripts/generate_datasource_dashboard.py が生成します。
+netkeiba が主系、JV-Link は並行検証系です。合意基準 (値一致率99%+) を満たしたら主系切替を判断します。</p>
+</body></html>

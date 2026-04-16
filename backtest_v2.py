@@ -58,12 +58,14 @@ def is_buy_official(grade, heads, gap, odds, ev7):
 # → 単勝・馬連は finish で判定、ワイドは wide馬番を逆引きして特定
 
 def _get_finish(conn, date, venue, race_num, horse_name):
-    """horse_nameからfinishを返す（trim対応）"""
+    """horse_nameからfinishを返す（trim対応, NULL安全）"""
     r = conn.execute(
         'SELECT finish FROM results WHERE date=? AND venue=? AND race_num=? AND trim(horse_name)=?',
         (date, venue, race_num, horse_name.strip())
     ).fetchone()
-    return float(r['finish']) if r else None
+    if r is None or r['finish'] is None:
+        return None
+    return float(r['finish'])
 
 
 def _real_num_from_wide(div):

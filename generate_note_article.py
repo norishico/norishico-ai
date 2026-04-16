@@ -56,11 +56,18 @@ def generate_article(day_buys, day, date_label):
         if bt == 'v6_challenge': total_inv += 1000
         elif bt: total_inv += 2000
 
-    # イントロのバリエーション
+    # イントロのバリエーション（週末G1があればレース名で挨拶、無ければ汎用）
+    g1_name = next((p['race']['race_name'] for p in day_buys if p.get('grade') == 'G1'), None)
     if day == 'sat':
-        intro = "今週もやってきました土曜日！🐴\nお仕事終わりに予想まとめてたら日付変わってました…笑\nでも今週はAIのスコアがいい感じなので期待してます！"
+        if g1_name:
+            intro = f"今週もやってきました土曜日！🐴\n{g1_name}の週、ソワソワしながらAI予想まとめました…笑\n今週もAIのスコアがいい感じなので期待してます！"
+        else:
+            intro = "今週もやってきました土曜日！🐴\nお仕事終わりに予想まとめてたら日付変わってました…笑\nでも今週はAIのスコアがいい感じなので期待してます！"
     else:
-        intro = "日曜日！今日は桜花賞ですね〜🌸\n朝からソワソワしてAI予想を何回も見直してしまいました笑\nさて、今週の本気予想いきます！"
+        if g1_name:
+            intro = f"日曜日！今日は{g1_name}ですね〜🌸\n朝からソワソワしてAI予想を何回も見直してしまいました笑\nさて、今週の本気予想いきます！"
+        else:
+            intro = "日曜日がやってきました🐴\n朝からAIスコアを何度も見直してソワソワしています笑\n今週も本気予想いきます！"
 
     art = f"""📝 **頑張って予想した｜{date_label}**
 

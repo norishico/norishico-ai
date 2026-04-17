@@ -111,33 +111,35 @@ def generate_article(day_buys, day, date_label):
 今日のJRA全レースの中から、**過去の回収率が100%を超えているパターン**に該当する馬をピックアップしました。
 血統や枠、コース適性などから統計的に"狙える傾向"があるデータをご紹介します📊
 
+【★の見方】
+★★★ 複数条件で一致・サンプル十分の強い根拠
+★★　 主要条件で一致・安定傾向あり
+★　　 1条件該当・参考レベル
+
+※ 各馬の「単回XX%」は**過去の該当パターンにおける単勝回収率**、「n=XX」は**集計サンプル数**です。
 ※ 統計的な傾向であり、的中を保証するものではありません。ご自身の判断でお楽しみください🙏
 
 ━━━━━━━━━━━━━━━
 
 """
-    shown = 0
-    seen_patterns = set()
+    seen_patterns = {}  # pattern_desc -> 初出馬名
     for hp in day_hotspots:
-        if shown >= 10: break
         best = max(hp['matches'], key=lambda m: m['conf'] * 1000 + m['roi'])
         stars = '★' * hp['best_conf']
         pattern_key = best['desc']
         odds = hp.get('odds', 0) or 0
         if pattern_key in seen_patterns:
-            # 同パターン2頭目以降は短く
+            # 同パターン2頭目以降: パターン名を明示して自己完結化
+            first_horse = seen_patterns[pattern_key]
             art += f"▷ **{hp['venue']}{hp['race_num']}R {hp['horse_name'].strip()}**\n"
-            art += f"{stars} 同パターンの別馬。こちらはオッズ{odds:.1f}倍。\n\n"
+            art += f"{stars} {pattern_key}｜単回{best['roi']:.0f}%（n={best['n']}）\n"
+            art += f"上述の{first_horse}と同じパターン。オッズは{odds:.1f}倍で、こちらも候補。\n\n"
         else:
             comment = _yuki_comment(hp, best)
             art += f"▷ **{hp['venue']}{hp['race_num']}R {hp['horse_name'].strip()}**\n"
             art += f"{stars} {best['desc']}｜単回{best['roi']:.0f}%（n={best['n']}）\n"
             art += f"{comment}\n\n"
-            seen_patterns.add(pattern_key)
-        shown += 1
-
-    if len(day_hotspots) > 10:
-        art += f"…ほか{len(day_hotspots) - 10}頭が該当しています📱\n\n"
+            seen_patterns[pattern_key] = hp['horse_name'].strip()
 
     art += f"""━━━━━━━━━━━━━━━
 
@@ -150,7 +152,8 @@ def generate_article(day_buys, day, date_label):
 ━━━━━━━━━━━━━━━
 
 ⚠️ 馬券は必ず自己責任でお願いします。
-想定オッズは確定前のものです。
+本記事内のオッズは投稿時点の想定値で、最終オッズとは異なる場合があります。
+データは過去実績に基づく集計であり、将来の結果を保証するものではありません。
 
 #競馬 #競馬予想 #AI予想 #データ競馬"""
 

@@ -150,39 +150,22 @@ def generate_article(day_buys, day, date_label):
 
     if day_hotspots:
         art += "━━━━━━━━━━━━━━━\n\n"
-        art += "📊 **データ的に狙ってみたい馬たち**\n\n"
-        art += "過去のレース結果を血統・コース・条件で集計して、回収率100%を超えているパターンに該当する馬をピックアップしました🐴\n\n"
-        art += "※ 統計的な傾向であり、的中を保証するものではありません。あくまでデータの参考材料として見てください🙏\n\n"
-        art += "━━━━━━\n\n"
+        art += "📊 **今日の注目データ**\n\n"
+        art += "過去の回収率100%超パターンに該当する馬をAIがピックアップ！\n"
+        art += "（※ 買い推奨ではなく統計データとしてご参考に）\n\n"
 
         shown = 0
         for hp in day_hotspots:
-            if shown >= 8: break  # 最大8頭
+            if shown >= 8: break  # 最大8頭表示
             stars = '★' * hp['best_conf']
-            if hp.get('is_v6_honmei'):
-                role_tag = '（AI本命）'
-            elif hp.get('is_buy'):
-                role_tag = '（買い推奨レース）'
-            else:
-                role_tag = ''
+            v6tag = '（AI◎）' if hp.get('is_v6_honmei') else ''
             best_match = max(hp['matches'], key=lambda m: m['conf'] * 1000 + m['roi'])
-            # コメント文 (ROI/conf に応じて)
-            if best_match['roi'] >= 300:
-                comment = "強めのパターン。ハマれば大きい一頭。"
-            elif best_match['roi'] >= 200:
-                comment = "安定してプラスが出てるデータ。要チェック。"
-            elif best_match['conf'] >= 2:
-                comment = "複数条件で傾向一致。参考に。"
-            else:
-                comment = "データ的に一定の根拠あり。"
-
-            art += f"▷ **{hp['venue']}{hp['race_num']}R {hp['horse_name'].strip()}**{role_tag}\n"
-            art += f"{stars} {best_match['desc']}｜単回{best_match['roi']:.0f}%（n={best_match['n']}）\n"
-            art += f"{comment}\n\n"
+            art += f"{stars} **{hp['venue']}{hp['race_num']}R {hp['horse_name'].strip()}**{v6tag}\n"
+            art += f"　{best_match['desc']}　→ 過去単回 **{best_match['roi']:.0f}%** (n={best_match['n']})\n\n"
             shown += 1
 
         if len(day_hotspots) > 8:
-            art += f"…ほか{len(day_hotspots) - 8}頭が該当。全件はHTMLをご覧ください📱\n\n"
+            art += f"…ほか{len(day_hotspots) - 8}頭が該当（HTMLで全件確認できます）\n\n"
 
     # 締め
     art += f"""━━━━━━━━━━━━━━━

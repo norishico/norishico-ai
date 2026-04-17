@@ -181,7 +181,9 @@ def generate_article(day_buys, day, date_label):
     for p in all_day_preds:
         for hp in p.get('hotspot_picks', []):
             day_hotspots.append(hp)
-    day_hotspots.sort(key=lambda x: (-x['best_conf'], -x['best_roi']))
+    # 会場順 → レース番号順でソート
+    _venue_order = {'札幌':0,'函館':1,'福島':2,'新潟':3,'東京':4,'中山':5,'中京':6,'京都':7,'阪神':8,'小倉':9}
+    day_hotspots.sort(key=lambda x: (_venue_order.get(x['venue'], 99), x['race_num']))
 
     if not day_hotspots:
         return ""

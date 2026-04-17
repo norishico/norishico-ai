@@ -1,7 +1,7 @@
 @echo off
 REM ======================================================================
-REM  TFJV 自動同期 (Task Scheduler 用ラッパ)
-REM  実行: 毎朝 06:30 (調教データが夜中更新される想定)
+REM  TFJV auto sync wrapper (Task Scheduler)
+REM  Runs daily 06:30 (training data updated overnight)
 REM ======================================================================
 setlocal
 set PROJ=C:\Users\westr\norishiko_ai

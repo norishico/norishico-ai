@@ -42,10 +42,29 @@ def get_day_label(date_str):
     return f"{dt.month}/{dt.day}({weekdays[dt.weekday()]})"
 
 
-def step_fetch(dates, proj_dir):
-    """Step 1: netkeibaから出走表+オッズを取得"""
+def _odds_valid_rate(races):
+    """取得済みレースのオッズ有効率を計算（netkeiba切替時間帯のマスク検知用）"""
+    total = 0
+    valid = 0
+    for r in races:
+        for h in r.get('horses', []):
+            total += 1
+            o = str(h.get('odds', '')).strip()
+            try:
+                if o and float(o) > 0:
+                    valid += 1
+            except ValueError:
+                pass
+    return (valid / total) if total else 0.0
+
+
+def step_fetch(dates, proj_dir, _retry=0):
+    """Step 1: netkeibaから出走表+オッズを取得
+    netkeibaが19時前後に想定→前日オッズを切り替える時間帯では odds が '**' マスクに
+    なることがある。有効率<50%なら120秒待って1回だけretry、それでもダメなら例外。
+    """
     print("\n" + "="*60)
-    print("STEP 1: netkeibaからデータ取得")
+    print(f"STEP 1: netkeibaからデータ取得 {'(retry)' if _retry else ''}")
     print("="*60)
 
     from fetch_shutsuba import create_driver, fetch_race_list, fetch_shutsuba
@@ -56,13 +75,25 @@ def step_fetch(dates, proj_dir):
         for date_str in dates:
             print(f"\n📅 {get_day_label(date_str)} のレース取得中...")
             races = fetch_race_list(driver, date_str)
-            time.sleep(2)
+            time.sleep(0.5)
             for race in races:
                 race_data = fetch_shutsuba(driver, race['race_id'])
                 all_races.append(race_data)
-                time.sleep(2)
+                time.sleep(0.5)
     finally:
         driver.quit()
+
+    rate = _odds_valid_rate(all_races)
+    print(f"\n  オッズ有効率: {rate*100:.1f}%")
+    if rate < 0.5:
+        if _retry == 0:
+            print("  ⚠️  オッズ欠損率が高い(切替時間帯の可能性)。120秒待ってretryします")
+            time.sleep(120)
+            return step_fetch(dates, proj_dir, _retry=1)
+        raise RuntimeError(
+            f"オッズ取得に失敗 (有効率{rate*100:.1f}%)。netkeibaが "
+            "オッズ切替時間帯(金曜19時台など)に当たった可能性。時間を置いて再実行してください。"
+        )
 
     outfile = proj_dir / 'this_week_races.json'
     with open(outfile, 'w', encoding='utf-8') as f:

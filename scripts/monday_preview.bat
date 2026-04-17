@@ -1,8 +1,8 @@
 @echo off
 REM ======================================================================
-REM  Monday preview (Task Scheduler: 日曜 11:00)
-REM  祝日月曜(年数回)に対応。枠順は日曜09時発表済
-REM  月曜レースが無い週は publish_weekend が空で終わるため副作用ゼロ
+REM  Monday preview (Task Scheduler: Sun 11:00)
+REM  Holiday monday support. Frames announced Sun 09:00.
+REM  Empty on non-monday weeks (no side effect).
 REM ======================================================================
 setlocal
 set PROJ=C:\Users\westr\norishiko_ai
@@ -20,14 +20,14 @@ set LOGFILE=%LOGDIR%\monday_preview_%STAMP%.log
 cd /d "%PROJ%"
 echo [%date% %time%] monday preview start >> "%LOGFILE%"
 
-REM 明日 (月曜) の日付を YYYYMMDD で取得
+REM Get tomorrow (monday) date as YYYYMMDD
 for /f %%i in ('powershell -NoProfile -Command "(Get-Date).AddDays(1).ToString('yyyyMMdd')"') do set MONDAY=%%i
 echo [%date% %time%] target date=%MONDAY% >> "%LOGFILE%"
 
-REM Step 1: 最新調教データ取り込み
+REM Step 1: training data import
 "%PYEXE%" -X utf8 scripts\import_training_from_tfjv.py >> "%LOGFILE%" 2>&1
 
-REM Step 2: 月曜レース予想 (--date で個別日付指定)
+REM Step 2: monday prediction (--date specifies target day)
 "%PYEXE%" -X utf8 publish_weekend.py --date %MONDAY% >> "%LOGFILE%" 2>&1
 set RC=%ERRORLEVEL%
 echo [%date% %time%] monday preview rc=%RC% >> "%LOGFILE%"

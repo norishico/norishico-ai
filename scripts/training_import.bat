@@ -1,7 +1,7 @@
 @echo off
 REM ======================================================================
-REM  TFJV調教データ自動インポート (Task Scheduler: 毎晩 20:00)
-REM  C:\TFJV\CK_DATA\*.DAT → keiba.db training テーブル
+REM  TFJV training data auto import (Task Scheduler: daily 20:00)
+REM  C:\TFJV\CK_DATA\*.DAT -> keiba.db training table
 REM ======================================================================
 setlocal
 set PROJ=C:\Users\westr\norishiko_ai

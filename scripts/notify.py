@@ -55,6 +55,7 @@ def _send(content='', embeds=None):
 
 def notify_prediction_ready(preds, day_label=''):
     """予想公開通知"""
+    day_label = {'sat': '土曜予想', 'sun': '日曜予想', 'mon': '月曜予想'}.get(day_label, day_label)
     buy_races = [p for p in preds if p.get('buy_type') or p.get('special_horse')]
     if not buy_races:
         _send(f"📋 {day_label} 予想生成完了（買い推奨 0R）")

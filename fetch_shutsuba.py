@@ -37,7 +37,12 @@ def fetch_race_list(driver, date_str):
     url = f"https://race.netkeiba.com/top/race_list.html?kaisai_date={date_str}"
     print(f"Fetching race list: {date_str}")
     driver.get(url)
-    time.sleep(3)  # ページ読み込み待ち
+    try:
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href*="race_id="]'))
+        )
+    except Exception:
+        pass
 
     races = []
     try:
@@ -64,7 +69,12 @@ def fetch_shutsuba(driver, race_id):
     url = f"https://race.netkeiba.com/race/shutuba.html?race_id={race_id}"
     print(f"  Fetching shutsuba: {race_id}")
     driver.get(url)
-    time.sleep(4)  # 動的コンテンツ読み込み待ち（サイトに優しく）
+    try:
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'table.Shutuba_Table tr.HorseList'))
+        )
+    except Exception:
+        pass
 
     race_info = {
         'race_id': race_id,
@@ -166,12 +176,12 @@ def fetch_shutsuba(driver, race_id):
                 horse['trainer'] = tds[7].text.strip() if len(tds) > 7 else ''
 
                 # 想定オッズ（td.Popular）
+                # netkeibaは切替時間帯に '**.**' や '.' をマスク表示 → 小数含むパターン必須で弾く
                 try:
                     pop_td = row.find_element(By.CSS_SELECTOR, 'td.Popular')
                     odds_text = pop_td.text.strip()
-                    # 数値だけ抽出
                     import re as _re
-                    odds_match = _re.search(r'[\d.]+', odds_text)
+                    odds_match = _re.search(r'\d+\.\d+', odds_text)
                     horse['odds'] = odds_match.group() if odds_match else ''
                 except:
                     horse['odds'] = ''

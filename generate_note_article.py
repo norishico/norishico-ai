@@ -117,14 +117,23 @@ def generate_article(day_buys, day, date_label):
 
 """
     shown = 0
+    seen_patterns = set()
     for hp in day_hotspots:
         if shown >= 10: break
         best = max(hp['matches'], key=lambda m: m['conf'] * 1000 + m['roi'])
         stars = '★' * hp['best_conf']
-        comment = _yuki_comment(hp, best)
-        art += f"▷ **{hp['venue']}{hp['race_num']}R {hp['horse_name'].strip()}**\n"
-        art += f"{stars} {best['desc']}｜単回{best['roi']:.0f}%（n={best['n']}）\n"
-        art += f"{comment}\n\n"
+        pattern_key = best['desc']
+        odds = hp.get('odds', 0) or 0
+        if pattern_key in seen_patterns:
+            # 同パターン2頭目以降は短く
+            art += f"▷ **{hp['venue']}{hp['race_num']}R {hp['horse_name'].strip()}**\n"
+            art += f"{stars} 同パターンの別馬。こちらはオッズ{odds:.1f}倍。\n\n"
+        else:
+            comment = _yuki_comment(hp, best)
+            art += f"▷ **{hp['venue']}{hp['race_num']}R {hp['horse_name'].strip()}**\n"
+            art += f"{stars} {best['desc']}｜単回{best['roi']:.0f}%（n={best['n']}）\n"
+            art += f"{comment}\n\n"
+            seen_patterns.add(pattern_key)
         shown += 1
 
     if len(day_hotspots) > 10:

@@ -48,40 +48,130 @@ def sort_key(p):
 sat_buys.sort(key=sort_key)
 sun_buys.sort(key=sort_key)
 
-def _yuki_comment(hp, best):
-    """Yukinote風 紹介コメント (★数で文量強弱)"""
+# A: 血統キャラ辞書(主要産駒の短文キャラ)
+SIRE_CHARS = {
+    "ディープインパクト": "末脚一閃の王道血統",
+    "キングカメハメハ": "距離対応が幅広い堅実型",
+    "ハーツクライ": "晩成差し脚で追い比べに強い",
+    "ロードカナロア": "短距離のスピード血統",
+    "オルフェーヴル": "ムラあるがハマれば一発の爆発タイプ",
+    "キズナ": "芝ダ兼用、父ディープの末脚譲り",
+    "ダンカーク": "ダート短距離で無類の強さ",
+    "ベンバトル": "重馬場巧者の海外血統",
+    "ヴァンセンヌ": "ダートで一発ある穴血統",
+    "ジャスタウェイ": "ダート中距離の底力型",
+    "ダノンレジェンド": "ダート短距離のスペシャリスト",
+    "ブラックタイド": "晩成型ダート寄りの渋い血統",
+    "スクリーンヒーロー": "ダートで堅実に走る",
+    "アジアエクスプレス": "ダート特化の再生系",
+    "アメリカンペイトリオット": "芝適性だが人気薄で妙味",
+    "American Pharoah": "海外G1級のダート血統",
+    "ディーマジェスティ": "条件ハマった時の爆発力",
+    "タリスマニック": "欧州芝血統の持続力型",
+    "アルアイン": "中距離の堅実派",
+    "フィエールマン": "長距離型の新世代",
+    "マジェスティックウォリアー": "ダート中距離で根強い",
+    "シニスターミニスター": "ダート短距離の実績派",
+    "キタサンブラック": "中距離王道・重賞実績型",
+    "グレーターロンドン": "新興血統の底力未知数",
+    "ハービンジャー": "芝中距離で堅実な持続力",
+    "モーリス": "中距離の先行好位差し",
+    "ルーラーシップ": "パワー型の芝ダ兼用",
+    "エピファネイア": "勝負強さが売りの中距離",
+    "ドレフォン": "ダート短距離の新鋭",
+    "ヘニーヒューズ": "ダートのスピード型",
+}
+
+# C: 文末バリエーション(シャッフルで繰り返し回避)
+ENDINGS = [
+    "要注目です。",
+    "狙って損なしの1頭。",
+    "見逃せません。",
+    "今日の一撃候補。",
+    "じっくり押さえたい。",
+    "妙味あるゾーンです。",
+    "抑えておきたい存在。",
+    "チェック必須の馬。",
+    "馬券に絡んでも不思議ない。",
+    "今日の中で異色の1頭。",
+]
+
+
+def _pick_angle(hp, best, idx):
+    """B: 切り口分散"""
+    odds = hp.get('odds', 0) or 0
+    try:
+        pop = int(str(hp.get('popularity', '0')).replace('**', '0') or '0')
+    except Exception:
+        pop = 0
+    roi = best['roi']
+    n = best['n']
+    # 特殊条件優先
+    if pop >= 10 or odds >= 20:
+        return 'odds_gap'  # 人気薄妙味
+    if n >= 150:
+        return 'sample'  # サンプル厚み
+    if roi >= 300:
+        return 'value'  # ROI爆発
+    return ['blood', 'cond', 'blood', 'value'][idx % 4]
+
+
+def _yuki_comment(hp, best, idx=0, endings_used=None):
+    """Yukinote風 紹介コメント (★数で文量+切り口+文末 分散)"""
+    if endings_used is None:
+        endings_used = []
     desc_parts = best['desc'].split('×')
     sire = desc_parts[0]
     conds = desc_parts[1:] if len(desc_parts) > 1 else []
     cond_text = '×'.join(conds) if conds else ''
     roi = best['roi']
     n = best['n']
+    odds = hp.get('odds', 0) or 0
     venue = hp['venue']
+    char = SIRE_CHARS.get(sire, '')
+    angle = _pick_angle(hp, best, idx)
 
+    # 文末を未使用から選択(枯れたらリセット)
+    available = [e for e in ENDINGS if e not in endings_used]
+    if not available:
+        endings_used.clear()
+        available = ENDINGS[:]
+    ending = available[idx % len(available)]
+    endings_used.append(ending)
+
+    # 本文生成(切り口別)
+    if angle == 'blood':
+        if char:
+            body = f"{sire}は{char}。{cond_text}でn={n}・単回{roi:.0f}%の実績。"
+        else:
+            body = f"{sire}×{cond_text}でn={n}・単回{roi:.0f}%、データ上の優位あり。"
+    elif angle == 'cond':
+        body = f"{cond_text}の条件は{sire}にハマりやすい。n={n}で単回{roi:.0f}%と結果を残している。"
+    elif angle == 'odds_gap':
+        body = f"想定{odds:.1f}倍は人気薄だが、{sire}のこの条件は過去n={n}で単回{roi:.0f}%。妙味ゾーン。"
+    elif angle == 'sample':
+        body = f"n={n}と十分なサンプル数。{sire}×{cond_text}は統計的に安定して単回{roi:.0f}%を記録。"
+    elif angle == 'value':
+        body = f"単回{roi:.0f}%は爆発力のあるゾーン。{sire}×{cond_text}でn={n}件の裏付け。"
+    else:
+        body = f"{sire}×{cond_text}、n={n}件で単回{roi:.0f}%。"
+
+    text = body + ending
+
+    # ★★★ は追加の一言
     if hp['best_conf'] >= 3:
-        # 3文構成(濃いめ)
-        c1 = (f"{cond_text}での{sire}産駒。" if cond_text else f"{sire}産駒の一頭。")
-        c2 = f"n={n}と十分なサンプルで単回{roi:.0f}%は統計的にかなり強いパターンです。"
-        if roi >= 300:
-            c3 = f"今日の{venue}で最も注目したいデータ。"
-        elif roi >= 200:
-            c3 = "オッズも手頃な範囲で、統計的な安定感があります。"
-        else:
-            c3 = "複数条件が揃っており、データ上の信頼度は高め。"
-        return c1 + c2 + c3
-    if hp['best_conf'] >= 2:
-        # 2文構成
-        c1 = (f"{sire}×{cond_text}、n={n}件で単回{roi:.0f}%。" if cond_text else f"{sire}でn={n}件・単回{roi:.0f}%。")
-        if roi >= 300:
-            c2 = "爆発力のあるパターン、要注目です。"
-        elif roi >= 200:
-            c2 = "安定してプラスが出てる傾向、要チェック。"
-        else:
-            c2 = "データ上の優位があります。"
-        return c1 + c2
-    # 1文構成(軽め)
-    base = f"{sire}×{cond_text}" if cond_text else sire
-    return f"{base}｜データ上の根拠あり、参考までに。"
+        extras = [
+            f"今日の{venue}でも目を引くデータ。",
+            "複数条件で裏付けされた強い根拠。",
+            "このクラスのROIは簡単に出ない数字。",
+            "統計的な信頼感は抜けて高いゾーン。",
+            "サンプル・ROIともに揃った堅めパターン。",
+        ]
+        text += extras[idx % len(extras)]
+    elif hp['best_conf'] == 1:
+        # ★ は少し軽めに縮める(1文以内)
+        pass
+    return text
 
 
 def generate_article(day_buys, day, date_label):
@@ -123,6 +213,8 @@ def generate_article(day_buys, day, date_label):
 
 """
     seen_patterns = {}  # pattern_desc -> 初出馬名
+    endings_used = []
+    idx = 0
     for hp in day_hotspots:
         best = max(hp['matches'], key=lambda m: m['conf'] * 1000 + m['roi'])
         stars = '★' * hp['best_conf']
@@ -135,11 +227,12 @@ def generate_article(day_buys, day, date_label):
             art += f"{stars} {pattern_key}｜単回{best['roi']:.0f}%（n={best['n']}）\n"
             art += f"上述の{first_horse}と同じパターン。オッズは{odds:.1f}倍で、こちらも候補。\n\n"
         else:
-            comment = _yuki_comment(hp, best)
+            comment = _yuki_comment(hp, best, idx=idx, endings_used=endings_used)
             art += f"▷ **{hp['venue']}{hp['race_num']}R {hp['horse_name'].strip()}**\n"
             art += f"{stars} {best['desc']}｜単回{best['roi']:.0f}%（n={best['n']}）\n"
             art += f"{comment}\n\n"
             seen_patterns[pattern_key] = hp['horse_name'].strip()
+        idx += 1
 
     art += f"""━━━━━━━━━━━━━━━
 

@@ -48,35 +48,118 @@ def sort_key(p):
 sat_buys.sort(key=sort_key)
 sun_buys.sort(key=sort_key)
 
+def _yuki_comment(hp, best):
+    """Yukinote風 紹介コメント (★数で文量強弱)"""
+    desc_parts = best['desc'].split('×')
+    sire = desc_parts[0]
+    conds = desc_parts[1:] if len(desc_parts) > 1 else []
+    cond_text = '×'.join(conds) if conds else ''
+    roi = best['roi']
+    n = best['n']
+    venue = hp['venue']
+
+    if hp['best_conf'] >= 3:
+        # 3文構成(濃いめ)
+        c1 = (f"{cond_text}での{sire}産駒。" if cond_text else f"{sire}産駒の一頭。")
+        c2 = f"n={n}と十分なサンプルで単回{roi:.0f}%は統計的にかなり強いパターンです。"
+        if roi >= 300:
+            c3 = f"今日の{venue}で最も注目したいデータ。"
+        elif roi >= 200:
+            c3 = "オッズも手頃な範囲で、統計的な安定感があります。"
+        else:
+            c3 = "複数条件が揃っており、データ上の信頼度は高め。"
+        return c1 + c2 + c3
+    if hp['best_conf'] >= 2:
+        # 2文構成
+        c1 = (f"{sire}×{cond_text}、n={n}件で単回{roi:.0f}%。" if cond_text else f"{sire}でn={n}件・単回{roi:.0f}%。")
+        if roi >= 300:
+            c2 = "爆発力のあるパターン、要注目です。"
+        elif roi >= 200:
+            c2 = "安定してプラスが出てる傾向、要チェック。"
+        else:
+            c2 = "データ上の優位があります。"
+        return c1 + c2
+    # 1文構成(軽め)
+    base = f"{sire}×{cond_text}" if cond_text else sire
+    return f"{base}｜データ上の根拠あり、参考までに。"
+
+
 def generate_article(day_buys, day, date_label):
-    """1日分のnote記事を生成"""
+    """1日分のnote記事を生成 (Yukinote風 注目データ紹介に特化)"""
+    all_day_preds = [p for p in preds if get_day(p['race']['race_id']) == day]
+    day_hotspots = []
+    for p in all_day_preds:
+        for hp in p.get('hotspot_picks', []):
+            day_hotspots.append(hp)
+    day_hotspots.sort(key=lambda x: (-x['best_conf'], -x['best_roi']))
+
+    if not day_hotspots:
+        return ""
+
+    # 挨拶
+    g1_name = next((p['race']['race_name'] for p in day_buys if p.get('grade') == 'G1'), None)
+    greeting = f"こんにちは、ノリシコです🐴\n"
+    if g1_name:
+        greeting += f"今日は{date_label}、{g1_name}の開催日ですね🌸"
+    else:
+        greeting += f"今日は{date_label}、JRA開催日です🏇"
+
+    art = f"""📝 **{date_label}の注目データ**
+
+{greeting}
+
+今日のJRA全レースの中から、**過去の回収率が100%を超えているパターン**に該当する馬をピックアップしました。
+血統や枠、コース適性などから統計的に"狙える傾向"があるデータをご紹介します📊
+
+※ 統計的な傾向であり、的中を保証するものではありません。ご自身の判断でお楽しみください🙏
+
+━━━━━━━━━━━━━━━
+
+"""
+    shown = 0
+    for hp in day_hotspots:
+        if shown >= 10: break
+        best = max(hp['matches'], key=lambda m: m['conf'] * 1000 + m['roi'])
+        stars = '★' * hp['best_conf']
+        comment = _yuki_comment(hp, best)
+        art += f"▷ **{hp['venue']}{hp['race_num']}R {hp['horse_name'].strip()}**\n"
+        art += f"{stars} {best['desc']}｜単回{best['roi']:.0f}%（n={best['n']}）\n"
+        art += f"{comment}\n\n"
+        shown += 1
+
+    if len(day_hotspots) > 10:
+        art += f"…ほか{len(day_hotspots) - 10}頭が該当しています📱\n\n"
+
+    art += f"""━━━━━━━━━━━━━━━
+
+以上、{date_label}の注目データでした🐴
+参考になれば嬉しいです✨
+
+よければ♡スキで応援してもらえるとモチベになります！
+フォローもお待ちしてます🙏
+
+━━━━━━━━━━━━━━━
+
+⚠️ 馬券は必ず自己責任でお願いします。
+想定オッズは確定前のものです。
+
+#競馬 #競馬予想 #AI予想 #データ競馬"""
+
+    # G1ハッシュタグ
+    if g1_name:
+        art += f" #{g1_name}"
+    return art
+
+
+# 以下、既存の買い目記事ロジックは残すが未使用(上の generate_article が注目データ特化)
+def _unused_buy_article(day_buys, day, date_label):
     total_inv = 0
     for p in day_buys:
         bt = p['buy_type']
         if bt == 'v6_challenge': total_inv += 1000
         elif bt: total_inv += 2000
-
-    # イントロのバリエーション（週末G1があればレース名で挨拶、無ければ汎用）
-    g1_name = next((p['race']['race_name'] for p in day_buys if p.get('grade') == 'G1'), None)
-    if day == 'sat':
-        if g1_name:
-            intro = f"今週もやってきました土曜日！🐴\n{g1_name}の週、ソワソワしながらAI予想まとめました…笑\n今週もAIのスコアがいい感じなので期待してます！"
-        else:
-            intro = "今週もやってきました土曜日！🐴\nお仕事終わりに予想まとめてたら日付変わってました…笑\nでも今週はAIのスコアがいい感じなので期待してます！"
-    else:
-        if g1_name:
-            intro = f"日曜日！今日は{g1_name}ですね〜🌸\n朝からソワソワしてAI予想を何回も見直してしまいました笑\nさて、今週の本気予想いきます！"
-        else:
-            intro = "日曜日がやってきました🐴\n朝からAIスコアを何度も見直してソワソワしています笑\n今週も本気予想いきます！"
-
-    art = f"""📝 **頑張って予想した｜{date_label}**
-
-{intro}
-
-━━━━━━━━━━━━━━━
-
-"""
-
+    intro = ""
+    art = f"{date_label} {total_inv}円"
     for p in day_buys:
         r = p['race']
         h = p['honmei']
@@ -89,32 +172,15 @@ def generate_article(day_buys, day, date_label):
         rname = r['race_name']
         stime = r.get('start_time', '')
         grade = p['grade']
-
         if bt == 'v6_star3': star_emoji = '🔴'
         elif bt == 'v6_star2': star_emoji = '🟡'
         elif bt == 'v6_challenge': star_emoji = '🔵'
         else: star_emoji = '🔵'
-
-        # レースヘッダー
         art += f"{star_emoji} **{venue}{rnum}R {rname}**（{stime}発走）\n\n"
-
-        # コメント（レースごとに2-3行）
         if grade == 'G1':
-            art += f"G1は慎重にいきたいけど…AIスコアが飛び抜けてるので勝負！\n"
-            art += f"2位と{gap:.1f}ptも差があるのはなかなか見ない数字です👀\n\n"
-        elif grade in ('G2', 'G3'):
-            if odds >= 10:
-                art += f"想定{odds:.1f}倍の中穴ゾーン。AIが見つけた配当妙味のある1頭🔍\n"
-                art += f"スコア差{gap:.1f}ptでしっかり抜けてます！\n\n"
-            else:
-                art += f"AIスコアが高くて調教も良い感じ💪\n"
-                art += f"重賞だけど堅実に狙えそうなレースです！\n\n"
-        elif gap >= 8:
-            art += f"スコア差{gap:.1f}ptで◎がかなり突出してます📊\n"
-            art += f"AIが自信を持ってる1戦！\n\n"
+            art += f"G1。AIスコア差{gap:.1f}pt\n\n"
         else:
-            art += f"調教の動きが良くてAIスコアも上位🐴\n"
-            art += f"堅めの予想で手堅くいきたいです！\n\n"
+            art += f"スコア差{gap:.1f}pt\n\n"
 
         # 推奨馬
         art += f"◎ **{h['horse_name']}**（{h.get('jockey','')}）"

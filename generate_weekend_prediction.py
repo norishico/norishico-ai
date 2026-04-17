@@ -851,25 +851,8 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .hs-desc{{flex:1;color:var(--text)}}
 .hs-roi{{font-weight:700;color:var(--orange)}}
 .hs-n{{color:var(--text-sub);font-size:10px}}
-.hs-conf3 .hs-roi{{color:var(--green)}}
+.hs-conf3 .hs-roi{{color:#D32F2F}}
 .hs-conf2 .hs-roi{{color:var(--orange)}}
-/* 注目データ上部の凡例(常時表示) */
-.hotspot-legend{{margin:8px 16px;padding:10px 14px;background:var(--cream-light);border-left:4px solid var(--green);border-radius:8px;font-size:12px;line-height:1.7;color:var(--text)}}
-.hotspot-legend .lg-row{{display:flex;align-items:center;gap:8px;margin-top:4px}}
-.hotspot-legend .lg-badge{{font-size:10px;padding:2px 8px;border-radius:4px;color:white;font-weight:700;flex-shrink:0}}
-.hotspot-legend .lg-ai{{background:var(--orange)}}
-.hotspot-legend .lg-buy{{background:var(--green)}}
-.hotspot-legend .lg-stars{{color:#F59E0B;flex-shrink:0;min-width:42px}}
-/* 買い推奨レースの本命専用セクション */
-.buy-focus-section{{margin:8px 16px 20px;padding:0;background:linear-gradient(135deg,var(--green),#2A4023);border-radius:12px;overflow:hidden;box-shadow:0 3px 10px rgba(58,86,51,0.25)}}
-.buy-focus-header{{padding:10px 14px;color:white;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.2)}}
-.buy-focus-body{{padding:12px 14px;background:white}}
-.buy-focus-race{{font-size:12px;color:var(--green);font-weight:700;margin-bottom:4px}}
-.buy-focus-horse{{font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px}}
-.buy-focus-meta{{font-size:12px;color:var(--text-sub);display:flex;gap:10px;flex-wrap:wrap}}
-.buy-focus-note{{margin-top:8px;padding:6px 10px;background:var(--cream-light);border-radius:6px;font-size:11px;color:var(--text-sub);line-height:1.5}}
-/* 買い推奨レースのカードは左ボーダー緑で区別 */
-.hotspot-card.is-buy-race{{border-left:4px solid var(--green);background:#F5FAF4}}
 .nakanohito-section{{margin:16px;padding:0}}
 .nakanohito-race{{margin-bottom:20px;background:var(--card-bg);border:2px solid var(--card-border);border-radius:12px;overflow:hidden}}
 .nakanohito-race-header{{padding:10px 16px;background:linear-gradient(135deg,var(--cream),#FFF);border-bottom:1px solid var(--card-border);font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}}
@@ -1111,16 +1094,6 @@ for i, dk in enumerate(all_dates if not stale_mode else []):
     html += '<div class="section-title">注目データ</div>\n'
     html += '<div style="padding:4px 16px 8px;font-size:11px;color:var(--text-sub)">過去の回収率100%超パターンに該当する馬をピックアップ<br>※オッズは前日取得時点の参考値です</div>\n'
 
-    # 凡例(常時表示)
-    html += (
-        '<div class="hotspot-legend">\n'
-        '  <div style="font-weight:700;margin-bottom:4px">📖 バッジと★の見方</div>\n'
-        '  <div class="lg-row"><span class="lg-badge lg-buy">買い推奨</span><span>このレース全体がAI買い判定通過(期待値◎)。バッジ付きの馬は根拠候補</span></div>\n'
-        '  <div class="lg-row"><span class="lg-badge lg-ai">AI本命</span><span>このレースのAIスコア1位(データ上の本命候補)。買うかは別判断</span></div>\n'
-        '  <div class="lg-row"><span class="lg-stars">★★★</span><span>過去データの該当強度。★数が多いほど根拠強(信頼度)</span></div>\n'
-        '</div>\n'
-    )
-
     # Collect hotspot picks for this day
     day_hotspots = []
     for p in preds:
@@ -1130,42 +1103,6 @@ for i, dk in enumerate(all_dates if not stale_mode else []):
     # 会場→レース番号順にソート
     venue_order = {v: i for i, v in enumerate(sorted(set(hp['venue'] for hp in day_hotspots)))} if day_hotspots else {}
     day_hotspots.sort(key=lambda x: (venue_order.get(x['venue'], 99), x['race_num']))
-
-    # 買い推奨レースの本命が hotspot 非該当なら専用セクションで表示
-    day_buy_races = [p for p in preds if p['_date_key']==dk and (p['buy_type'] or p['special_horse'])]
-    for p in day_buy_races:
-        r = p['race']
-        honmei = p.get('honmei') or {}
-        sp = p.get('special_horse')
-        # special horse優先 (v6_challenge等)
-        focus = sp if sp else honmei
-        if not focus or not focus.get('horse_name'): continue
-        h_name = focus.get('horse_name','').strip()
-        rn = r.get('race_num', 0)
-        in_hotspot = any(
-            hp['horse_name'].strip() == h_name and hp['race_num'] == rn
-            for hp in day_hotspots
-        )
-        if in_hotspot:
-            continue
-        # 専用カード
-        odds = focus.get('odds', 0) or 0
-        pop = focus.get('popularity', '')
-        jockey = focus.get('jockey', '')
-        buy_type = p.get('buy_type') or ''
-        label = '買い推奨(期待値◎)' if buy_type.startswith('v6_star') else ('チャレンジ枠' if buy_type or sp else '本命')
-        html += '<div class="buy-focus-section">\n'
-        html += f'  <div class="buy-focus-header">🎯 {label} · この馬が主役</div>\n'
-        html += '  <div class="buy-focus-body">\n'
-        html += f'    <div class="buy-focus-race">{r.get("venue","")}{rn}R {r.get("race_name","")} {r.get("start_time","")}発走</div>\n'
-        html += f'    <div class="buy-focus-horse">◎ {h_name}</div>\n'
-        html += f'    <div class="buy-focus-meta"><span>{odds:.1f}倍</span><span>{pop}人気</span><span>{jockey}</span></div>\n'
-        html += '    <div class="buy-focus-note">※ この馬は過去血統パターン(下の注目データ)には該当しませんが、AI総合スコアで買い対象と判定された主役馬です</div>\n'
-        html += '  </div>\n'
-        html += '</div>\n'
-
-    # 買い推奨レースの race_num 集合(hotspot カードの色分け用)
-    buy_race_nums = {(p['race'].get('venue',''), p['race'].get('race_num',0)) for p in day_buy_races}
 
     if day_hotspots:
         current_venue = None
@@ -1179,11 +1116,9 @@ for i, dk in enumerate(all_dates if not stale_mode else []):
 
             stars = '★' * hp['best_conf']
             star_cls = 'hs-conf3' if hp['best_conf'] >= 3 else ('hs-conf2' if hp['best_conf'] >= 2 else 'hs-conf1')
-            v6_tag = '<span class="hs-v6">AI本命</span>' if hp['is_v6_honmei'] else ('<span class="hs-v6buy">買い推奨</span>' if hp['is_buy'] else '')
-            is_buy_race = (hp['venue'], hp['race_num']) in buy_race_nums
-            card_cls = 'hotspot-card is-buy-race' if is_buy_race else 'hotspot-card'
+            v6_tag = '<span class="hs-v6">v6◎</span>' if hp['is_v6_honmei'] else ('<span class="hs-v6buy">v6買い</span>' if hp['is_buy'] else '')
 
-            html += f'<div class="{card_cls}">\n'
+            html += f'<div class="hotspot-card">\n'
             html += f'  <div class="hs-header"><span class="hs-race">{hp["venue"]}{hp["race_num"]}R</span>'
             html += f'<span class="hs-horse">{hp["horse_name"].strip()}</span>'
             html += f'<span class="hs-odds">{hp["odds"]:.1f}倍</span>{v6_tag}</div>\n'

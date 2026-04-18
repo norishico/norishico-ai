@@ -24,8 +24,10 @@ echo [%date% %time%] training import >> "%LOGFILE%"
 "%PYEXE%" -X utf8 scripts\import_training_from_tfjv.py >> "%LOGFILE%" 2>&1
 
 REM Step 2: sunday prediction
-echo [%date% %time%] publish_weekend --sunday >> "%LOGFILE%"
-"%PYEXE%" -X utf8 publish_weekend.py --sunday >> "%LOGFILE%" 2>&1
+REM NOTE: --sunday を外して両日再生成 (土曜レース消失事故 2026-04-18 対策)
+REM 土曜オッズも最新化される副次メリットあり
+echo [%date% %time%] publish_weekend (both sat+sun) >> "%LOGFILE%"
+"%PYEXE%" -X utf8 publish_weekend.py >> "%LOGFILE%" 2>&1
 set RC=%ERRORLEVEL%
 echo [%date% %time%] rc=%RC% >> "%LOGFILE%"
 

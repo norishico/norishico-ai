@@ -177,7 +177,7 @@ def calc_market_momentum():
     print(f"  📊 momentum計算: {momentum_count}レース更新")
 
 
-def quick_odds_refresh():
+def quick_odds_refresh(morning_mode=False):
     """軽量: オッズだけ再取得 → 買い判定チェック → 変更あればHTML再生成+push"""
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
@@ -354,20 +354,40 @@ def quick_odds_refresh():
     new_alerts = compare_and_log(preds, new_preds)
     changes = [a['text'] for a in new_alerts]
 
-    # 発走前チェック: 買いGO / 見送り通知
-    try:
-        from scripts.notify import notify_buy_go, notify_cancelled
-        for p in new_preds:
-            rid = p['race']['race_id']
-            bt = p.get('buy_type', '')
-            sp = p.get('special_horse')
-            lc = p.get('_last_odds_check', '')
-            if lc and (bt or sp):
-                notify_buy_go(p)
-            elif rid in old_buys and not bt and not sp:
-                notify_cancelled(p, p.get('pass_reason', 'オッズ変動'))
-    except Exception as ne:
-        print(f"  📧 通知エラー: {ne}")
+    # 通知ロジック (差分ベース)
+    # morning_mode=True の --once 時は notify_morning_summary 側で担当するのでスキップ
+    if not morning_mode:
+        # 朝スナップショットをロード (追加通知判定用)
+        morning_snapshot = {}
+        snap_path = PROJ_DIR / 'morning_snapshot.json'
+        if snap_path.exists():
+            try:
+                morning_snapshot = json.load(open(snap_path, encoding='utf-8'))
+            except Exception:
+                pass
+
+        try:
+            from scripts.notify import notify_buy_go, notify_cancelled, notify_added
+            for p in new_preds:
+                rid = p['race']['race_id']
+                bt = p.get('buy_type', '')
+                sp = p.get('special_horse')
+                is_target = bool(bt or sp)
+                was_morning = rid in morning_snapshot
+                was_last = rid in old_buys
+                lc = p.get('_last_odds_check', '')
+
+                if is_target and not was_last and not was_morning:
+                    # 朝にも前回にもなかった → 新規対象入り
+                    notify_added(p)
+                elif not is_target and was_last:
+                    # 前回まで対象 → 今回外れた
+                    notify_cancelled(p, p.get('pass_reason', 'オッズ変動'))
+                elif is_target and lc:
+                    # 発走10分前の最終確定
+                    notify_buy_go(p)
+        except Exception as ne:
+            print(f"  📧 通知エラー: {ne}")
 
     if changes:
         print(f"  🚨 変更あり!")
@@ -419,14 +439,34 @@ def main():
                         help='1回だけ強制オッズチェック+再判定して終了（朝の初回スナップショット用）')
     args = parser.parse_args()
 
-    # --once: 1回だけ強制チェックして終了 + momentum計算
-    # (朝確認通知は廃止: 委員会決定 2026-04-18 通知過多対策。ユーザーは既に予想を受信済)
+    # --once: 1回だけ強制チェックして終了 + momentum計算 + 朝サマリ通知 + snapshot保存
     if args.once:
         print(f"🐴 NORISHICO KEIBA AI 強制1回チェック（{datetime.now().strftime('%H:%M:%S')}）")
         try:
             calc_market_momentum()
-            changed = quick_odds_refresh()
+            changed = quick_odds_refresh(morning_mode=True)
             print(f"✅ 強制チェック完了 changed={changed}")
+            # 朝スナップショット保存 + 朝サマリ通知
+            try:
+                preds = json.load(open(PROJ_DIR / 'weekend_predictions.json', encoding='utf-8'))
+                morning_targets = {
+                    p['race']['race_id']: {
+                        'venue': p['race'].get('venue', ''),
+                        'race_num': p['race'].get('race_num', 0),
+                        'race_name': p['race'].get('race_name', ''),
+                        'buy_type': p.get('buy_type'),
+                        'special_horse': bool(p.get('special_horse')),
+                    }
+                    for p in preds if p.get('buy_type') or p.get('special_horse')
+                }
+                with open(PROJ_DIR / 'morning_snapshot.json', 'w', encoding='utf-8') as f:
+                    json.dump(morning_targets, f, ensure_ascii=False, indent=2)
+                print(f"  💾 morning_snapshot.json 保存 ({len(morning_targets)}件)")
+                from scripts.notify import notify_morning_summary
+                notify_morning_summary(preds)
+                print("  📧 朝サマリ通知 sent")
+            except Exception as ne:
+                print(f"  📧 朝通知エラー: {ne}")
         except Exception as e:
             import traceback
             print(f"❌ 強制チェックエラー: {e}")

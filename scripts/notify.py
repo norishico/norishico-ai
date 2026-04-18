@@ -89,26 +89,68 @@ def notify_prediction_ready(preds, day_label=''):
     _send('\n'.join(lines))
 
 
-def notify_morning_check(preds):
-    """朝オッズ確認通知"""
+def notify_morning_summary(preds):
+    """朝9時: 今日の対象レース一覧通知"""
     buy_races = [p for p in preds if p.get('buy_type') or p.get('special_horse')]
-    lines = ["🔄 **朝のオッズ確認完了**\n"]
-    # ブランド名は買いGOの footer のみに表示
+    if not buy_races:
+        _send("🐴 **今日の対象レース**\n\n現時点で期待値通過レースはありません。\nオッズ変動で追加されたら改めて通知します。")
+        return
+
+    # start_time順にソート
+    buy_races.sort(key=lambda x: x.get('race',{}).get('start_time',''))
+
+    lines = [f"🐴 **今日はこのレースが対象です（{len(buy_races)}R）**\n"]
     for p in buy_races:
         r = p.get('race', {})
         h = p.get('honmei', {})
-        mm = p.get('momentum', {})
+        sp = p.get('special_horse')
+        bt = p.get('buy_type') or ''
+        focus = sp if sp else h
         venue = r.get('venue', '')
         rnum = r.get('race_num', '')
-        name = h.get('horse_name', '')
-        label = mm.get('label', '→安定') if mm else ''
-        chg = mm.get('change_pct', 0) if mm else 0
-        init = mm.get('initial_odds', 0) if mm else 0
-        cur = h.get('odds', 0) or 0
-        lines.append(f"  {venue}{rnum}R ◎{name} {init:.1f}→{cur:.1f}倍 {label}")
+        rname = r.get('race_name', '')
+        stime = r.get('start_time', '')
+        name = focus.get('horse_name', '')
+        odds = focus.get('odds', 0) or 0
+        num = focus.get('horse_num', '')
+        mark = '★★★' if bt == 'v6_star3' else '★★' if bt == 'v6_star2' else '★'
+        lines.append(f"  {mark} {stime} {venue}{rnum}R {rname}")
+        lines.append(f"     ◎{_umaban(num)} {name} {odds:.1f}倍")
 
-    lines.append("\n発走前に最終判定します")
+    lines.append("\n発走10分前に最終判定します。オッズ変動で追加/除外があれば都度通知します。")
     _send('\n'.join(lines))
+
+
+# 後方互換のため旧関数名も残す(内部で新関数へ委譲)
+def notify_morning_check(preds):
+    notify_morning_summary(preds)
+
+
+def notify_added(pred):
+    """オッズ変動で新たに対象入りしたレースの通知"""
+    r = pred.get('race', {})
+    h = pred.get('honmei', {})
+    sp = pred.get('special_horse')
+    focus = sp if sp else h
+    venue = r.get('venue', '')
+    rnum = r.get('race_num', '')
+    rname = r.get('race_name', '')
+    stime = r.get('start_time', '')
+    name = focus.get('horse_name', '')
+    odds = focus.get('odds', 0) or 0
+    num = focus.get('horse_num', '')
+
+    embed = {
+        'title': '➕ 対象に追加されました',
+        'color': 0xFBC02D,  # 黄色
+        'fields': [
+            {'name': 'レース', 'value': f'{venue}{rnum}R {rname}（発走 {stime}）', 'inline': False},
+            {'name': '◎ 本命', 'value': f'**{_umaban(num)} {name}** {odds:.1f}倍', 'inline': False},
+            {'name': '備考', 'value': '朝時点では対象外でしたが、オッズ変動で買い条件を満たしました。発走10分前に最終判定します。', 'inline': False},
+        ],
+        'timestamp': datetime.utcnow().isoformat(),
+    }
+    _send(embeds=[embed])
 
 
 def notify_buy_go(pred):
@@ -142,7 +184,7 @@ def notify_buy_go(pred):
             pass
 
     embed = {
-        'title': f'✅ 買いGO（直前確認済み）',
+        'title': f'🎯 買います（最終確定）',
         'color': 0x2E7D32,
         'fields': [
             {'name': 'レース', 'value': f'{venue}{rnum}R {rname}', 'inline': False},

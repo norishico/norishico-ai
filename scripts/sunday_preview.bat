@@ -1,7 +1,8 @@
 @echo off
 REM ======================================================================
-REM  Sunday preview (Task Scheduler: Sat 11:00)
-REM  Sunday race prediction. Frames announced Sat 09:00, import training first.
+REM  Sunday preview (Task Scheduler: Sat 20:00)
+REM  Sunday race prediction. Runs after Saturday races end to avoid
+REM  conflict with race_day_auto_refresh loop (2026-04-18 policy change).
 REM ======================================================================
 setlocal
 set PROJ=C:\Users\westr\norishiko_ai

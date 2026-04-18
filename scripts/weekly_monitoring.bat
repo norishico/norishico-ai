@@ -19,6 +19,11 @@ cd /d "%PROJ%"
 echo [%date% %time%] weekly monitoring start >> "%LOGFILE%"
 "%PYEXE%" scripts\run_monitoring.py >> "%LOGFILE%" 2>&1
 set RC=%ERRORLEVEL%
-echo [%date% %time%] rc=%RC% >> "%LOGFILE%"
+echo [%date% %time%] run_monitoring rc=%RC% >> "%LOGFILE%"
+
+REM build dashboard.html from latest data
+echo [%date% %time%] build_dashboard start >> "%LOGFILE%"
+"%PYEXE%" -X utf8 build_dashboard.py >> "%LOGFILE%" 2>&1
+echo [%date% %time%] build_dashboard rc=%ERRORLEVEL% >> "%LOGFILE%"
 
 endlocal & exit /b %RC%

@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NORISHICO AI Dashboard (Prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#08090d; --panel:#11131a; --panel2:#181b24; --border:#262a35;
+  --text:#e6e6e6; --text-sub:#8a8f9f; --text-mute:#5a5f6d;
+  --gold:#e8b84b; --gold-dark:#b8922a; --gold-pale:#3a2e12;
+  --green:#3ecf8e; --red:#e5484d; --orange:#f5a524; --blue:#3b82f6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* ==== Header ==== */
+.topbar{position:sticky;top:0;z-index:100;background:linear-gradient(90deg,#0b0d13,#11131a);border-bottom:2px solid var(--gold);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,0.5)}
+.logo{font-weight:700;font-size:18px;letter-spacing:3px;color:var(--gold)}
+.logo span{color:var(--text-sub);font-size:11px;margin-left:10px;letter-spacing:1px}
+.topbar-right{display:flex;gap:12px;align-items:center;font-size:12px;color:var(--text-sub)}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--green);box-shadow:0 0 8px rgba(62,207,142,0.6)}
+
+/* ==== Tabs ==== */
+.tabs{display:flex;gap:2px;background:var(--panel);border-bottom:1px solid var(--border);padding:0 20px;overflow-x:auto;white-space:nowrap}
+.tab{padding:14px 22px;cursor:pointer;color:var(--text-sub);font-weight:500;border-bottom:3px solid transparent;transition:all 0.15s;font-size:13px}
+.tab:hover{color:var(--text);background:rgba(232,184,75,0.05)}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(232,184,75,0.06)}
+.tab-content{display:none;padding:24px 20px;max-width:1400px;margin:0 auto}
+.tab-content.active{display:block}
+
+/* ==== Common Panel ==== */
+.section-title{font-size:14px;font-weight:700;color:var(--gold);margin:20px 0 12px;letter-spacing:1px;display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';width:3px;height:16px;background:var(--gold);border-radius:2px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px}
+.panel-title{font-size:12px;color:var(--text-sub);font-weight:500;margin-bottom:10px;letter-spacing:0.5px;text-transform:uppercase}
+
+/* ==== KPI Cards ==== */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px}
+.kpi-label{font-size:11px;color:var(--text-sub);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.kpi-value{font-size:26px;font-weight:700;color:var(--gold);font-family:'JetBrains Mono',monospace}
+.kpi-value.pos{color:var(--green)}
+.kpi-value.neg{color:var(--red)}
+.kpi-sub{font-size:11px;color:var(--text-sub);margin-top:4px;font-family:'JetBrains Mono',monospace}
+.kpi-ci{font-size:10px;color:var(--text-mute);font-family:'JetBrains Mono',monospace}
+
+/* ==== Chart ==== */
+.chart-wrap{position:relative;height:280px}
+.chart-wrap.tall{height:320px}
+.chart-wrap.short{height:200px}
+
+/* ==== Alerts ==== */
+.alert-list{display:flex;flex-direction:column;gap:8px}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--panel2);border-left:3px solid var(--orange);border-radius:6px;font-size:12px}
+.alert.warn{border-left-color:var(--orange)}
+.alert.danger{border-left-color:var(--red)}
+.alert.info{border-left-color:var(--blue)}
+.alert-icon{flex-shrink:0;font-size:14px}
+.alert-body{flex:1}
+.alert-title{font-weight:700;color:var(--text);margin-bottom:2px}
+.alert-desc{color:var(--text-sub);font-size:11px}
+
+/* ==== Grid Layout ==== */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+@media (max-width:780px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+/* ==== Health Indicator ==== */
+.health-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.health-row:last-child{border-bottom:none}
+.health-label{font-size:12px;color:var(--text-sub)}
+.health-value{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)}
+.health-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px}
+.health-badge.ok{background:rgba(62,207,142,0.15);color:var(--green)}
+.health-badge.ng{background:rgba(229,72,77,0.15);color:var(--red)}
+.health-badge.warn{background:rgba(245,165,36,0.15);color:var(--orange)}
+
+/* ==== Heatmap ==== */
+.heatmap{display:grid;gap:3px;font-family:'JetBrains Mono',monospace;font-size:10px}
+.heatmap-cell{padding:8px 4px;text-align:center;border-radius:3px;color:#fff;min-height:32px;display:flex;align-items:center;justify-content:center}
+.heatmap-header{padding:4px;font-size:10px;color:var(--text-sub);text-align:center}
+
+/* ==== Ranking ==== */
+.rank-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.rank-row:last-child{border-bottom:none}
+.rank-num{width:22px;height:22px;background:var(--gold-pale);color:var(--gold);border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:11px;flex-shrink:0}
+.rank-name{flex:1;font-weight:500}
+.rank-bar-wrap{width:120px;height:6px;background:var(--panel2);border-radius:3px;overflow:hidden}
+.rank-bar{height:100%;background:linear-gradient(90deg,var(--gold-dark),var(--gold));border-radius:3px}
+.rank-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);min-width:60px;text-align:right}
+.rank-n{font-size:10px;color:var(--text-mute);min-width:42px;text-align:right}
+
+/* ==== Committee ==== */
+.member-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:20px}
+.member-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;gap:12px;align-items:center}
+.member-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--gold-dark),var(--gold));display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.member-name{font-weight:700;font-size:14px;color:var(--gold)}
+.member-role{font-size:11px;color:var(--text-sub);margin-top:2px}
+
+.post-feed{display:flex;flex-direction:column;gap:12px}
+.post{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px}
+.post-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.post-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold-pale);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.post-meta{flex:1}
+.post-name{font-weight:700;font-size:13px;color:var(--gold)}
+.post-time{font-size:10px;color:var(--text-mute)}
+.post-tag{display:inline-block;padding:2px 8px;background:var(--panel2);color:var(--text-sub);border-radius:4px;font-size:10px;margin-left:6px}
+.post-body{font-size:13px;color:var(--text);line-height:1.7}
+
+/* ==== Kanban ==== */
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;overflow-x:auto}
+@media (max-width:1100px){.kanban{grid-template-columns:repeat(2,1fr)}}
+.kanban-col{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;min-height:300px;display:flex;flex-direction:column;gap:8px}
+.kanban-col-title{font-size:11px;color:var(--gold);font-weight:700;padding:4px 8px;border-bottom:2px solid var(--gold);margin-bottom:6px;letter-spacing:0.5px;text-transform:uppercase}
+.kanban-card{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:12px}
+.kanban-card-title{font-weight:700;margin-bottom:4px;color:var(--text)}
+.kanban-card-desc{font-size:11px;color:var(--text-sub);line-height:1.5}
+.kanban-card-footer{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.badge{font-size:9px;padding:1px 6px;border-radius:3px;background:var(--gold-pale);color:var(--gold);font-weight:500}
+.badge.prio-high{background:rgba(229,72,77,0.2);color:var(--red)}
+.badge.prio-mid{background:rgba(245,165,36,0.2);color:var(--orange)}
+.badge.prio-low{background:rgba(138,143,159,0.2);color:var(--text-sub)}
+
+/* ==== Pill tag ==== */
+.pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500;background:var(--gold-pale);color:var(--gold);font-family:'JetBrains Mono',monospace;margin-right:4px}
+.pill.red{background:rgba(229,72,77,0.15);color:var(--red)}
+.pill.green{background:rgba(62,207,142,0.15);color:var(--green)}
+.pill.blue{background:rgba(59,130,246,0.15);color:var(--blue)}
+
+/* footer */
+.footer{text-align:center;color:var(--text-mute);font-size:10px;padding:24px 0 16px;font-family:'JetBrains Mono',monospace}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">NORISHICO<span>AI OPERATIONS DASHBOARD</span></div>
+  <div class="topbar-right">
+    <span><span class="status-dot"></span>All Systems</span>
+    <span class="mono">v6.6</span>
+    <span class="mono" id="now-clock">--:--</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="home">🏠 ホーム</div>
+  <div class="tab" data-tab="perf">📊 実績分析</div>
+  <div class="tab" data-tab="review">🔍 レース振り返り</div>
+  <div class="tab" data-tab="blood">🧬 血統・コース</div>
+  <div class="tab" data-tab="committee">👯 ギャル委員会ログ</div>
+  <div class="tab" data-tab="kanban">📋 改善管理</div>
+</div>
+
+<!-- ============ HOME ============ -->
+<div class="tab-content active" id="tab-home">
+
+  <div class="section-title">📖 バックテスト実績 (2020-2025)</div>
+  <div style="font-size:11px;color:var(--text-sub);margin:-8px 0 12px;padding:0 2px">※ 実運用開始(2026-04)以前は全てバックテスト。実取引なし・理論値</div>
+  <div class="kpi-grid">
+    <div class="kpi" style="border-color:rgba(59,130,246,0.3)">
+      <div class="kpi-label"><span class="pill blue">BT</span> バックテストROI (6年)</div>
+      <div class="kpi-value pos">129.3<span style="font-size:14px">%</span></div>
+      <div class="kpi-ci">95%CI [118.6 - 141.0] n=1,402</div>
+    </div>
+    <div class="kpi" style="border-color:rgba(59,130,246,0.3)">
+      <div class="kpi-label"><span class="pill blue">BT</span> 理論損益</div>
+      <div class="kpi-value pos">+482,890<span style="font-size:14px">円</span></div>
+      <div class="kpi-ci">年平均 +80,482円(理論値)</div>
+    </div>
+    <div class="kpi" style="border-color:rgba(59,130,246,0.3)">
+      <div class="kpi-label"><span class="pill blue">BT</span> 理論買いR数</div>
+      <div class="kpi-value">1,402<span style="font-size:14px">R</span></div>
+      <div class="kpi-ci">2020-2025</div>
+    </div>
+    <div class="kpi" style="border-color:rgba(59,130,246,0.3)">
+      <div class="kpi-label"><span class="pill blue">BT</span> 全年黒字率</div>
+      <div class="kpi-value pos">100<span style="font-size:14px">%</span></div>
+      <div class="kpi-ci">6/6年 黒字</div>
+    </div>
+  </div>
+
+  <div class="section-title">🚀 実運用実績 (2026-04-01〜)</div>
+  <div style="font-size:11px;color:var(--text-sub);margin:-8px 0 12px;padding:0 2px">※ こちらが本物の実績。実際に買い目を発射して回収も実数値</div>
+  <div class="kpi-grid">
+    <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
+      <div class="kpi-label"><span class="pill">LIVE</span> 実運用ROI</div>
+      <div class="kpi-value neg">0.0<span style="font-size:14px">%</span></div>
+      <div class="kpi-ci">95%CI [62 - 138] n=17 (小サンプル)</div>
+    </div>
+    <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
+      <div class="kpi-label"><span class="pill">LIVE</span> 実損益</div>
+      <div class="kpi-value neg">-28,000<span style="font-size:14px">円</span></div>
+      <div class="kpi-ci">投資 28,000円 / 回収 0円</div>
+    </div>
+    <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
+      <div class="kpi-label"><span class="pill">LIVE</span> 実買いR数</div>
+      <div class="kpi-value">17<span style="font-size:14px">R</span></div>
+      <div class="kpi-ci">2026-04-01〜今日</div>
+    </div>
+    <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
+      <div class="kpi-label"><span class="pill">LIVE</span> 実的中率</div>
+      <div class="kpi-value neg">0<span style="font-size:14px">%</span></div>
+      <div class="kpi-ci">0/17 (BT想定~15%)</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">年別ROI推移 (BT=2020-2025 / Live=2026〜)</div>
+      <div class="chart-wrap"><canvas id="chartYearlyROI"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">年別損益 (BT=理論値 / Live=実数値)</div>
+      <div class="chart-wrap"><canvas id="chartYearlyPL"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="panel">
+      <div class="panel-title">今週のサマリー (4/18土+4/19日)</div>
+      <div class="health-row"><span class="health-label">買い目数</span><span class="health-value">3 R</span></div>
+      <div class="health-row"><span class="health-label">投資額</span><span class="health-value">3,000 円</span></div>
+      <div class="health-row"><span class="health-label">回収額(進行中)</span><span class="health-value">0 円</span></div>
+      <div class="health-row"><span class="health-label">当日成績(4/18)</span><span class="health-value" style="color:var(--red)">-2,000 円 (2R ハズレ)</span></div>
+      <div class="health-row"><span class="health-label">週次ROI予定</span><span class="health-value" style="color:var(--text-sub)">日曜発走後集計</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">システムヘルス</div>
+      <div class="health-row"><span class="health-label">DB最終更新</span><span class="health-value">2026-04-18 14:49 <span class="health-badge ok">OK</span></span></div>
+      <div class="health-row"><span class="health-label">JVLink 23:30</span><span class="health-value">04-17 成功 <span class="health-badge ok">OK</span></span></div>
+      <div class="health-row"><span class="health-label">JVLink 04:30</span><span class="health-value">04-18 成功 <span class="health-badge ok">OK</span></span></div>
+      <div class="health-row"><span class="health-label">SaturdayPreview</span><span class="health-value">04-17 21:00 <span class="health-badge ok">rc=0</span></span></div>
+      <div class="health-row"><span class="health-label">RaceDayAutoRefresh</span><span class="health-value">04-18 09:00 <span class="health-badge warn">中断</span></span></div>
+      <div class="health-row"><span class="health-label">morning_snapshot.json</span><span class="health-value" style="color:var(--text-mute)">未生成(旧コード時起動)</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">⚠️ アラート</div>
+      <div class="alert-list">
+        <div class="alert warn">
+          <span class="alert-icon">⚠️</span>
+          <div class="alert-body">
+            <div class="alert-title">2024 年間ROI 98.4% (閾値100%未達)</div>
+            <div class="alert-desc">F1未勝利の単年不振が主因 / memory確認済</div>
+          </div>
+        </div>
+        <div class="alert info">
+          <span class="alert-icon">ℹ️</span>
+          <div class="alert-body">
+            <div class="alert-title">2023メガヒット乖離 +38.3pt</div>
+            <div class="alert-desc">Winsorized 135%→通常 173% (中山11R +102万の影響)</div>
+          </div>
+        </div>
+        <div class="alert danger">
+          <span class="alert-icon">🔴</span>
+          <div class="alert-body">
+            <div class="alert-title">2026(OOS) ROI 0.0% n=17</div>
+            <div class="alert-desc">ホールドアウトで大幅下振れ。要経過観察(n不足)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ PERF ============ -->
+<div class="tab-content" id="tab-perf">
+
+  <div class="section-title">実績分析</div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">オッズ帯別回収率 (2020-2025集計)</div>
+      <div class="chart-wrap"><canvas id="chartOddsROI"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">EV分布ヒストグラム (買いレース n=1,419)</div>
+      <div class="chart-wrap"><canvas id="chartEVHist"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">月別ROIヒートマップ (2021-2026)</div>
+    <div id="heatmapMonthly"></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">的中率 vs 回収率 (クラス別 / バブル=買いR数)</div>
+      <div class="chart-wrap"><canvas id="chartHitROI"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">ルール変更×ROI年表 (Winsorized基準)</div>
+      <div class="chart-wrap"><canvas id="chartRuleROI"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">取りこぼし分析(見送り好成績ログ・直近4週)</div>
+    <table style="width:100%;font-size:12px;border-collapse:collapse">
+      <thead>
+        <tr style="color:var(--text-sub);text-align:left">
+          <th style="padding:8px;border-bottom:1px solid var(--border)">日付</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">会場R</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">馬名</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">着順</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">単勝</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">見送り理由</th>
+        </tr>
+      </thead>
+      <tbody id="missedTbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ============ REVIEW ============ -->
+<div class="tab-content" id="tab-review">
+
+  <div class="section-title">🔍 レース振り返り (実運用 2026-04〜)</div>
+  <div style="font-size:11px;color:var(--text-sub);margin:-8px 0 12px">※ 買い目を発射した実運用レースのみ。外れ4タイプは凱旋門太郎フレームワーク準拠</div>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">対象期間</div>
+      <div class="kpi-value mono" style="font-size:16px">2026-04-01〜18</div>
+      <div class="kpi-ci">実運用18日目</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">外れ内訳</div>
+      <div class="kpi-value mono" style="font-size:14px;color:var(--text)">Luck 4/Narrow 1/Misread 2/Scenario 8</div>
+      <div class="kpi-ci">n=15 (2R進行中除く)</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">最頻タイプ</div>
+      <div class="kpi-value" style="font-size:18px;color:var(--orange)">Scenario 53%</div>
+      <div class="kpi-ci">展開依存の外れが主因</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">改善余地</div>
+      <div class="kpi-value" style="font-size:14px;color:var(--text-sub)">バイアス条件読み強化</div>
+      <div class="kpi-ci">中山重馬場集中 4/5日曜</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">外れ4タイプ分布</div>
+      <div class="chart-wrap short"><canvas id="chartMissTypes"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">会場別 外れレース数</div>
+      <div class="chart-wrap short"><canvas id="chartVenueMisses"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">買いレース全件 (ダミー表示・新しい順)</div>
+    <table style="width:100%;font-size:12px;border-collapse:collapse">
+      <thead>
+        <tr style="color:var(--text-sub);text-align:left">
+          <th style="padding:8px;border-bottom:1px solid var(--border)">日付</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">会場R</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">レース名</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">◎本命</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">買い目</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">投資</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">結果</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">回収</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">外れタイプ</th>
+          <th style="padding:8px;border-bottom:1px solid var(--border)">コメント</th>
+        </tr>
+      </thead>
+      <tbody id="reviewTbody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">外れタイプ 凡例</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;font-size:12px;padding:4px">
+      <div style="background:var(--panel2);padding:10px;border-left:3px solid var(--green);border-radius:4px">
+        <b style="color:var(--green)">Luck (運のぶれ)</b>
+        <div style="color:var(--text-sub);margin-top:4px">本命1-3着。脚は使えた。行動維持でOK</div>
+      </div>
+      <div style="background:var(--panel2);padding:10px;border-left:3px solid var(--blue);border-radius:4px">
+        <b style="color:var(--blue)">Narrow (読み甘)</b>
+        <div style="color:var(--text-sub);margin-top:4px">本命4-5着。微調整でEV改善可能</div>
+      </div>
+      <div style="background:var(--panel2);padding:10px;border-left:3px solid var(--orange);border-radius:4px">
+        <b style="color:var(--orange)">Misread (読み違い)</b>
+        <div style="color:var(--text-sub);margin-top:4px">本命6着以降。要振り返り</div>
+      </div>
+      <div style="background:var(--panel2);padding:10px;border-left:3px solid var(--red);border-radius:4px">
+        <b style="color:var(--red)">Scenario (展開依存)</b>
+        <div style="color:var(--text-sub);margin-top:4px">同会場3敗+集中発生。条件読み改善</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ BLOOD ============ -->
+<div class="tab-content" id="tab-blood">
+
+  <div class="section-title">血統・コース分析</div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">血統ROIランキング TOP10 (n≥30)</div>
+      <div id="rankingBlood"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">新興種牡馬ウォッチャー (産駒ROI推移)</div>
+      <div class="chart-wrap"><canvas id="chartNewSire"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">脚質×会場 ROIヒートマップ</div>
+      <div id="heatmapStyle"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">騎手×会場 ROIヒートマップ (TOP騎手)</div>
+      <div id="heatmapJockey"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">厩舎×馬場状態 ROIヒートマップ</div>
+    <div id="heatmapStable"></div>
+  </div>
+
+</div>
+
+<!-- ============ COMMITTEE ============ -->
+<div class="tab-content" id="tab-committee">
+
+  <div class="section-title">ギャル委員会ログ</div>
+
+  <div class="member-grid" id="memberGrid"></div>
+
+  <div class="post-feed" id="postFeed"></div>
+
+</div>
+
+<!-- ============ KANBAN ============ -->
+<div class="tab-content" id="tab-kanban">
+
+  <div class="section-title">改善管理(かんばん)</div>
+
+  <div class="kanban" id="kanbanBoard"></div>
+
+</div>
+
+<div class="footer">NORISHICO KEIBA AI · Dashboard Prototype · Dummy Data · generated 2026-04-18</div>
+
+<script>
+// ==================== ダミーデータ (本番JSON構造に寄せる) ====================
+const DATA = {{DATA_JSON}};
+
+// ==================== Clock ====================
+function updateClock(){
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  const ss = String(d.getSeconds()).padStart(2,'0');
+  const el = document.getElementById('now-clock');
+  if (el) el.textContent = `${hh}:${mm}:${ss}`;
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ==================== Tab switch ====================
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tab-'+t.dataset.tab).classList.add('active');
+    // resize charts on tab show
+    setTimeout(() => {
+      Object.values(Chart.instances).forEach(c => { try { c.resize(); } catch(e){} });
+    }, 50);
+  });
+});
+
+// ==================== Chart.js defaults ====================
+Chart.defaults.color = '#8a8f9f';
+Chart.defaults.borderColor = '#262a35';
+Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
+const GOLD = '#e8b84b', GOLD_DK = '#b8922a', GREEN='#3ecf8e', RED='#e5484d', ORANGE='#f5a524', BLUE='#3b82f6';
+
+// --- Yearly ROI (line): BTとLiveを色分け ---
+(function(){
+  const yrs = DATA.yearly.map(x=>x.year);
+  const isLive = y => y >= 2026;
+  const labels = yrs.map(y => isLive(y)?`${y} LIVE`:`${y} BT`);
+  new Chart(document.getElementById('chartYearlyROI'), {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'ROI(通常)', data: DATA.yearly.map(x=>x.roi_normal),
+          borderColor:GOLD, backgroundColor:'rgba(232,184,75,0.15)', tension:0.3, fill:true,
+          pointRadius: DATA.yearly.map(x=> isLive(x.year)?8:4),
+          pointBackgroundColor: DATA.yearly.map(x=> isLive(x.year)?GOLD:'rgba(59,130,246,0.5)'),
+          pointBorderColor: DATA.yearly.map(x=> isLive(x.year)?'#fff':BLUE),
+          pointBorderWidth: DATA.yearly.map(x=> isLive(x.year)?2:1),
+        },
+        {label:'ROI(Winsorized)', data: DATA.yearly.map(x=>x.roi_wins), borderColor:BLUE,
+          backgroundColor:'rgba(59,130,246,0.1)', tension:0.3, borderDash:[6,4], pointRadius:3},
+        {label:'目標100%', data: DATA.yearly.map(()=>100), borderColor:'#555', borderDash:[3,3], pointRadius:0},
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom'},
+        tooltip:{callbacks:{title:ctx=>ctx[0].label+(isLive(yrs[ctx[0].dataIndex])?' (実運用)':' (バックテスト)')}}},
+      scales:{y:{ticks:{callback:v=>v+'%'}}}}
+  });
+})();
+
+// --- Yearly P&L (bar): BTとLive色分け ---
+new Chart(document.getElementById('chartYearlyPL'),{
+  type:'bar',
+  data:{
+    labels: DATA.yearly.map(x=> x.year>=2026?`${x.year} LIVE`:`${x.year} BT`),
+    datasets:[{
+      label:'損益(円)', data:DATA.yearly.map(x=>x.pl),
+      backgroundColor: DATA.yearly.map(x=> {
+        const isLive = x.year>=2026;
+        if(x.pl>=0) return isLive?'rgba(232,184,75,0.8)':'rgba(62,207,142,0.45)';
+        return isLive?'rgba(229,72,77,0.85)':'rgba(229,72,77,0.35)';
+      }),
+      borderColor: DATA.yearly.map(x=> {
+        const isLive = x.year>=2026;
+        if(x.pl>=0) return isLive?GOLD:GREEN;
+        return RED;
+      }),
+      borderWidth: DATA.yearly.map(x=> x.year>=2026?2:1)
+    }]
+  },
+  options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},
+    tooltip:{callbacks:{title:ctx=>{
+      const y = DATA.yearly[ctx[0].dataIndex].year;
+      return `${y} ${y>=2026?'(実運用)':'(バックテスト理論値)'}`;
+    }}}},
+    scales:{y:{ticks:{callback:v=>(v/1000)+'k'}}}}
+});
+
+// --- Odds ROI (bar) ---
+new Chart(document.getElementById('chartOddsROI'),{
+  type:'bar',
+  data:{
+    labels:DATA.odds_roi.map(x=>x.band),
+    datasets:[{
+      label:'ROI (%)', data:DATA.odds_roi.map(x=>x.roi),
+      backgroundColor: DATA.odds_roi.map(x=> x.roi>=100?'rgba(232,184,75,0.6)':'rgba(229,72,77,0.5)'),
+      borderColor: DATA.odds_roi.map(x=> x.roi>=100?GOLD:RED),
+      borderWidth:1
+    }]
+  },
+  options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},
+    tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}% (n=${DATA.odds_roi[ctx.dataIndex].n})`}}},
+    scales:{y:{ticks:{callback:v=>v+'%'}}}}
+});
+
+// --- EV histogram ---
+new Chart(document.getElementById('chartEVHist'),{
+  type:'bar',
+  data:{
+    labels:DATA.ev_hist.map(x=>x.ev),
+    datasets:[{label:'頻度(R)', data:DATA.ev_hist.map(x=>x.n), backgroundColor:'rgba(232,184,75,0.55)', borderColor:GOLD, borderWidth:1}]
+  },
+  options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}}
+});
+
+// --- Monthly heatmap ---
+function roiColor(v){
+  if(v===null || v===undefined) return 'rgba(35,40,50,0.4)';
+  if(v===0) return 'rgba(100,100,100,0.4)';
+  if(v<80) return 'rgba(229,72,77,0.85)';
+  if(v<100) return 'rgba(245,165,36,0.7)';
+  if(v<120) return 'rgba(232,184,75,0.7)';
+  if(v<150) return 'rgba(62,207,142,0.7)';
+  return 'rgba(62,207,142,1)';
+}
+(function renderMonthlyHeatmap(){
+  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const wrap = document.getElementById('heatmapMonthly');
+  let html = `<div class="heatmap" style="grid-template-columns:50px repeat(12,1fr)">`;
+  html += `<div class="heatmap-header"></div>` + months.map(m=>`<div class="heatmap-header">${m}</div>`).join('');
+  DATA.monthly_roi.forEach(row=>{
+    html += `<div class="heatmap-header mono" style="align-self:center;color:var(--gold)">${row.year}</div>`;
+    row.months.forEach(v=>{
+      const bg = roiColor(v);
+      const txt = v===null?'—':v===0?'-':(v+'%');
+      html += `<div class="heatmap-cell" style="background:${bg}">${txt}</div>`;
+    });
+  });
+  html += `</div>`;
+  wrap.innerHTML = html;
+})();
+
+// --- Hit vs ROI bubble ---
+new Chart(document.getElementById('chartHitROI'),{
+  type:'bubble',
+  data:{
+    datasets: DATA.hit_roi.map((x,i)=>({
+      label:x.cls,
+      data:[{x:x.hit, y:x.roi, r: Math.sqrt(x.n)*2}],
+      backgroundColor: `hsla(${i*60+40}, 65%, 55%, 0.55)`,
+      borderColor: `hsla(${i*60+40}, 65%, 55%, 1)`,
+    }))
+  },
+  options:{responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{position:'bottom'},
+      tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: 的中${ctx.parsed.x}% ROI${ctx.parsed.y}%`}}},
+    scales:{
+      x:{title:{display:true,text:'的中率 (%)'}},
+      y:{title:{display:true,text:'ROI (%)'}, ticks:{callback:v=>v+'%'}}
+    }}
+});
+
+// --- Rule ROI timeline ---
+new Chart(document.getElementById('chartRuleROI'),{
+  type:'line',
+  data:{
+    labels: DATA.rule_roi.map(x=>x.ver),
+    datasets:[{
+      label:'ROI(通算)', data:DATA.rule_roi.map(x=>x.roi),
+      borderColor:GOLD, backgroundColor:'rgba(232,184,75,0.2)', tension:0.35, fill:true, pointRadius:6
+    }]
+  },
+  options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},
+    tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}% (${DATA.rule_roi[ctx.dataIndex].date})`}}},
+    scales:{y:{ticks:{callback:v=>v+'%'}}}}
+});
+
+// --- Review table ---
+(function renderReview(){
+  const tbody = document.getElementById('reviewTbody');
+  if (!tbody) return;
+  const missLabel = {luck:'Luck(運)',narrow:'Narrow(甘)',misread:'Misread(違)',scenario:'Scenario(展)'};
+  const missColor = {luck:'green',narrow:'blue',misread:'warn',scenario:'red'};
+  tbody.innerHTML = DATA.reviews.map(r=>{
+    const hit = r.ret>0;
+    const finColor = r.finish==='-'?'var(--text-mute)':hit?'var(--green)':'var(--red)';
+    const missTag = r.miss?`<span class="pill ${missColor[r.miss]==='green'?'green':missColor[r.miss]==='blue'?'blue':missColor[r.miss]==='warn'?'':'red'}">${missLabel[r.miss]}</span>`:`<span style="color:var(--text-mute);font-size:11px">—</span>`;
+    return `
+    <tr style="border-bottom:1px solid var(--border)">
+      <td class="mono" style="padding:6px">${r.date}</td>
+      <td style="padding:6px">${r.race}</td>
+      <td style="padding:6px;font-weight:500">${r.rname}</td>
+      <td style="padding:6px">${r.honmei}${r.odds?`<span class="mono" style="color:var(--text-mute);font-size:11px"> (${r.odds}倍)</span>`:''}</td>
+      <td style="padding:6px;font-size:11px;color:var(--text-sub)">${r.buy}</td>
+      <td class="mono" style="padding:6px;text-align:right">${r.cost.toLocaleString()}</td>
+      <td class="mono" style="padding:6px;color:${finColor}">${r.finish}</td>
+      <td class="mono" style="padding:6px;text-align:right;color:${hit?'var(--green)':'var(--text-mute)'}">${r.ret.toLocaleString()}</td>
+      <td style="padding:6px">${missTag}</td>
+      <td style="padding:6px;font-size:11px;color:var(--text-sub)">${r.note}</td>
+    </tr>`;
+  }).join('');
+})();
+
+// --- Miss types doughnut ---
+(function(){
+  const el = document.getElementById('chartMissTypes');
+  if (!el) return;
+  const labels = {luck:'Luck 運のぶれ', narrow:'Narrow 読み甘', misread:'Misread 読み違い', scenario:'Scenario 展開依存'};
+  const colors = {luck:'#3ecf8e', narrow:'#3b82f6', misread:'#f5a524', scenario:'#e5484d'};
+  const keys = Object.keys(DATA.miss_types);
+  new Chart(el,{
+    type:'doughnut',
+    data:{labels:keys.map(k=>labels[k]), datasets:[{data:keys.map(k=>DATA.miss_types[k]), backgroundColor:keys.map(k=>colors[k]), borderColor:'#11131a', borderWidth:2}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right'}}}
+  });
+})();
+
+// --- Venue misses ---
+(function(){
+  const el = document.getElementById('chartVenueMisses');
+  if (!el) return;
+  const entries = Object.entries(DATA.venue_misses).filter(([,v])=>v>0);
+  new Chart(el,{
+    type:'bar',
+    data:{labels:entries.map(([k])=>k), datasets:[{label:'外れR', data:entries.map(([,v])=>v), backgroundColor:'rgba(229,72,77,0.5)', borderColor:RED, borderWidth:1}]},
+    options:{indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}}
+  });
+})();
+
+// --- Missed table (実績分析タブ) ---
+(function renderMissed(){
+  const tbody = document.getElementById('missedTbody');
+  tbody.innerHTML = DATA.missed.map(r=>`
+    <tr style="border-bottom:1px solid var(--border)">
+      <td class="mono" style="padding:8px">${r.date}</td>
+      <td style="padding:8px">${r.race}</td>
+      <td style="padding:8px"><b>${r.horse}</b></td>
+      <td style="padding:8px"><span class="pill green">${r.finish}</span></td>
+      <td class="mono" style="padding:8px">${r.odds}</td>
+      <td style="padding:8px;font-size:11px;color:var(--text-sub)">${r.reason}</td>
+    </tr>
+  `).join('');
+})();
+
+// --- Blood ranking ---
+(function renderRanking(){
+  const wrap = document.getElementById('rankingBlood');
+  const max = Math.max(...DATA.blood_rank.map(x=>x.roi));
+  wrap.innerHTML = DATA.blood_rank.map((b,i)=>`
+    <div class="rank-row">
+      <div class="rank-num">${i+1}</div>
+      <div class="rank-name">${b.name}</div>
+      <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(b.roi/max)*100}%"></div></div>
+      <div class="rank-val mono">${b.roi}%</div>
+      <div class="rank-n mono">n=${b.n}</div>
+    </div>
+  `).join('');
+})();
+
+// --- New sire chart ---
+new Chart(document.getElementById('chartNewSire'),{
+  type:'line',
+  data:{
+    labels: DATA.new_sire.years,
+    datasets: DATA.new_sire.sires.map((s,i)=>({
+      label:s.name, data:s.vals,
+      borderColor:[GOLD,GREEN,BLUE,ORANGE][i],
+      backgroundColor:'transparent', tension:0.3, pointRadius:4
+    }))
+  },
+  options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}},
+    scales:{y:{ticks:{callback:v=>v+'%'}}}}
+});
+
+// --- Generic heatmap renderer ---
+function renderHeatmap(wrapId, cols, rows, data){
+  const wrap = document.getElementById(wrapId);
+  const colCount = cols.length;
+  let html = `<div class="heatmap" style="grid-template-columns:90px repeat(${colCount},1fr)">`;
+  html += `<div class="heatmap-header"></div>` + cols.map(c=>`<div class="heatmap-header">${c}</div>`).join('');
+  rows.forEach((r,i)=>{
+    html += `<div class="heatmap-header" style="text-align:right;padding-right:6px;color:var(--gold)">${r}</div>`;
+    data[i].forEach(v=>{
+      html += `<div class="heatmap-cell mono" style="background:${roiColor(v)}">${v}%</div>`;
+    });
+  });
+  html += `</div>`;
+  wrap.innerHTML = html;
+}
+renderHeatmap('heatmapStyle', DATA.style_venue.styles, DATA.style_venue.venues, DATA.style_venue.data);
+renderHeatmap('heatmapJockey', DATA.jockey_venue.venues, DATA.jockey_venue.jockeys, DATA.jockey_venue.data);
+renderHeatmap('heatmapStable', DATA.stable_track.tracks, DATA.stable_track.stables, DATA.stable_track.data);
+
+// --- Committee members ---
+(function renderMembers(){
+  const grid = document.getElementById('memberGrid');
+  grid.innerHTML = DATA.members.map(m=>`
+    <div class="member-card">
+      <div class="member-avatar" style="background:linear-gradient(135deg, ${m.color}, ${m.color}aa)">${m.icon}</div>
+      <div>
+        <div class="member-name" style="color:${m.color}">${m.name}</div>
+        <div class="member-role">${m.role}</div>
+      </div>
+    </div>
+  `).join('');
+})();
+
+// --- Posts ---
+(function renderPosts(){
+  const feed = document.getElementById('postFeed');
+  // ポストを日時降順
+  const sorted = [...DATA.posts].sort((a,b)=> b.time.localeCompare(a.time));
+  feed.innerHTML = sorted.map(p=>{
+    const m = DATA.members.find(x=>x.name===p.name) || {icon:'👤',color:'#888'};
+    return `
+    <div class="post">
+      <div class="post-header">
+        <div class="post-avatar" style="background:${m.color}33;color:${m.color}">${m.icon}</div>
+        <div class="post-meta">
+          <span class="post-name" style="color:${m.color}">${p.name}</span>
+          <span class="post-tag">${p.tag}</span>
+          <div class="post-time mono">${p.time}</div>
+        </div>
+      </div>
+      <div class="post-body">${p.body}</div>
+    </div>`;
+  }).join('');
+})();
+
+// --- Kanban ---
+(function renderKanban(){
+  const board = document.getElementById('kanbanBoard');
+  const cols = Object.keys(DATA.kanban);
+  board.innerHTML = cols.map(col=>`
+    <div class="kanban-col">
+      <div class="kanban-col-title">${col} (${DATA.kanban[col].length})</div>
+      ${DATA.kanban[col].map(card=>`
+        <div class="kanban-card">
+          <div class="kanban-card-title">${card.title}</div>
+          <div class="kanban-card-desc">${card.desc}</div>
+          <div class="kanban-card-footer">
+            <span class="badge">@${card.owner}</span>
+            <span class="badge prio-${card.prio}">${card.prio==='high'?'高':card.prio==='mid'?'中':'低'}</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+})();
+</script>
+</body>
+</html>

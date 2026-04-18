@@ -41,3 +41,7 @@ jvopen_spec.txt
 # Monitoring report (regenerable by monitor_actual.py)
 docs/monitoring_report.md
 .env
+
+# Dashboard (ビルド成果物は個別)
+dashboard.html
+

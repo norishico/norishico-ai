@@ -29,9 +29,7 @@ echo [%date% %time%] publish_weekend --saturday >> "%LOGFILE%"
 set RC=%ERRORLEVEL%
 echo [%date% %time%] publish_weekend rc=%RC% >> "%LOGFILE%"
 
-REM Discord notify: prediction ready
-if "%RC%"=="0" (
-  "%PYEXE%" -X utf8 -c "import json; from scripts.notify import notify_prediction_ready; preds=json.load(open('weekend_predictions.json',encoding='utf-8')); notify_prediction_ready(preds,'sat')" >> "%LOGFILE%" 2>&1
-)
+REM 前日予想公開通知は廃止(2026-04-18 方針変更)
+REM 当日の行動トリガー(morning_summary / added / cancelled / buy_go / daily_result)のみ通知
 
 endlocal & exit /b %RC%

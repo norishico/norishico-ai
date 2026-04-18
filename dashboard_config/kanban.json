@@ -1,0 +1,24 @@
+{
+  "承認待ち":[
+    {"title":"レースレベル補正","owner":"みなみ","prio":"high","desc":"重賞/準OP/平場で係数を分けて精度向上。BT検証済、+2.8pt見込み"},
+    {"title":"着差補正","owner":"さくら","prio":"mid","desc":"前走着差が大きいレースの勝ち馬のスコア加点"}
+  ],
+  "実装中":[
+    {"title":"距離変更補正","owner":"ひなた","prio":"high","desc":"短縮/延長の臨戦過程を展開スコアに織り込み"},
+    {"title":"騎手×会場ボーナス","owner":"あおい","prio":"mid","desc":"ジョッキー別の得意会場を+0-3ptで加算(実装40%)"}
+  ],
+  "検証中":[
+    {"title":"market_momentum cutoff調整","owner":"あかり","prio":"mid","desc":"20%→15%に緩和して発動頻度UP。IS/OOS検証待ち"}
+  ],
+  "検証中の疑問":[
+    {"title":"2024不振の根本原因","owner":"ゆきこ","prio":"high","desc":"F1単年ノイズの結論に本当に納得できるか。SHAPで再解析中"},
+    {"title":"cushion_sire 年次ぶれ","owner":"さくら","prio":"mid","desc":"2023+5.2pt vs 2024+0.8ptの差、血統別に切り出し調査中"}
+  ],
+  "完了":[
+    {"title":"Winsorize上限導入","owner":"ゆきこ","prio":"high","desc":"50,000円/R上限。2023メガヒット問題対処済 (+98,650/4年)"},
+    {"title":"UTF-8 bat ASCII化","owner":"ゆきこ","prio":"high","desc":"rc=9009爆弾の全6bat修復済"},
+    {"title":"note記事Yukinote風","owner":"れいな","prio":"low","desc":"注目データ記事テイスト刷新・血統辞書30種導入"},
+    {"title":"Discord通知設計再編","owner":"ゆきこ","prio":"high","desc":"前日通知廃止/morning_summary/added/状態変化トリガー化"},
+    {"title":"±20%ロック朝値基準","owner":"まなつ","prio":"high","desc":"累積ズレ欠陥修正。morning_snapshot日付キー付き"}
+  ]
+}

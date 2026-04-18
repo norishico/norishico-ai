@@ -45,3 +45,7 @@ docs/monitoring_report.md
 # Dashboard (ビルド成果物は個別)
 dashboard.html
 
+# Dashboard config (手動管理JSONは追跡する)
+!dashboard_config/
+!dashboard_config/*.json
+

@@ -280,24 +280,28 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
       <div class="chart-wrap"><canvas id="chartOddsROI"></canvas></div>
     </div>
     <div class="panel">
-      <div class="panel-title">EV分布ヒストグラム (買いレース n=1,419)</div>
+      <div class="panel-title">EV分布ヒストグラム <span class="pill blue" style="font-size:9px">BT推定値</span></div>
       <div class="chart-wrap"><canvas id="chartEVHist"></canvas></div>
+      <div style="font-size:10px;color:var(--text-mute);margin-top:6px">※ BTデータのEV分布(ハードコード)。本番ではbacktest結果から集計可能</div>
     </div>
   </div>
 
   <div class="panel">
-    <div class="panel-title">月別ROIヒートマップ (2021-2026)</div>
+    <div class="panel-title">月別ROIヒートマップ (2021-2026) <span class="pill blue" style="font-size:9px">2021-2025=BT推定</span> <span class="pill" style="font-size:9px">2026=実値</span></div>
     <div id="heatmapMonthly"></div>
+    <div style="font-size:10px;color:var(--text-mute);margin-top:6px">※ 2021-2025はBTダミー値(月別BT未実装)、2026のみ実運用実値</div>
   </div>
 
   <div class="grid-2">
     <div class="panel">
-      <div class="panel-title">的中率 vs 回収率 (クラス別 / バブル=買いR数)</div>
+      <div class="panel-title">的中率 vs 回収率 (クラス別 / バブル=買いR数) <span class="pill blue" style="font-size:9px">BT推定値</span></div>
       <div class="chart-wrap"><canvas id="chartHitROI"></canvas></div>
+      <div style="font-size:10px;color:var(--text-mute);margin-top:6px">※ BTデータのクラス別集計(ハードコード)</div>
     </div>
     <div class="panel">
-      <div class="panel-title">ルール変更×ROI年表 (Winsorized基準)</div>
+      <div class="panel-title">ルール変更×ROI年表 <span class="pill" style="font-size:9px">手動管理</span></div>
       <div class="chart-wrap"><canvas id="chartRuleROI"></canvas></div>
+      <div style="font-size:10px;color:var(--text-mute);margin-top:6px">※ dashboard_config/rule_roi.json で手動管理</div>
     </div>
   </div>
 
@@ -697,6 +701,13 @@ new Chart(document.getElementById('chartRuleROI'),{
 // --- Missed table (実績分析タブ) ---
 (function renderMissed(){
   const tbody = document.getElementById('missedTbody');
+  if (!DATA.missed || DATA.missed.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text-mute);font-size:12px">
+      📊 取りこぼし分析(見送ったが当たったレース)は<b>未実装</b>です<br>
+      <span style="font-size:11px">※ 実装には過去の weekend_predictions.json を archive/predictions_YYYYMMDD.json に毎日保存する機構が必要。当日結果(results)と突合して「buy_type=None かつ honmei=1着」を抽出する想定</span>
+    </td></tr>`;
+    return;
+  }
   tbody.innerHTML = DATA.missed.map(r=>`
     <tr style="border-bottom:1px solid var(--border)">
       <td class="mono" style="padding:8px">${r.date}</td>

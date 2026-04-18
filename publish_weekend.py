@@ -90,6 +90,18 @@ def step_fetch(dates, proj_dir, _retry=0):
             print("  ⚠️  オッズ欠損率が高い(切替時間帯の可能性)。120秒待ってretryします")
             time.sleep(120)
             return step_fetch(dates, proj_dir, _retry=1)
+        # Discord障害通知発射(Webhook失敗は許容、最低限の情報共有)
+        try:
+            sys.path.insert(0, str(proj_dir))
+            from scripts.notify import _send
+            _send(
+                f"⚠️ **予想生成失敗**\n\n"
+                f"netkeibaからのオッズ取得に失敗しました(有効率 {rate*100:.1f}%)。\n"
+                f"切替時間帯の影響か、netkeiba側の障害の可能性があります。\n"
+                f"時間を置いて再実行してください。"
+            )
+        except Exception as _ne:
+            print(f"  📧 障害通知送信エラー: {_ne}")
         raise RuntimeError(
             f"オッズ取得に失敗 (有効率{rate*100:.1f}%)。netkeibaが "
             "オッズ切替時間帯(金曜19時台など)に当たった可能性。時間を置いて再実行してください。"

@@ -291,7 +291,11 @@ def quick_odds_refresh(morning_mode=False):
     snap_path = PROJ_DIR / 'morning_snapshot.json'
     if snap_path.exists():
         try:
-            morning_snapshot_for_lock = json.load(open(snap_path, encoding='utf-8'))
+            _snap_data = json.load(open(snap_path, encoding='utf-8'))
+            # 日付一致時のみ有効(日跨ぎ時は空扱い)
+            _today = datetime.now().strftime('%Y-%m-%d')
+            if _snap_data.get('date') == _today:
+                morning_snapshot_for_lock = _snap_data.get('targets', {})
         except Exception:
             pass
 
@@ -369,12 +373,15 @@ def quick_odds_refresh(morning_mode=False):
     # 通知ロジック (差分ベース)
     # morning_mode=True の --once 時は notify_morning_summary 側で担当するのでスキップ
     if not morning_mode:
-        # 朝スナップショットをロード (追加通知判定用)
+        # 朝スナップショットをロード (追加通知判定用、日付一致時のみ有効)
         morning_snapshot = {}
         snap_path = PROJ_DIR / 'morning_snapshot.json'
         if snap_path.exists():
             try:
-                morning_snapshot = json.load(open(snap_path, encoding='utf-8'))
+                _snap_data2 = json.load(open(snap_path, encoding='utf-8'))
+                _today2 = datetime.now().strftime('%Y-%m-%d')
+                if _snap_data2.get('date') == _today2:
+                    morning_snapshot = _snap_data2.get('targets', {})
             except Exception:
                 pass
 
@@ -506,8 +513,13 @@ def main():
                     }
                     for p in preds if p.get('buy_type') or p.get('special_horse')
                 }
+                # 日付キー付き構造で保存(日跨ぎ時の誤参照防止)
+                snapshot_data = {
+                    'date': datetime.now().strftime('%Y-%m-%d'),
+                    'targets': morning_targets,
+                }
                 with open(PROJ_DIR / 'morning_snapshot.json', 'w', encoding='utf-8') as f:
-                    json.dump(morning_targets, f, ensure_ascii=False, indent=2)
+                    json.dump(snapshot_data, f, ensure_ascii=False, indent=2)
                 print(f"  💾 morning_snapshot.json 保存 ({len(morning_targets)}件)")
                 from scripts.notify import notify_morning_summary
                 notify_morning_summary(preds)

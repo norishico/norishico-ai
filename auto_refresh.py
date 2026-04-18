@@ -378,10 +378,29 @@ def quick_odds_refresh(morning_mode=False):
             except Exception:
                 pass
 
+        # 「今日のレース」フィルタ(race_id day_code 偶奇+曜日)
+        _today_wd = datetime.now().weekday()  # 5=Sat, 6=Sun, 0=Mon
+        def _is_today_race(rid):
+            try:
+                day_code = int(rid[8:10])
+            except Exception:
+                return False  # 判定失敗は安全側で除外
+            is_sat_race = (day_code % 2 == 1)
+            is_sun_race = (day_code % 2 == 0)
+            if _today_wd == 5: return is_sat_race
+            if _today_wd == 6: return is_sun_race
+            if _today_wd == 0: return True  # 祝日月曜(--monday運用時)
+            return False
+
+        now_dt = datetime.now()
+
         try:
             from scripts.notify import notify_buy_go, notify_cancelled, notify_added
             for p in new_preds:
                 rid = p['race']['race_id']
+                # 今日のレースのみ通知対象
+                if not _is_today_race(rid):
+                    continue
                 bt = p.get('buy_type', '')
                 sp = p.get('special_horse')
                 is_target = bool(bt or sp)
@@ -389,14 +408,27 @@ def quick_odds_refresh(morning_mode=False):
                 was_last = rid in old_buys
                 lc = p.get('_last_odds_check', '')
 
+                # 発走時刻まで何分か(buy_go は10分前の直前チェック時のみ)
+                stime = p['race'].get('start_time', '')
+                mins_to_race = 999
+                if stime:
+                    try:
+                        race_dt = datetime.strptime(
+                            f"{now_dt.strftime('%Y-%m-%d')} {stime}", '%Y-%m-%d %H:%M'
+                        )
+                        mins_to_race = (race_dt - now_dt).total_seconds() / 60
+                    except Exception:
+                        pass
+                is_imminent = (0 <= mins_to_race <= 15)
+
                 if is_target and not was_last and not was_morning:
                     # 朝にも前回にもなかった → 新規対象入り
                     notify_added(p)
                 elif not is_target and was_last:
                     # 前回まで対象 → 今回外れた
                     notify_cancelled(p, p.get('pass_reason', 'オッズ変動'))
-                elif is_target and lc:
-                    # 発走10分前の最終確定
+                elif is_target and lc and is_imminent:
+                    # 発走10分前の最終確定(発走0-15分前のみ)
                     notify_buy_go(p)
         except Exception as ne:
             print(f"  📧 通知エラー: {ne}")

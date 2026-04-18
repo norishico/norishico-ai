@@ -285,7 +285,16 @@ def quick_odds_refresh(morning_mode=False):
     # 新しい買いレースを確認
     new_preds = json.load(open(PROJ_DIR / 'weekend_predictions.json', encoding='utf-8'))
 
-    # ±20%ロック: 旧買いレースが消えても、◎オッズが±20%以内かつ馬場変更なしなら復元
+    # ±20%ロック: 朝値(morning_snapshot)基準で±20%以内かつ馬場変更なしなら復元
+    # (2026-04-18 委員会決定: 直前値基準だと累積ズレで朝から大乖離でもロック維持される欠陥があった)
+    morning_snapshot_for_lock = {}
+    snap_path = PROJ_DIR / 'morning_snapshot.json'
+    if snap_path.exists():
+        try:
+            morning_snapshot_for_lock = json.load(open(snap_path, encoding='utf-8'))
+        except Exception:
+            pass
+
     new_buys_raw = {}
     new_cond = {}
     for p in new_preds:
@@ -301,18 +310,21 @@ def quick_odds_refresh(morning_mode=False):
         if rid in new_buys_raw:
             continue  # まだ買い判定→変更なし
         # 旧買いが消えた→ロック判定
-        old_odds = old_info['odds']
+        # 基準値: 朝 snapshot にあれば朝値、なければ old_info(途中追加レース用)
+        morning_info = morning_snapshot_for_lock.get(rid, {})
+        ref_odds = morning_info.get('honmei_odds') or old_info['odds']
+        ref_cond = morning_info.get('track_cond') or old_cond.get(rid, '良')
         # 新しい◎のオッズを取得
         new_honmei_odds = 0
         for p in new_preds:
             if p['race']['race_id'] == rid:
                 new_honmei_odds = p.get('honmei', {}).get('odds', 0) or 0
                 break
-        # 馬場変更チェック
-        cond_changed = old_cond.get(rid, '良') != new_cond.get(rid, '良')
-        # ±20%以内 かつ 馬場変更なし → 除外をブロック（買い判定を復元）
-        if old_odds > 0 and new_honmei_odds > 0 and not cond_changed:
-            ratio = new_honmei_odds / old_odds
+        # 馬場変更チェック(朝基準)
+        cond_changed = ref_cond != new_cond.get(rid, '良')
+        # ±20%以内(朝値基準) かつ 馬場変更なし → 除外をブロック（買い判定を復元）
+        if ref_odds > 0 and new_honmei_odds > 0 and not cond_changed:
+            ratio = new_honmei_odds / ref_odds
             if 0.8 <= ratio <= 1.2:
                 # 元の買い判定を復元（v6.6: special_horseも正しく復元）
                 for p in new_preds:
@@ -456,6 +468,9 @@ def main():
                         'race_name': p['race'].get('race_name', ''),
                         'buy_type': p.get('buy_type'),
                         'special_horse': bool(p.get('special_horse')),
+                        # ±20%ロック判定の基準値(朝の honmei オッズ+馬場)
+                        'honmei_odds': (p.get('honmei') or {}).get('odds', 0) or 0,
+                        'track_cond': p['race'].get('track_cond', '良') or '良',
                     }
                     for p in preds if p.get('buy_type') or p.get('special_horse')
                 }

@@ -1,11 +1,11 @@
 """Discord Webhook 通知モジュール
 
-5種類の通知:
-  1. notify_prediction_ready  - 予想公開 (金曜19:00/土曜11:00)
-  2. notify_morning_check     - 朝オッズ確認完了 (09:00 --once)
-  3. notify_buy_go            - 買いGO (発走10分前)
-  4. notify_cancelled         - 見送り変更
-  5. notify_daily_result      - 本日結果
+通知の発射規則(2026-04-18 委員会決定で整理):
+  1. notify_prediction_ready  - 予想公開 (金曜21:00=土曜予想 / 土曜11:00=日曜予想)  ※1日1回
+  2. notify_morning_check     - 【廃止】朝オッズ確認は内部処理、通知しない(通知過多対策)
+  3. notify_buy_go            - 買いGO (発走10分前) ※該当レースのみ
+  4. notify_cancelled         - 見送り通知 (オッズ変動で条件外化したレースのみ)
+  5. notify_daily_result      - 本日結果 (夜1回)
 """
 import json
 import os

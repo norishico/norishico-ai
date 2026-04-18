@@ -419,21 +419,14 @@ def main():
                         help='1回だけ強制オッズチェック+再判定して終了（朝の初回スナップショット用）')
     args = parser.parse_args()
 
-    # --once: 1回だけ強制チェックして終了 + momentum計算 + 朝確認通知
+    # --once: 1回だけ強制チェックして終了 + momentum計算
+    # (朝確認通知は廃止: 委員会決定 2026-04-18 通知過多対策。ユーザーは既に予想を受信済)
     if args.once:
         print(f"🐴 NORISHICO KEIBA AI 強制1回チェック（{datetime.now().strftime('%H:%M:%S')}）")
         try:
             calc_market_momentum()
             changed = quick_odds_refresh()
             print(f"✅ 強制チェック完了 changed={changed}")
-            # 朝確認通知
-            try:
-                from scripts.notify import notify_morning_check
-                preds = json.load(open(PROJ_DIR / 'weekend_predictions.json', encoding='utf-8'))
-                notify_morning_check(preds)
-                print("  📧 朝確認通知 sent")
-            except Exception as ne:
-                print(f"  📧 通知エラー: {ne}")
         except Exception as e:
             import traceback
             print(f"❌ 強制チェックエラー: {e}")

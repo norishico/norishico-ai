@@ -569,6 +569,16 @@ def main():
     else:
         day_flag = '--saturday'
     executed = set()
+    # 起動時点で既に過ぎたトリガーは済み扱いにする
+    # (手動再起動時に過去の発走済みレース分の通知が延々と発射される事故の防止)
+    _startup_now = datetime.now()
+    _skipped_past = 0
+    for i, s in enumerate(schedule):
+        if s['trigger'] < _startup_now:
+            executed.add(i)
+            _skipped_past += 1
+    if _skipped_past:
+        print(f"  ⏭ 起動時点で過ぎたトリガー {_skipped_past}件 をスキップ対象に設定")
     # ヘルスチェック用: 毎時最新タイムスタンプをファイルに記録
     health_file = PROJ_DIR / 'auto_refresh_health.txt'
     last_health_hour = -1

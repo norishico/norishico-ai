@@ -918,7 +918,14 @@ html += """
       <div class="legend-title">信頼度</div>
       <div class="legend-item"><span class="legend-badge" style="color:#E65100">★★★</span> 自信の一戦（スコア突出+好調教+血統ボーナス）</div>
       <div class="legend-item"><span class="legend-badge" style="color:#FF8F00">★★</span> 注目レース（AI本命予想）</div>
-      <div class="legend-item"><span class="legend-badge" style="color:#FFA000">★</span> チャレンジ枠（穴狙い・単勝のみ）</div>
+      <div class="legend-item"><span class="legend-badge" style="color:#FFA000">★</span> チャレンジ枠（穴狙い・単勝◎1,000円のみ）</div>
+      <div class="legend-item" style="padding-left:18px;font-size:11px;color:var(--text-sub);line-height:1.6">
+        <div>・3勝クラス: オッズ 20〜25倍(accel必須)</div>
+        <div>・G1/G2: オッズ 7〜10倍 または 13〜20倍(内部赤字帯除外)</div>
+        <div>・新馬(C2枠): ダート×非主流血統×10〜20倍×15頭以上×加速ラップ</div>
+        <div>・未勝利(F1枠): 主流血統×15〜33倍×1〜8番人気×好調教+加速ラップ</div>
+        <div style="margin-top:4px;color:var(--text-sub)">※不良馬場は全クラス見送り。1勝/2勝/G3は廃止クラス。</div>
+      </div>
     </div>
     <div class="legend-group">
       <div class="legend-title">市場動向（当日朝更新）</div>

@@ -482,6 +482,15 @@ def quick_odds_refresh(morning_mode=False):
     else:
         print(f"  ✅ 変更なし（デプロイ省略）")
 
+    # Dashboard リアルタイム更新(のりお専用・2026-04-19方針)
+    try:
+        subprocess.run(
+            [PYEXE, '-X', 'utf8', str(PROJ_DIR / 'build_dashboard.py')],
+            cwd=str(PROJ_DIR), capture_output=True, timeout=60
+        )
+    except Exception as _e:
+        print(f"  ⚠ dashboard build skipped: {_e}")
+
     return bool(changes)
 
 

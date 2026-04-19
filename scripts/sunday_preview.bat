@@ -35,4 +35,9 @@ echo [%date% %time%] rc=%RC% >> "%LOGFILE%"
 REM 前日予想公開通知は廃止(2026-04-18 方針変更)
 REM 当日の行動トリガー(morning_summary / added / cancelled / buy_go / daily_result)のみ通知
 
+REM Dashboard 最新化(のりお専用・リアルタイム更新方針 2026-04-19)
+echo [%date% %time%] build_dashboard start >> "%LOGFILE%"
+"%PYEXE%" -X utf8 build_dashboard.py >> "%LOGFILE%" 2>&1
+echo [%date% %time%] build_dashboard rc=%ERRORLEVEL% >> "%LOGFILE%"
+
 endlocal & exit /b %RC%

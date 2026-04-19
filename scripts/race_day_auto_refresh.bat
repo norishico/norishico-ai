@@ -51,6 +51,10 @@ echo [%date% %time%] initial once-check start flag=%DAYFLAG% >> "%LOGFILE%"
 "%PYEXE%" -X utf8 auto_refresh.py %DAYFLAG% --once >> "%LOGFILE%" 2>&1
 echo [%date% %time%] initial once-check done rc=%ERRORLEVEL% >> "%LOGFILE%"
 
+REM Dashboard build (once直後にも最新化)
+echo [%date% %time%] build_dashboard after once >> "%LOGFILE%"
+"%PYEXE%" -X utf8 build_dashboard.py >> "%LOGFILE%" 2>&1
+
 REM Step 2: normal loop (monitor each race 10min-before-post trigger)
 echo [%date% %time%] auto_refresh loop start flag=%DAYFLAG% >> "%LOGFILE%"
 "%PYEXE%" -X utf8 auto_refresh.py %DAYFLAG% >> "%LOGFILE%" 2>&1

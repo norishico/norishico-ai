@@ -439,6 +439,71 @@ def build_missed(conn):
     return []
 
 
+# ============ 14a. 券種別ROI (btv6_YYYY.json から集計) ==================
+WINSORIZE_CAP = 50000  # backtest_v6.py と同じ
+
+def build_bet_type_roi():
+    """btv6_*.json から bet_records を読んで券種別に集計
+
+    rule 分類:
+      - '3rentan_box' = 3連単BOX
+      - 'C2_新馬accel' = C2新馬チャレンジ
+      - 'F1_未勝利主流accel' = F1未勝利チャレンジ
+      - その他 = v6本体(単勝+馬連)
+    """
+    categories = {
+        'v6_main':   {'label':'v6本体 (単勝+馬連)', 'records':[]},
+        'c2':        {'label':'C2 新馬', 'records':[]},
+        'f1':        {'label':'F1 未勝利', 'records':[]},
+        'sanrentan': {'label':'3連単 BOX', 'records':[]},
+    }
+    all_records = []
+    years = []
+    for f in sorted(glob.glob(str(PROJ / 'btv6_*.json'))):
+        try:
+            d = json.load(open(f, encoding='utf-8'))
+        except Exception:
+            continue
+        y = os.path.basename(f).replace('btv6_','').replace('.json','')
+        years.append(y)
+        for b in d.get('bet_records', []):
+            rule = b.get('rule','')
+            all_records.append(b)
+            if rule == '3rentan_box':
+                categories['sanrentan']['records'].append(b)
+            elif rule == 'C2_新馬accel':
+                categories['c2']['records'].append(b)
+            elif rule == 'F1_未勝利主流accel':
+                categories['f1']['records'].append(b)
+            else:
+                categories['v6_main']['records'].append(b)
+
+    def _stats(records):
+        n = len(records)
+        cost = sum((b.get('cost',0) or 0) for b in records)
+        ret = sum((b.get('ret',0) or 0) for b in records)
+        ret_wins = sum(min((b.get('ret',0) or 0), WINSORIZE_CAP) for b in records)
+        hits = sum(1 for b in records if (b.get('ret',0) or 0) > 0)
+        roi = (ret / cost * 100) if cost else 0
+        roi_wins = (ret_wins / cost * 100) if cost else 0
+        mega_count = sum(1 for b in records if (b.get('ret',0) or 0) > WINSORIZE_CAP)
+        return {
+            'n':n, 'cost':cost, 'ret':ret, 'pl':ret-cost,
+            'roi':round(roi,1), 'roi_wins':round(roi_wins,1),
+            'hit':hits, 'hit_rate':round(hits/n*100,1) if n else 0,
+            'mega':mega_count,
+        }
+
+    result = {
+        'period': f"{years[0]}-{years[-1]}" if years else '-',
+        'total': _stats(all_records),
+    }
+    for k, v in categories.items():
+        result[k] = _stats(v['records'])
+        result[k]['label'] = v['label']
+    return result
+
+
 # ============ 14. アラート(閾値超過検知) ===============================
 def build_alerts(yearly, live):
     alerts = []
@@ -543,6 +608,10 @@ def main():
     # week summary
     week_summary = build_week_summary()
 
+    # 券種別ROI(btv6_*.json集計)
+    bet_type_roi = build_bet_type_roi()
+    print(f'  ✅ 券種別ROI: 全体 {bet_type_roi["total"]["n"]}R ROI={bet_type_roi["total"]["roi"]}% / 3連単 {bet_type_roi["sanrentan"]["n"]}R ROI={bet_type_roi["sanrentan"]["roi"]}%')
+
     DATA = {
         'yearly': yearly,
         'odds_roi': odds_roi,
@@ -566,6 +635,7 @@ def main():
         'health': health,
         'week_summary': week_summary,
         'live_total': live['total'],
+        'bet_type_roi': bet_type_roi,
     }
 
     # テンプレ読込→埋込

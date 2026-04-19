@@ -274,6 +274,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
   <div class="section-title">実績分析</div>
 
+  <div class="panel">
+    <div class="panel-title">💰 券種別ROI (BT全年合算 <span class="mono" id="btTypePeriod">-</span>) <span class="pill blue" style="font-size:9px">BT実値</span></div>
+    <div style="font-size:11px;color:var(--text-sub);margin:-4px 0 10px">※ yearly_ROI(129.3%)は全券種合算。各券種の内訳+Winsorizedを併記(メガヒット依存を可視化)</div>
+    <div class="kpi-grid" id="betTypeGrid"></div>
+  </div>
+
   <div class="grid-2">
     <div class="panel">
       <div class="panel-title">オッズ帯別回収率 (2020-2025集計)</div>
@@ -645,6 +651,40 @@ new Chart(document.getElementById('chartRuleROI'),{
     tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}% (${DATA.rule_roi[ctx.dataIndex].date})`}}},
     scales:{y:{ticks:{callback:v=>v+'%'}}}}
 });
+
+// --- 券種別ROIカード ---
+(function renderBetTypes(){
+  const bt = DATA.bet_type_roi;
+  if (!bt) return;
+  const periodEl = document.getElementById('btTypePeriod');
+  if (periodEl) periodEl.textContent = bt.period || '-';
+  const grid = document.getElementById('betTypeGrid');
+  if (!grid) return;
+  const entries = [
+    {key:'total', label:'全体(合算)', emphasis:true},
+    {key:'v6_main', label:'v6本体 単勝+馬連'},
+    {key:'c2', label:'C2 新馬'},
+    {key:'f1', label:'F1 未勝利'},
+    {key:'sanrentan', label:'3連単 BOX'},
+  ];
+  grid.innerHTML = entries.map(e=>{
+    const s = bt[e.key] || {};
+    const roi = s.roi ?? 0;
+    const roiWins = s.roi_wins ?? 0;
+    const gap = Math.abs(roi - roiWins);
+    const isMega = gap > 50 || (s.mega||0) > 0;
+    const roiColor = roi >= 100 ? 'pos' : 'neg';
+    const border = e.emphasis ? 'rgba(232,184,75,0.6)' : (isMega ? 'rgba(245,165,36,0.5)' : 'var(--border)');
+    return `
+    <div class="kpi" style="border-color:${border}">
+      <div class="kpi-label">${e.label} ${isMega?'<span class="pill" style="font-size:9px">⚠メガ依存</span>':''}</div>
+      <div class="kpi-value ${roiColor}" style="font-size:22px">${roi}<span style="font-size:12px">%</span></div>
+      <div class="kpi-ci">Winsorized <b>${roiWins}%</b> ${isMega?`(メガ${s.mega||0}件)`:''}</div>
+      <div class="kpi-ci">n=${s.n||0} / P&L ${(s.pl||0).toLocaleString()}円 / 的中${s.hit||0}(${s.hit_rate||0}%)</div>
+    </div>
+    `;
+  }).join('');
+})();
 
 // --- Review table ---
 (function renderReview(){

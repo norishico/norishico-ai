@@ -267,15 +267,16 @@ def quick_odds_refresh(morning_mode=False):
             except:
                 pass
 
-            # オッズ更新
+            # オッズ更新 (netkeibaマスク '.' 単独を除外、小数含むパターンのみ許可)
             rows = d.find_elements(By.CSS_SELECTOR, 'table.Shutuba_Table tr.HorseList')
             for row, horse in zip(rows, race.get('horses', [])):
                 try:
                     pop_td = row.find_element(By.CSS_SELECTOR, 'td.Popular')
                     odds_text = pop_td.text.strip()
-                    odds_match = re.search(r'[\d.]+', odds_text)
+                    odds_match = re.search(r'\d+\.\d+', odds_text)
                     if odds_match:
                         horse['odds'] = odds_match.group()
+                    # マスク時は既存値を保持(上書きしない)
                 except:
                     pass
             updated += 1

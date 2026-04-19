@@ -19,13 +19,31 @@ PYEXE = shutil.which('py') or sys.executable
 
 
 def load_all_race_schedule(minutes_before=10):
-    """全レースの発走時刻からスケジュールを生成"""
+    """全レースの発走時刻からスケジュールを生成(今日のレースのみ)"""
     data = json.load(open(PROJ_DIR / 'weekend_predictions.json', encoding='utf-8'))
     today = datetime.now().strftime('%Y-%m-%d')
+
+    # 今日のレース判定(race_id day_code 偶奇 × 曜日)
+    today_wd = datetime.now().weekday()
+    def _is_today(rid):
+        try:
+            day_code = int(rid[8:10])
+        except Exception:
+            return False
+        is_sat_race = (day_code % 2 == 1)
+        is_sun_race = (day_code % 2 == 0)
+        if today_wd == 5: return is_sat_race
+        if today_wd == 6: return is_sun_race
+        if today_wd == 0: return True  # 祝日月曜(--monday運用)
+        return False
 
     triggers = []
     for p in data:
         r = p['race']
+        rid = r.get('race_id', '')
+        # 今日のレースのみスケジュール対象
+        if not _is_today(rid):
+            continue
         stime = r.get('start_time', '')
         if not stime:
             continue
@@ -497,9 +515,20 @@ def main():
             calc_market_momentum()
             changed = quick_odds_refresh(morning_mode=True)
             print(f"✅ 強制チェック完了 changed={changed}")
-            # 朝スナップショット保存 + 朝サマリ通知
+            # 朝スナップショット保存 + 朝サマリ通知(今日のレースのみ)
             try:
                 preds = json.load(open(PROJ_DIR / 'weekend_predictions.json', encoding='utf-8'))
+                _wd = datetime.now().weekday()
+                def _today_rid(rid):
+                    try:
+                        dc = int(rid[8:10])
+                    except Exception:
+                        return False
+                    if _wd == 5: return dc % 2 == 1
+                    if _wd == 6: return dc % 2 == 0
+                    if _wd == 0: return True
+                    return False
+                preds_today = [p for p in preds if _today_rid(p['race']['race_id'])]
                 morning_targets = {
                     p['race']['race_id']: {
                         'venue': p['race'].get('venue', ''),
@@ -511,7 +540,7 @@ def main():
                         'honmei_odds': (p.get('honmei') or {}).get('odds', 0) or 0,
                         'track_cond': p['race'].get('track_cond', '良') or '良',
                     }
-                    for p in preds if p.get('buy_type') or p.get('special_horse')
+                    for p in preds_today if p.get('buy_type') or p.get('special_horse')
                 }
                 # 日付キー付き構造で保存(日跨ぎ時の誤参照防止)
                 snapshot_data = {
@@ -522,8 +551,8 @@ def main():
                     json.dump(snapshot_data, f, ensure_ascii=False, indent=2)
                 print(f"  💾 morning_snapshot.json 保存 ({len(morning_targets)}件)")
                 from scripts.notify import notify_morning_summary
-                notify_morning_summary(preds)
-                print("  📧 朝サマリ通知 sent")
+                notify_morning_summary(preds_today)
+                print("  📧 朝サマリ通知 sent (今日のレースのみ)")
             except Exception as ne:
                 print(f"  📧 朝通知エラー: {ne}")
         except Exception as e:

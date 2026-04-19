@@ -56,8 +56,13 @@ def aggregate_live_2026():
             print(f'  [warn] {f}: {e}')
             continue
         tot = d.get('total', {})
-        m = d.get('month','')  # '2026-04'
-        mo = int(m.split('-')[1]) if '-' in m else 0
+        m = d.get('month','')  # '2026_04' 形式
+        mo = 0
+        for sep in ('_','-','/'):
+            if sep in m:
+                try: mo = int(m.split(sep)[1])
+                except Exception: pass
+                break
         monthly.append({
             'month':mo,
             'roi': tot.get('roi', 0),
@@ -95,24 +100,43 @@ def build_yearly(live):
 
 
 # ============ 4. monthly_roi ヒートマップ ==============================
-def build_monthly_roi(live):
-    """2021-2026の月別ROI(BTは大まかダミー、2026は実値)"""
-    # BT年は固定ダミー(後日実値取得に差替可能)
-    rows = [
-        {'year':2021, 'months':[None,None,None,112,145,98,132,87,118,102,125,141]},
-        {'year':2022, 'months':[None,None,None,162,174,188,195,142,167,178,155,182]},
-        {'year':2023, 'months':[None,None,None,108,98,135,158,142,112,95,108,128]},
-        {'year':2024, 'months':[None,None,None,85,92,105,98,78,112,95,108,115]},
-        {'year':2025, 'months':[None,None,None,118,132,115,128,108,125,118,132,141]},
-    ]
-    # 2026 実値
+def build_monthly_roi(live, conn):
+    """2021-2025: JRA全レースの単勝市場平均回収率(SQL実データ)
+    2026: 実運用ROI(monthly_results_*.jsonから)
+    """
+    try:
+        rows = conn.execute("""
+            SELECT SUBSTR(r.date,1,4) yr, SUBSTR(r.date,6,2) mo,
+                   COUNT(*) n,
+                   SUM(CASE WHEN r.finish=1 THEN COALESCE(d.tansho_payout,0) ELSE 0 END) payout
+            FROM results r LEFT JOIN dividends d ON r.race_id = d.race_id
+            WHERE r.date >= '2021-01-01' AND r.date < '2026-01-01'
+              AND r.odds IS NOT NULL AND r.odds > 0
+            GROUP BY yr, mo
+        """).fetchall()
+    except Exception as e:
+        print(f'  [warn] monthly_roi: {e}')
+        rows = []
+    result = {}
+    for yr, mo, n, payout in rows:
+        try:
+            yr_i, mo_i = int(yr), int(mo)
+        except Exception:
+            continue
+        if yr_i not in result:
+            result[yr_i] = [None]*12
+        if n and n > 0:
+            roi = payout / (n * 100) * 100
+            result[yr_i][mo_i-1] = round(roi, 0)
+    rows_out = [{'year':y, 'months':result[y]} for y in sorted(result)]
+    # 2026はLive実運用ROI
     months26 = [None]*12
     for m in live['monthly']:
         idx = m['month'] - 1
         if 0 <= idx < 12:
             months26[idx] = round(m['roi'], 0)
-    rows.append({'year':2026, 'months':months26})
-    return rows
+    rows_out.append({'year':2026, 'months':months26})
+    return rows_out
 
 
 # ============ 5. reviews(2026実レース) ================================
@@ -490,8 +514,7 @@ def main():
     # yearly
     yearly = build_yearly(live)
 
-    # monthly_roi
-    monthly_roi = build_monthly_roi(live)
+    # monthly_roi (DB集計必要なので conn 渡す、conn 開くのはこの直後なので順序調整)
 
     # reviews + miss stats
     reviews = build_reviews(live)
@@ -502,6 +525,7 @@ def main():
     conn.execute("PRAGMA cache_size=-65536")
     conn.execute("PRAGMA temp_store=MEMORY")
     print(f'  📊 DB集計開始...')
+    monthly_roi = build_monthly_roi(live, conn)
     odds_roi = build_odds_roi(conn)
     blood_rank = build_blood_rank(conn)
     new_sire = build_new_sire(conn)

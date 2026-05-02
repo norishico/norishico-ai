@@ -104,7 +104,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 .pick-right{text-align:right;flex-shrink:0}
 .score-value{font-size:18px;font-weight:700;color:var(--orange)}
 .score-sub{font-size:10px;color:var(--text-sub)}
-.score-breakdown{font-size:13px;color:var(--text-sub);padding:3px 0 5px 28px;letter-spacing:0.3px}
+.score-breakdown{font-size:11px;color:var(--text-sub);padding:3px 0 5px 28px;line-height:1.7;overflow-wrap:break-word}
 .pass-reason{margin:8px 16px;padding:8px 12px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:8px;font-size:12px;color:#E65100;font-weight:500}
 .legend-section{margin:0 16px 12px;background:var(--card-bg);border-radius:12px;border:1px solid var(--card-border);overflow:hidden}
 .legend-toggle{padding:10px 14px;font-size:13px;font-weight:600;color:var(--text-main);cursor:pointer;display:flex;align-items:center;gap:6px}
@@ -142,8 +142,9 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 .be-ok{background:#E8F5E9;color:#558B2F}
 .be-warn{background:#FFF3E0;color:#E65100}
 .reason-extra{display:inline;gap:6px}
-.odds-section{padding:12px 16px;border-top:1px solid var(--card-border);display:flex;justify-content:space-between;align-items:center}
-.odds-display{display:flex;gap:20px}
+.odds-section{padding:12px 16px;border-top:1px solid var(--card-border);display:flex;flex-direction:column;gap:8px}
+.race-text{flex:1;min-width:0;overflow:hidden}
+.odds-display{display:flex;flex-wrap:wrap;gap:10px}
 .odds-val.odds-honmei{color:#D32F2F;font-weight:700}
 .odds-val.odds-middle{color:#E65100;font-weight:700}
 .odds-val.odds-ana{color:#1565C0;font-weight:700}
@@ -151,7 +152,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 .odds-item{font-size:13px;color:var(--text-sub)}
 .odds-item .mark-sm{font-weight:700;color:var(--text)}
 .odds-item .odds-val{font-size:18px;font-weight:700;color:var(--orange)}
-.odds-status{font-size:12px;padding:5px 14px;border-radius:12px;font-weight:700;border:1px solid var(--card-border)}
+.odds-status{font-size:12px;padding:5px 14px;border-radius:12px;font-weight:700;border:1px solid var(--card-border);align-self:flex-start}
 .odds-status.pending{background:#FFF3E0;color:var(--orange)}
 .odds-status.checked{background:#E3F2FD;color:#1565C0;border-color:#42A5F5}
 .odds-status.confirmed{background:#E8F5E9;color:#2E7D32;border-color:#66BB6A}
@@ -382,7 +383,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card star1" data-date="0502" data-venue="京都">
   <div class="type-label">AI穴狙い</div>
   <div class="race-header">
-    <div class="race-info"><span class="race-num buy-num">京都3R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1600m 18頭 🌤️稍重</div><div class="race-time">発走 11:00</div></div></div>
+    <div class="race-info"><span class="race-num buy-num">京都3R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝1600m 18頭 🌤️稍重</div><div class="race-time">発走 11:00</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
     <div class="confidence"><div class="stars">★</div><div class="conf-label">チャレンジ枠</div></div>
   </div>
@@ -472,7 +473,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="section-title">2026年5月2日（土）の重賞</div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都11R</span><div><div class="race-name">ユニコーンS</div><div class="race-detail">ダ1900m 12頭 🌤️稍重</div><div class="race-time">発走 15:30</div></div></div>
+    <div class="race-info"><span class="race-num">京都11R</span><div class="race-text"><div class="race-name">ユニコーンS</div><div class="race-detail">ダ1900m 12頭 🌤️稍重</div><div class="race-time">発走 15:30</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: G3クラスはv6.6で対象外</div>
@@ -549,7 +550,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div></div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京11R</span><div><div class="race-name">京王杯SC</div><div class="race-detail">芝1400m 18頭 ☀️良</div><div class="race-time">発走 15:45</div></div></div>
+    <div class="race-info"><span class="race-num">東京11R</span><div class="race-text"><div class="race-name">京王杯SC</div><div class="race-detail">芝1400m 18頭 ☀️良</div><div class="race-time">発走 15:45</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.0: 基準範囲外(2.0-20.0)</div>
@@ -635,7 +636,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="section-title">京都競馬場</div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都1R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1200m 16頭 🌧️重</div><div class="race-time">発走 09:55</div></div></div>
+    <div class="race-info"><span class="race-num">京都1R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1200m 16頭 🌧️重</div><div class="race-time">発走 09:55</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ63.1倍: 買い対象帯域外</div>
@@ -663,7 +664,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都2R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1800m 15頭 🌧️重</div><div class="race-time">発走 10:30</div></div></div>
+    <div class="race-info"><span class="race-num">京都2R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1800m 15頭 🌧️重</div><div class="race-time">発走 10:30</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.5: 基準範囲外(2.0-20.0)</div>
   <div class="sb-preview">
@@ -690,7 +691,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card star1" data-date="0502" data-venue="京都">
   <div class="type-label">AI穴狙い</div>
   <div class="race-header">
-    <div class="race-info"><span class="race-num buy-num">京都3R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1600m 18頭 🌤️稍重</div><div class="race-time">発走 11:00</div></div></div>
+    <div class="race-info"><span class="race-num buy-num">京都3R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝1600m 18頭 🌤️稍重</div><div class="race-time">発走 11:00</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
     <div class="confidence"><div class="stars">★</div><div class="conf-label">チャレンジ枠</div></div>
   </div>
@@ -730,7 +731,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都4R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1400m 18頭 🌤️稍重</div><div class="race-time">発走 11:40</div></div></div>
+    <div class="race-info"><span class="race-num">京都4R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝1400m 18頭 🌤️稍重</div><div class="race-time">発走 11:40</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.0: 基準範囲外(2.0-20.0)</div>
@@ -760,7 +761,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都5R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝2000m 13頭 ☀️良</div><div class="race-time">発走 12:20</div></div></div>
+    <div class="race-info"><span class="race-num">京都5R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝2000m 13頭 ☀️良</div><div class="race-time">発走 12:20</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ1.2倍: 買い対象帯域外</div>
   <div class="sb-preview">
@@ -784,7 +785,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都6R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1800m 11頭 🌤️稍重</div><div class="race-time">発走 12:50</div></div></div>
+    <div class="race-info"><span class="race-num">京都6R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1800m 11頭 🌤️稍重</div><div class="race-time">発走 12:50</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -807,7 +808,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都7R</span><div><div class="race-name">3歳1勝クラス</div><div class="race-detail">芝1400m 12頭 ☀️良</div><div class="race-time">発走 13:20</div></div></div>
+    <div class="race-info"><span class="race-num">京都7R</span><div class="race-text"><div class="race-name">3歳1勝クラス</div><div class="race-detail">芝1400m 12頭 ☀️良</div><div class="race-time">発走 13:20</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -831,7 +832,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都8R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1400m 13頭 🌤️稍重</div><div class="race-time">発走 13:50</div></div></div>
+    <div class="race-info"><span class="race-num">京都8R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1400m 13頭 🌤️稍重</div><div class="race-time">発走 13:50</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -855,7 +856,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都9R</span><div><div class="race-name">矢車賞</div><div class="race-detail">芝2200m 9頭 ☀️良</div><div class="race-time">発走 14:20</div></div></div>
+    <div class="race-info"><span class="race-num">京都9R</span><div class="race-text"><div class="race-name">矢車賞</div><div class="race-detail">芝2200m 9頭 ☀️良</div><div class="race-time">発走 14:20</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: 加速ラップなし(必須条件)</div>
@@ -876,7 +877,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都10R</span><div><div class="race-name">京極特別</div><div class="race-detail">ダ1200m 12頭 🌤️稍重</div><div class="race-time">発走 14:55</div></div></div>
+    <div class="race-info"><span class="race-num">京都10R</span><div class="race-text"><div class="race-name">京極特別</div><div class="race-detail">ダ1200m 12頭 🌤️稍重</div><div class="race-time">発走 14:55</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.7: 基準範囲外(2.0-20.0)</div>
   <div class="sb-preview">
@@ -899,7 +900,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都11R</span><div><div class="race-name">ユニコーンS</div><div class="race-detail">ダ1900m 12頭 🌤️稍重</div><div class="race-time">発走 15:30</div></div></div>
+    <div class="race-info"><span class="race-num">京都11R</span><div class="race-text"><div class="race-name">ユニコーンS</div><div class="race-detail">ダ1900m 12頭 🌤️稍重</div><div class="race-time">発走 15:30</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: G3クラスはv6.6で対象外</div>
@@ -923,7 +924,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都12R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1600m 10頭 ☀️良</div><div class="race-time">発走 16:10</div></div></div>
+    <div class="race-info"><span class="race-num">京都12R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1600m 10頭 ☀️良</div><div class="race-time">発走 16:10</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -948,7 +949,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="section-title">新潟競馬場</div>
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟2R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1800m 15頭 ☀️良</div><div class="race-time">発走 10:20</div></div></div>
+    <div class="race-info"><span class="race-num">新潟2R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1800m 15頭 ☀️良</div><div class="race-time">発走 10:20</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.6: 基準範囲外(2.0-20.0)</div>
@@ -975,7 +976,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟3R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1200m 15頭 ☀️良</div><div class="race-time">発走 10:50</div></div></div>
+    <div class="race-info"><span class="race-num">新潟3R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1200m 15頭 ☀️良</div><div class="race-time">発走 10:50</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.1: 基準範囲外(2.0-20.0)</div>
@@ -1002,7 +1003,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟5R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1400m 16頭 🌤️稍重</div><div class="race-time">発走 12:10</div></div></div>
+    <div class="race-info"><span class="race-num">新潟5R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝1400m 16頭 🌤️稍重</div><div class="race-time">発走 12:10</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.8: 基準範囲外(2.0-20.0)</div>
@@ -1030,7 +1031,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟6R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝2200m 14頭 🌤️稍重</div><div class="race-time">発走 12:40</div></div></div>
+    <div class="race-info"><span class="race-num">新潟6R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝2200m 14頭 🌤️稍重</div><div class="race-time">発走 12:40</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ2.8倍: 買い対象帯域外</div>
@@ -1056,7 +1057,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟7R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1800m 15頭 🌧️重</div><div class="race-time">発走 13:10</div></div></div>
+    <div class="race-info"><span class="race-num">新潟7R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1800m 15頭 🌧️重</div><div class="race-time">発走 13:10</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -1082,7 +1083,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟8R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1600m 13頭 🌤️稍重</div><div class="race-time">発走 13:40</div></div></div>
+    <div class="race-info"><span class="race-num">新潟8R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1600m 13頭 🌤️稍重</div><div class="race-time">発走 13:40</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -1107,7 +1108,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟9R</span><div><div class="race-name">わらび賞</div><div class="race-detail">ダ1800m 15頭 🌧️重</div><div class="race-time">発走 14:10</div></div></div>
+    <div class="race-info"><span class="race-num">新潟9R</span><div class="race-text"><div class="race-name">わらび賞</div><div class="race-detail">ダ1800m 15頭 🌧️重</div><div class="race-time">発走 14:10</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ1.8倍: 買い対象帯域外</div>
@@ -1134,7 +1135,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟10R</span><div><div class="race-name">胎内川特別</div><div class="race-detail">芝1800m 15頭 🌤️稍重</div><div class="race-time">発走 14:45</div></div></div>
+    <div class="race-info"><span class="race-num">新潟10R</span><div class="race-text"><div class="race-name">胎内川特別</div><div class="race-detail">芝1800m 15頭 🌤️稍重</div><div class="race-time">発走 14:45</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: 加速ラップなし(必須条件)</div>
@@ -1161,7 +1162,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟11R</span><div><div class="race-name">三条S</div><div class="race-detail">ダ1800m 15頭 🌧️重</div><div class="race-time">発走 15:20</div></div></div>
+    <div class="race-info"><span class="race-num">新潟11R</span><div class="race-text"><div class="race-name">三条S</div><div class="race-detail">ダ1800m 15頭 🌧️重</div><div class="race-time">発走 15:20</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.5: 基準範囲外(2.0-20.0)</div>
@@ -1188,7 +1189,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟12R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1000m 16頭 🌤️稍重</div><div class="race-time">発走 16:01</div></div></div>
+    <div class="race-info"><span class="race-num">新潟12R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1000m 16頭 🌤️稍重</div><div class="race-time">発走 16:01</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -1219,7 +1220,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="section-title">東京競馬場</div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京1R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1400m 16頭 🌧️重</div><div class="race-time">発走 10:05</div></div></div>
+    <div class="race-info"><span class="race-num">東京1R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1400m 16頭 🌧️重</div><div class="race-time">発走 10:05</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ2.3倍: 買い対象帯域外</div>
@@ -1247,7 +1248,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京2R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1600m 14頭 🌧️重</div><div class="race-time">発走 10:40</div></div></div>
+    <div class="race-info"><span class="race-num">東京2R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1600m 14頭 🌧️重</div><div class="race-time">発走 10:40</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ2.3倍: 買い対象帯域外</div>
   <div class="sb-preview">
@@ -1272,7 +1273,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京3R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ2100m 9頭 🌧️重</div><div class="race-time">発走 11:10</div></div></div>
+    <div class="race-info"><span class="race-num">東京3R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ2100m 9頭 🌧️重</div><div class="race-time">発走 11:10</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.4: 基準範囲外(2.0-20.0)</div>
   <div class="sb-preview">
@@ -1292,7 +1293,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京4R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝2000m 10頭 ☀️良</div><div class="race-time">発走 11:40</div></div></div>
+    <div class="race-info"><span class="race-num">東京4R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝2000m 10頭 ☀️良</div><div class="race-time">発走 11:40</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ2.6倍: 買い対象帯域外</div>
   <div class="sb-preview">
@@ -1313,7 +1314,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京5R</span><div><div class="race-name">3歳1勝クラス</div><div class="race-detail">芝1400m 18頭 ☀️良</div><div class="race-time">発走 12:30</div></div></div>
+    <div class="race-info"><span class="race-num">東京5R</span><div class="race-text"><div class="race-name">3歳1勝クラス</div><div class="race-detail">芝1400m 18頭 ☀️良</div><div class="race-time">発走 12:30</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -1343,7 +1344,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京6R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝2000m 7頭 ☀️良</div><div class="race-time">発走 13:00</div></div></div>
+    <div class="race-info"><span class="race-num">東京6R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝2000m 7頭 ☀️良</div><div class="race-time">発走 13:00</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -1361,7 +1362,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京7R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1400m 16頭 🌧️重</div><div class="race-time">発走 13:30</div></div></div>
+    <div class="race-info"><span class="race-num">東京7R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1400m 16頭 🌧️重</div><div class="race-time">発走 13:30</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -1389,7 +1390,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京8R</span><div><div class="race-name">4歳以上2勝クラス</div><div class="race-detail">芝2400m 10頭 ☀️良</div><div class="race-time">発走 14:01</div></div></div>
+    <div class="race-info"><span class="race-num">東京8R</span><div class="race-text"><div class="race-name">4歳以上2勝クラス</div><div class="race-detail">芝2400m 10頭 ☀️良</div><div class="race-time">発走 14:01</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 2勝クラスはv6.6で対象外</div>
@@ -1411,7 +1412,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京9R</span><div><div class="race-name">是政S</div><div class="race-detail">ダ2100m 16頭 🌤️稍重</div><div class="race-time">発走 14:31</div></div></div>
+    <div class="race-info"><span class="race-num">東京9R</span><div class="race-text"><div class="race-name">是政S</div><div class="race-detail">ダ2100m 16頭 🌤️稍重</div><div class="race-time">発走 14:31</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ2.1倍: 買い対象帯域外</div>
@@ -1439,7 +1440,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京10R</span><div><div class="race-name">スイートピーS</div><div class="race-detail">芝1800m 11頭 ☀️良</div><div class="race-time">発走 15:05</div></div></div>
+    <div class="race-info"><span class="race-num">東京10R</span><div class="race-text"><div class="race-name">スイートピーS</div><div class="race-detail">芝1800m 11頭 ☀️良</div><div class="race-time">発走 15:05</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: オッズ8.6倍がv6.6買い帯域外</div>
@@ -1462,7 +1463,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京11R</span><div><div class="race-name">京王杯SC</div><div class="race-detail">芝1400m 18頭 ☀️良</div><div class="race-time">発走 15:45</div></div></div>
+    <div class="race-info"><span class="race-num">東京11R</span><div class="race-text"><div class="race-name">京王杯SC</div><div class="race-detail">芝1400m 18頭 ☀️良</div><div class="race-time">発走 15:45</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.0: 基準範囲外(2.0-20.0)</div>
@@ -1492,7 +1493,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京12R</span><div><div class="race-name">4歳以上2勝クラス</div><div class="race-detail">ダ1600m 14頭 🌤️稍重</div><div class="race-time">発走 16:30</div></div></div>
+    <div class="race-info"><span class="race-num">東京12R</span><div class="race-text"><div class="race-name">4歳以上2勝クラス</div><div class="race-detail">ダ1600m 14頭 🌤️稍重</div><div class="race-time">発走 16:30</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 2勝クラスはv6.6で対象外</div>
@@ -1710,7 +1711,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card star1" data-date="0503" data-venue="新潟">
   <div class="type-label">覚醒シグナル</div>
   <div class="race-header">
-    <div class="race-info"><span class="race-num buy-num">新潟1R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝2000m 16頭 🌤️稍重</div><div class="race-time">発走 09:45</div></div></div>
+    <div class="race-info"><span class="race-num buy-num">新潟1R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝2000m 16頭 🌤️稍重</div><div class="race-time">発走 09:45</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
     <div class="confidence"><div class="stars">★</div><div class="conf-label">チャレンジ枠</div></div>
   </div>
@@ -1795,7 +1796,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="section-title">2026年5月3日（日）の重賞</div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都11R</span><div><div class="race-name">天皇賞(春)</div><div class="race-detail">芝3200m 15頭 ☀️良</div><div class="race-time">発走 15:40</div></div></div>
+    <div class="race-info"><span class="race-num">京都11R</span><div class="race-text"><div class="race-name">天皇賞(春)</div><div class="race-detail">芝3200m 15頭 ☀️良</div><div class="race-time">発走 15:40</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ49.2倍: 買い対象帯域外</div>
@@ -1878,7 +1879,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="section-title">京都競馬場</div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都1R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1400m 16頭 🌤️稍重</div><div class="race-time">発走 10:00</div></div></div>
+    <div class="race-info"><span class="race-num">京都1R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1400m 16頭 🌤️稍重</div><div class="race-time">発走 10:00</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 未勝利クラス: オッズ22.8倍がv6.6買い帯域外</div>
@@ -1906,7 +1907,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都2R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1900m 12頭 🌤️稍重</div><div class="race-time">発走 10:30</div></div></div>
+    <div class="race-info"><span class="race-num">京都2R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1900m 12頭 🌤️稍重</div><div class="race-time">発走 10:30</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: 未勝利クラス: オッズ0.0倍がv6.6買い帯域外</div>
   <div class="sb-preview">
@@ -1929,7 +1930,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都3R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1800m 15頭 🌤️稍重</div><div class="race-time">発走 11:00</div></div></div>
+    <div class="race-info"><span class="race-num">京都3R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1800m 15頭 🌤️稍重</div><div class="race-time">発走 11:00</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 未勝利クラス: オッズ8.8倍がv6.6買い帯域外</div>
@@ -1956,7 +1957,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都4R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝2400m 11頭 ☀️良</div><div class="race-time">発走 11:30</div></div></div>
+    <div class="race-info"><span class="race-num">京都4R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝2400m 11頭 ☀️良</div><div class="race-time">発走 11:30</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: 未勝利クラス: オッズ0.0倍がv6.6買い帯域外</div>
   <div class="sb-preview">
@@ -1978,7 +1979,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都5R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1800m 11頭 ☀️良</div><div class="race-time">発走 12:20</div></div></div>
+    <div class="race-info"><span class="race-num">京都5R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝1800m 11頭 ☀️良</div><div class="race-time">発走 12:20</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: 未勝利クラス: オッズ0.0倍がv6.6買い帯域外</div>
   <div class="sb-preview">
@@ -2000,7 +2001,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都6R</span><div><div class="race-name">3歳1勝クラス</div><div class="race-detail">ダ1400m 16頭 🌤️稍重</div><div class="race-time">発走 12:50</div></div></div>
+    <div class="race-info"><span class="race-num">京都6R</span><div class="race-text"><div class="race-name">3歳1勝クラス</div><div class="race-detail">ダ1400m 16頭 🌤️稍重</div><div class="race-time">発走 12:50</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -2028,7 +2029,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都7R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝2000m 8頭 ☀️良</div><div class="race-time">発走 13:20</div></div></div>
+    <div class="race-info"><span class="race-num">京都7R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝2000m 8頭 ☀️良</div><div class="race-time">発走 13:20</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -2047,7 +2048,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都8R</span><div><div class="race-name">御池特別</div><div class="race-detail">芝1200m 15頭 ☀️良</div><div class="race-time">発走 13:50</div></div></div>
+    <div class="race-info"><span class="race-num">京都8R</span><div class="race-text"><div class="race-name">御池特別</div><div class="race-detail">芝1200m 15頭 ☀️良</div><div class="race-time">発走 13:50</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ38.0倍: 買い対象帯域外</div>
@@ -2074,7 +2075,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都9R</span><div><div class="race-name">六波羅特別</div><div class="race-detail">ダ1800m 9頭 🌤️稍重</div><div class="race-time">発走 14:25</div></div></div>
+    <div class="race-info"><span class="race-num">京都9R</span><div class="race-text"><div class="race-name">六波羅特別</div><div class="race-detail">ダ1800m 9頭 🌤️稍重</div><div class="race-time">発走 14:25</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: オッズ0.0倍がv6.6買い帯域外</div>
@@ -2095,7 +2096,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都10R</span><div><div class="race-name">朱雀S</div><div class="race-detail">芝1200m 18頭 ☀️良</div><div class="race-time">発走 15:00</div></div></div>
+    <div class="race-info"><span class="race-num">京都10R</span><div class="race-text"><div class="race-name">朱雀S</div><div class="race-detail">芝1200m 18頭 ☀️良</div><div class="race-time">発走 15:00</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: オッズ17.4倍がv6.6買い帯域外</div>
@@ -2125,7 +2126,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都11R</span><div><div class="race-name">天皇賞(春)</div><div class="race-detail">芝3200m 15頭 ☀️良</div><div class="race-time">発走 15:40</div></div></div>
+    <div class="race-info"><span class="race-num">京都11R</span><div class="race-text"><div class="race-name">天皇賞(春)</div><div class="race-detail">芝3200m 15頭 ☀️良</div><div class="race-time">発走 15:40</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ49.2倍: 買い対象帯域外</div>
@@ -2152,7 +2153,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="京都">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">京都12R</span><div><div class="race-name">東大路S</div><div class="race-detail">ダ1400m 16頭 🌤️稍重</div><div class="race-time">発走 16:30</div></div></div>
+    <div class="race-info"><span class="race-num">京都12R</span><div class="race-text"><div class="race-name">東大路S</div><div class="race-detail">ダ1400m 16頭 🌤️稍重</div><div class="race-time">発走 16:30</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ1.0倍: 買い対象帯域外</div>
@@ -2184,7 +2185,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card star1" data-date="0503" data-venue="新潟">
   <div class="type-label">覚醒シグナル</div>
   <div class="race-header">
-    <div class="race-info"><span class="race-num buy-num">新潟1R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝2000m 16頭 🌤️稍重</div><div class="race-time">発走 09:45</div></div></div>
+    <div class="race-info"><span class="race-num buy-num">新潟1R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝2000m 16頭 🌤️稍重</div><div class="race-time">発走 09:45</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
     <div class="confidence"><div class="stars">★</div><div class="conf-label">チャレンジ枠</div></div>
   </div>
@@ -2218,7 +2219,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟2R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1200m 15頭 🌧️重</div><div class="race-time">発走 10:10</div></div></div>
+    <div class="race-info"><span class="race-num">新潟2R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1200m 15頭 🌧️重</div><div class="race-time">発走 10:10</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 未勝利クラス: オッズ0.0倍がv6.6買い帯域外</div>
@@ -2245,7 +2246,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟3R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1800m 14頭 🌧️重</div><div class="race-time">発走 10:40</div></div></div>
+    <div class="race-info"><span class="race-num">新潟3R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1800m 14頭 🌧️重</div><div class="race-time">発走 10:40</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ999.9倍: 買い対象帯域外</div>
@@ -2271,7 +2272,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟5R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1800m 14頭 🌤️稍重</div><div class="race-time">発走 12:00</div></div></div>
+    <div class="race-info"><span class="race-num">新潟5R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝1800m 14頭 🌤️稍重</div><div class="race-time">発走 12:00</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数2.0: 基準範囲外(2.0-20.0)</div>
@@ -2297,7 +2298,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟6R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1800m 13頭 🌧️重</div><div class="race-time">発走 12:30</div></div></div>
+    <div class="race-info"><span class="race-num">新潟6R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1800m 13頭 🌧️重</div><div class="race-time">発走 12:30</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -2322,7 +2323,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟7R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1400m 16頭 🌤️稍重</div><div class="race-time">発走 13:00</div></div></div>
+    <div class="race-info"><span class="race-num">新潟7R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1400m 16頭 🌤️稍重</div><div class="race-time">発走 13:00</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -2350,7 +2351,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟8R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1800m 12頭 🌤️稍重</div><div class="race-time">発走 13:30</div></div></div>
+    <div class="race-info"><span class="race-num">新潟8R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1800m 12頭 🌤️稍重</div><div class="race-time">発走 13:30</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -2373,7 +2374,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟9R</span><div><div class="race-name">咲花特別</div><div class="race-detail">ダ1800m 12頭 🌧️重</div><div class="race-time">発走 14:05</div></div></div>
+    <div class="race-info"><span class="race-num">新潟9R</span><div class="race-text"><div class="race-name">咲花特別</div><div class="race-detail">ダ1800m 12頭 🌧️重</div><div class="race-time">発走 14:05</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: 加速ラップなし(必須条件)</div>
@@ -2397,7 +2398,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟10R</span><div><div class="race-name">邁進特別</div><div class="race-detail">芝1000m 16頭 🌤️稍重</div><div class="race-time">発走 14:40</div></div></div>
+    <div class="race-info"><span class="race-num">新潟10R</span><div class="race-text"><div class="race-name">邁進特別</div><div class="race-detail">芝1000m 16頭 🌤️稍重</div><div class="race-time">発走 14:40</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ999.9倍: 買い対象帯域外</div>
@@ -2425,7 +2426,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟11R</span><div><div class="race-name">越後S</div><div class="race-detail">ダ1200m 15頭 🌧️重</div><div class="race-time">発走 15:15</div></div></div>
+    <div class="race-info"><span class="race-num">新潟11R</span><div class="race-text"><div class="race-name">越後S</div><div class="race-detail">ダ1200m 15頭 🌧️重</div><div class="race-time">発走 15:15</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: オッズ0.0倍がv6.6買い帯域外</div>
@@ -2452,7 +2453,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="新潟">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">新潟12R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1200m 15頭 🌧️重</div><div class="race-time">発走 16:00</div></div></div>
+    <div class="race-info"><span class="race-num">新潟12R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1200m 15頭 🌧️重</div><div class="race-time">発走 16:00</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -2481,7 +2482,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="section-title">東京競馬場</div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京1R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1600m 15頭 🌤️稍重</div><div class="race-time">発走 09:50</div></div></div>
+    <div class="race-info"><span class="race-num">東京1R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1600m 15頭 🌤️稍重</div><div class="race-time">発走 09:50</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ42.9倍: 買い対象帯域外</div>
   <div class="sb-preview">
@@ -2507,7 +2508,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京2R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1400m 16頭 🌤️稍重</div><div class="race-time">発走 10:20</div></div></div>
+    <div class="race-info"><span class="race-num">東京2R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1400m 16頭 🌤️稍重</div><div class="race-time">発走 10:20</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 未勝利クラス: オッズ0.0倍がv6.6買い帯域外</div>
@@ -2535,7 +2536,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京3R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1600m 12頭 🌤️稍重</div><div class="race-time">発走 10:50</div></div></div>
+    <div class="race-info"><span class="race-num">東京3R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1600m 12頭 🌤️稍重</div><div class="race-time">発走 10:50</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ58.4倍: 買い対象帯域外</div>
@@ -2559,7 +2560,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京4R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1600m 18頭 ☀️良</div><div class="race-time">発走 11:20</div></div></div>
+    <div class="race-info"><span class="race-num">東京4R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝1600m 18頭 ☀️良</div><div class="race-time">発走 11:20</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: 未勝利クラス: オッズ0.0倍がv6.6買い帯域外</div>
   <div class="sb-preview">
@@ -2588,7 +2589,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京5R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1800m 15頭 ☀️良</div><div class="race-time">発走 12:10</div></div></div>
+    <div class="race-info"><span class="race-num">東京5R</span><div class="race-text"><div class="race-name">3歳未勝利</div><div class="race-detail">芝1800m 15頭 ☀️良</div><div class="race-time">発走 12:10</div></div></div>
   </div>
   <div class="pass-reason">💡 AIパス: 未勝利クラス: オッズ0.0倍がv6.6買い帯域外</div>
   <div class="sb-preview">
@@ -2614,7 +2615,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京6R</span><div><div class="race-name">3歳1勝クラス</div><div class="race-detail">ダ1400m 16頭 🌤️稍重</div><div class="race-time">発走 12:40</div></div></div>
+    <div class="race-info"><span class="race-num">東京6R</span><div class="race-text"><div class="race-name">3歳1勝クラス</div><div class="race-detail">ダ1400m 16頭 🌤️稍重</div><div class="race-time">発走 12:40</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -2642,7 +2643,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京7R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1600m 15頭 🌤️稍重</div><div class="race-time">発走 13:10</div></div></div>
+    <div class="race-info"><span class="race-num">東京7R</span><div class="race-text"><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1600m 15頭 🌤️稍重</div><div class="race-time">発走 13:10</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
@@ -2669,7 +2670,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京8R</span><div><div class="race-name">4歳以上2勝クラス</div><div class="race-detail">芝1600m 9頭 ☀️良</div><div class="race-time">発走 13:40</div></div></div>
+    <div class="race-info"><span class="race-num">東京8R</span><div class="race-text"><div class="race-name">4歳以上2勝クラス</div><div class="race-detail">芝1600m 9頭 ☀️良</div><div class="race-time">発走 13:40</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 2勝クラスはv6.6で対象外</div>
@@ -2690,7 +2691,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京9R</span><div><div class="race-name">府中S</div><div class="race-detail">芝2000m 18頭 ☀️良</div><div class="race-time">発走 14:15</div></div></div>
+    <div class="race-info"><span class="race-num">東京9R</span><div class="race-text"><div class="race-name">府中S</div><div class="race-detail">芝2000m 18頭 ☀️良</div><div class="race-time">発走 14:15</div></div></div>
   <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ999.9倍: 買い対象帯域外</div>
@@ -2720,7 +2721,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京10R</span><div><div class="race-name">ブリリアントS</div><div class="race-detail">ダ2100m 16頭 🌤️稍重</div><div class="race-time">発走 14:50</div></div></div>
+    <div class="race-info"><span class="race-num">東京10R</span><div class="race-text"><div class="race-name">ブリリアントS</div><div class="race-detail">ダ2100m 16頭 🌤️稍重</div><div class="race-time">発走 14:50</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ30.1倍: 買い対象帯域外</div>
@@ -2748,7 +2749,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京11R</span><div><div class="race-name">プリンシパルS</div><div class="race-detail">芝2000m 15頭 ☀️良</div><div class="race-time">発走 15:25</div></div></div>
+    <div class="race-info"><span class="race-num">東京11R</span><div class="race-text"><div class="race-name">プリンシパルS</div><div class="race-detail">芝2000m 15頭 ☀️良</div><div class="race-time">発走 15:25</div></div></div>
   <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: オッズ16.8倍がv6.6買い帯域外</div>
@@ -2775,7 +2776,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 </div>
 <div class="race-card nobuy" data-date="0503" data-venue="東京">
   <div class="race-header">
-    <div class="race-info"><span class="race-num">東京12R</span><div><div class="race-name">4歳以上2勝クラス</div><div class="race-detail">ダ1300m 13頭 🌤️稍重</div><div class="race-time">発走 16:10</div></div></div>
+    <div class="race-info"><span class="race-num">東京12R</span><div class="race-text"><div class="race-name">4歳以上2勝クラス</div><div class="race-detail">ダ1300m 13頭 🌤️稍重</div><div class="race-time">発走 16:10</div></div></div>
   <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 2勝クラスはv6.6で対象外</div>
@@ -3072,7 +3073,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 
 <div class="footer">
   <p style="font-weight:700;color:var(--orange-pale);font-size:14px;letter-spacing:2px">NORISHICO KEIBA AI v6.6</p>
-  <p>生成: 2026-05-03 00:05</p>
+  <p>生成: 2026-05-03 00:12</p>
   <div class="disclaimer">
     想定オッズは確定前です。発走5分前にオッズ確定後、最終買い判定を行います。<br>
     本予想はAIによる自動判定です。馬券の購入は自己責任でお願いいたします。<br>

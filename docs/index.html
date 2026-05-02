@@ -204,7 +204,8 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 .jiku-pace.slow{background:#FF8C00;color:white}
 .jiku-pace.mid{background:#888888;color:white}
 .jiku-pace.high{background:#1a6fc4;color:white}
-.jiku-nige{color:var(--text-sub);font-size:10px;flex-shrink:0;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nige-badge{font-size:9px;background:#e53935;color:white;padding:1px 4px;border-radius:3px;font-weight:700;margin-left:3px;flex-shrink:0}
+.race-pace{padding:2px 12px 4px;font-size:11px}
 
 /* アラート */
 .alert-banner{margin:12px 16px;padding:10px 14px;background:#FFF3E0;border:2px solid var(--orange-light);border-radius:10px;font-size:12px;line-height:1.8;color:var(--text)}
@@ -385,6 +386,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
   <div class="type-label">覚醒シグナル</div>
   <div class="race-header">
     <div class="race-info"><span class="race-num buy-num">京都3R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1600m 18頭 🌤️稍重</div><div class="race-time">発走 11:00</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
     <div class="confidence"><div class="stars">★</div><div class="conf-label">チャレンジ枠</div></div>
   </div>
   <div class="picks-and-bet">
@@ -427,7 +429,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="jiku-row"><span class="jiku-rnum">4R</span><span class="jiku-course">芝1400m</span><span class="jiku-pace slow">スロー</span><span class="jiku-mark">◎</span><span class="jiku-horse">サトノフレイ</span><span class="jiku-jockey">川田</span><span class="jiku-score">71.2</span></div>
 <div class="jiku-row"><span class="jiku-rnum">5R</span><span class="jiku-course">芝2000m</span><span class="jiku-mark">◎</span><span class="jiku-horse">ロードスタニング</span><span class="jiku-jockey">川田</span><span class="jiku-score">72.7</span></div>
 <div class="jiku-row"><span class="jiku-rnum">6R</span><span class="jiku-course">ダ1800m</span><span class="jiku-pace mid">ミドル</span><span class="jiku-mark">◎</span><span class="jiku-horse">シュドゥン</span><span class="jiku-jockey">池添</span><span class="jiku-score">83.4</span></div>
-<div class="jiku-row"><span class="jiku-rnum">7R</span><span class="jiku-course">芝1400m</span><span class="jiku-pace high">ハイ</span><span class="jiku-nige" title="ミルトベスト・アンディムジーク・ファムマルキーズ">ミルトベスト・アンディムジーク・ファムマルキーズ</span><span class="jiku-mark">◎</span><span class="jiku-horse">ミルトベスト</span><span class="jiku-jockey">藤懸</span><span class="jiku-score">73.6</span></div>
+<div class="jiku-row"><span class="jiku-rnum">7R</span><span class="jiku-course">芝1400m</span><span class="jiku-pace high">ハイ</span><span class="jiku-mark">◎</span><span class="jiku-horse">ミルトベスト</span><span class="jiku-jockey">藤懸</span><span class="jiku-score">73.6</span></div>
 <div class="jiku-row"><span class="jiku-rnum">8R</span><span class="jiku-course">ダ1400m</span><span class="jiku-mark">◎</span><span class="jiku-horse">ハミルトン</span><span class="jiku-jockey">松山</span><span class="jiku-score">63.6</span></div>
 <div class="jiku-row"><span class="jiku-rnum">9R</span><span class="jiku-course">芝2200m</span><span class="jiku-pace mid">ミドル</span><span class="jiku-mark">◎</span><span class="jiku-horse">レイクラシック</span><span class="jiku-jockey">松山</span><span class="jiku-score">77.9</span></div>
 <div class="jiku-row"><span class="jiku-rnum">10R</span><span class="jiku-course">ダ1200m</span><span class="jiku-mark">◎</span><span class="jiku-horse">セールヴォラン</span><span class="jiku-jockey">幸</span><span class="jiku-score">73.5</span></div>
@@ -460,7 +462,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="jiku-row"><span class="jiku-rnum">7R</span><span class="jiku-course">ダ1400m</span><span class="jiku-pace slow">スロー</span><span class="jiku-mark">◎</span><span class="jiku-horse">トウタツ</span><span class="jiku-jockey">高杉</span><span class="jiku-score">65.3</span></div>
 <div class="jiku-row"><span class="jiku-rnum">8R</span><span class="jiku-course">芝2400m</span><span class="jiku-pace slow">スロー</span><span class="jiku-mark">◎</span><span class="jiku-horse">イクリール</span><span class="jiku-jockey">原</span><span class="jiku-score">74.8</span></div>
 <div class="jiku-row"><span class="jiku-rnum">9R</span><span class="jiku-course">ダ2100m</span><span class="jiku-pace high">ハイ</span><span class="jiku-mark">◎</span><span class="jiku-horse">アカデミア</span><span class="jiku-jockey">ルメール</span><span class="jiku-score">84.0</span></div>
-<div class="jiku-row"><span class="jiku-rnum">10R</span><span class="jiku-course">芝1800m</span><span class="jiku-pace slow">スロー</span><span class="jiku-nige" title="サムシングスイート・モートンアイランド・カナルサンマルタン">サムシングスイート・モートンアイランド・カナルサンマルタン</span><span class="jiku-mark">◎</span><span class="jiku-horse">サムシングスイート</span><span class="jiku-jockey">横山武</span><span class="jiku-score">83.8</span></div>
+<div class="jiku-row"><span class="jiku-rnum">10R</span><span class="jiku-course">芝1800m</span><span class="jiku-pace slow">スロー</span><span class="jiku-mark">◎</span><span class="jiku-horse">サムシングスイート</span><span class="jiku-jockey">横山武</span><span class="jiku-score">83.8</span></div>
 <div class="jiku-row"><span class="jiku-rnum">11R</span><span class="jiku-course">芝1400m</span><span class="jiku-pace mid">ミドル</span><span class="jiku-mark">◎</span><span class="jiku-horse">ダノンセンチュリー</span><span class="jiku-jockey">レーン</span><span class="jiku-score">82.3</span></div>
 <div class="jiku-row"><span class="jiku-rnum">12R</span><span class="jiku-course">ダ1600m</span><span class="jiku-pace high">ハイ</span><span class="jiku-mark">◎</span><span class="jiku-horse">ヘリオトロープ</span><span class="jiku-jockey">レーン</span><span class="jiku-score">81.8</span></div>
 </div></div>
@@ -470,6 +472,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
     <div class="race-info"><span class="race-num">京都11R</span><div><div class="race-name">ユニコーンS</div><div class="race-detail">ダ1900m 12頭 🌧️重</div><div class="race-time">発走 15:30</div></div></div>
+  <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: G3クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -546,6 +549,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
     <div class="race-info"><span class="race-num">東京11R</span><div><div class="race-name">京王杯SC</div><div class="race-detail">芝1400m 18頭 ☀️良</div><div class="race-time">発走 15:45</div></div></div>
+  <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.3: 基準範囲外(2.0-20.0)</div>
   <div class="sb-preview">
@@ -631,6 +635,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
     <div class="race-info"><span class="race-num">京都1R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1200m 16頭 🌧️重</div><div class="race-time">発走 09:55</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ75.9倍: 買い対象帯域外</div>
   <div class="sb-preview">
@@ -685,6 +690,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
   <div class="type-label">覚醒シグナル</div>
   <div class="race-header">
     <div class="race-info"><span class="race-num buy-num">京都3R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1600m 18頭 🌤️稍重</div><div class="race-time">発走 11:00</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
     <div class="confidence"><div class="stars">★</div><div class="conf-label">チャレンジ枠</div></div>
   </div>
   <div class="picks-and-bet">
@@ -720,6 +726,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
     <div class="race-info"><span class="race-num">京都4R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1400m 18頭 🌤️稍重</div><div class="race-time">発走 11:30</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ2.9倍: 買い対象帯域外</div>
   <div class="sb-preview">
@@ -773,6 +780,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
     <div class="race-info"><span class="race-num">京都6R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1800m 11頭 🌧️重</div><div class="race-time">発走 12:50</div></div></div>
+  <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -795,24 +803,25 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
     <div class="race-info"><span class="race-num">京都7R</span><div><div class="race-name">3歳1勝クラス</div><div class="race-detail">芝1400m 12頭 🌤️稍重</div><div class="race-time">発走 13:20</div></div></div>
+  <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
-    <div class="sb-row"><span class="sb-rank">1</span><span class="sb-mark m1">◎</span><span class="sb-umaban waku-1">1</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ミルトベスト</span><span class="sb-jockey">藤懸</span><span class="sb-odds">32.9倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b1" style="width:100%"></div></div></div><span class="sb-score">73.6</span></div>
-    <div class="sb-row"><span class="sb-rank">2</span><span class="sb-mark m2">○</span><span class="sb-umaban waku-8">11</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">アンディムジーク</span><span class="sb-jockey">団野</span><span class="sb-odds">11.0倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b2" style="width:89%"></div></div></div><span class="sb-score">71.2</span></div>
-    <div class="sb-row"><span class="sb-rank">3</span><span class="sb-mark m3">▲</span><span class="sb-umaban waku-5">5</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ファムマルキーズ</span><span class="sb-jockey">吉村</span><span class="sb-odds">4.5倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b3" style="width:78%"></div></div></div><span class="sb-score">69.0</span></div>
+    <div class="sb-row"><span class="sb-rank">1</span><span class="sb-mark m1">◎</span><span class="sb-umaban waku-1">1</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ミルトベスト</span><span class="nige-badge">逃</span><span class="sb-jockey">藤懸</span><span class="sb-odds">32.9倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b1" style="width:100%"></div></div></div><span class="sb-score">73.6</span></div>
+    <div class="sb-row"><span class="sb-rank">2</span><span class="sb-mark m2">○</span><span class="sb-umaban waku-8">11</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">アンディムジーク</span><span class="nige-badge">逃</span><span class="sb-jockey">団野</span><span class="sb-odds">11.0倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b2" style="width:89%"></div></div></div><span class="sb-score">71.2</span></div>
+    <div class="sb-row"><span class="sb-rank">3</span><span class="sb-mark m3">▲</span><span class="sb-umaban waku-5">5</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ファムマルキーズ</span><span class="nige-badge">逃</span><span class="sb-jockey">吉村</span><span class="sb-odds">4.5倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b3" style="width:78%"></div></div></div><span class="sb-score">69.0</span></div>
   </div>
   <button class="sb-more-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">4位以下を見る（残り9頭）<span class="arrow">▼</span></button>
   <div class="sb-rest">
-    <div class="sb-row"><span class="sb-rank">4</span><span class="sb-mark "></span><span class="sb-umaban waku-6">7</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">マイティキングダム</span><span class="sb-jockey">松山</span><span class="sb-odds">10.0倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:70%"></div></div></div><span class="sb-score">67.2</span></div>
-    <div class="sb-row"><span class="sb-rank">5</span><span class="sb-mark "></span><span class="sb-umaban waku-6">8</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">フロムレイブン</span><span class="sb-jockey">岩田望</span><span class="sb-odds">5.2倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:64%"></div></div></div><span class="sb-score">66.0</span></div>
-    <div class="sb-row"><span class="sb-rank">6</span><span class="sb-mark "></span><span class="sb-umaban waku-4">4</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">スウィッチインラヴ</span><span class="sb-jockey">北村友</span><span class="sb-odds">6.3倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:61%"></div></div></div><span class="sb-score">65.4</span></div>
-    <div class="sb-row"><span class="sb-rank">7</span><span class="sb-mark "></span><span class="sb-umaban waku-8">12</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ファニーバニー</span><span class="sb-jockey">鮫島駿</span><span class="sb-odds">14.3倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:59%"></div></div></div><span class="sb-score">64.9</span></div>
-    <div class="sb-row"><span class="sb-rank">8</span><span class="sb-mark "></span><span class="sb-umaban waku-2">2</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">トライアンフパス</span><span class="sb-jockey">国分恭</span><span class="sb-odds">8.1倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:55%"></div></div></div><span class="sb-score">64.0</span></div>
-    <div class="sb-row"><span class="sb-rank">9</span><span class="sb-mark "></span><span class="sb-umaban waku-5">6</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ネネキリマル</span><span class="sb-jockey">松若</span><span class="sb-odds">12.4倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:53%"></div></div></div><span class="sb-score">63.6</span></div>
-    <div class="sb-row"><span class="sb-rank">10</span><span class="sb-mark "></span><span class="sb-umaban waku-7">10</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">カクウチ</span><span class="sb-jockey">菱田</span><span class="sb-odds">7.5倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:22%"></div></div></div><span class="sb-score">57.1</span></div>
-    <div class="sb-row"><span class="sb-rank">11</span><span class="sb-mark "></span><span class="sb-umaban waku-7">9</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">アルスマグナ</span><span class="sb-jockey">幸</span><span class="sb-odds">24.8倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:19%"></div></div></div><span class="sb-score">56.4</span></div>
-    <div class="sb-row"><span class="sb-rank">12</span><span class="sb-mark "></span><span class="sb-umaban waku-3">3</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">テーオーアンジェラ</span><span class="sb-jockey">古川吉</span><span class="sb-odds">69.2倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:10%"></div></div></div><span class="sb-score">54.5</span></div>
+    <div class="sb-row"><span class="sb-rank">4</span><span class="sb-mark "></span><span class="sb-umaban waku-6">7</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">マイティキングダム</span><span class="nige-badge">逃</span><span class="sb-jockey">松山</span><span class="sb-odds">10.0倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:70%"></div></div></div><span class="sb-score">67.2</span></div>
+    <div class="sb-row"><span class="sb-rank">5</span><span class="sb-mark "></span><span class="sb-umaban waku-6">8</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">フロムレイブン</span><span class="nige-badge">逃</span><span class="sb-jockey">岩田望</span><span class="sb-odds">5.2倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:64%"></div></div></div><span class="sb-score">66.0</span></div>
+    <div class="sb-row"><span class="sb-rank">6</span><span class="sb-mark "></span><span class="sb-umaban waku-4">4</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">スウィッチインラヴ</span><span class="nige-badge">逃</span><span class="sb-jockey">北村友</span><span class="sb-odds">6.3倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:61%"></div></div></div><span class="sb-score">65.4</span></div>
+    <div class="sb-row"><span class="sb-rank">7</span><span class="sb-mark "></span><span class="sb-umaban waku-8">12</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ファニーバニー</span><span class="nige-badge">逃</span><span class="sb-jockey">鮫島駿</span><span class="sb-odds">14.3倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:59%"></div></div></div><span class="sb-score">64.9</span></div>
+    <div class="sb-row"><span class="sb-rank">8</span><span class="sb-mark "></span><span class="sb-umaban waku-2">2</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">トライアンフパス</span><span class="nige-badge">逃</span><span class="sb-jockey">国分恭</span><span class="sb-odds">8.1倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:55%"></div></div></div><span class="sb-score">64.0</span></div>
+    <div class="sb-row"><span class="sb-rank">9</span><span class="sb-mark "></span><span class="sb-umaban waku-5">6</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ネネキリマル</span><span class="nige-badge">逃</span><span class="sb-jockey">松若</span><span class="sb-odds">12.4倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:53%"></div></div></div><span class="sb-score">63.6</span></div>
+    <div class="sb-row"><span class="sb-rank">10</span><span class="sb-mark "></span><span class="sb-umaban waku-7">10</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">カクウチ</span><span class="nige-badge">逃</span><span class="sb-jockey">菱田</span><span class="sb-odds">7.5倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:22%"></div></div></div><span class="sb-score">57.1</span></div>
+    <div class="sb-row"><span class="sb-rank">11</span><span class="sb-mark "></span><span class="sb-umaban waku-7">9</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">アルスマグナ</span><span class="nige-badge">逃</span><span class="sb-jockey">幸</span><span class="sb-odds">24.8倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:19%"></div></div></div><span class="sb-score">56.4</span></div>
+    <div class="sb-row"><span class="sb-rank">12</span><span class="sb-mark "></span><span class="sb-umaban waku-3">3</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">テーオーアンジェラ</span><span class="nige-badge">逃</span><span class="sb-jockey">古川吉</span><span class="sb-odds">69.2倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:10%"></div></div></div><span class="sb-score">54.5</span></div>
   </div>
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
@@ -842,6 +851,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
     <div class="race-info"><span class="race-num">京都9R</span><div><div class="race-name">矢車賞</div><div class="race-detail">芝2200m 9頭 🌤️稍重</div><div class="race-time">発走 14:20</div></div></div>
+  <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: 加速ラップなし(必須条件)</div>
   <div class="sb-preview">
@@ -885,6 +895,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
     <div class="race-info"><span class="race-num">京都11R</span><div><div class="race-name">ユニコーンS</div><div class="race-detail">ダ1900m 12頭 🌧️重</div><div class="race-time">発走 15:30</div></div></div>
+  <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: G3クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -908,6 +919,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="京都">
   <div class="race-header">
     <div class="race-info"><span class="race-num">京都12R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1600m 10頭 🌤️稍重</div><div class="race-time">発走 16:10</div></div></div>
+  <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -932,6 +944,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
     <div class="race-info"><span class="race-num">新潟2R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1800m 15頭 ☀️良</div><div class="race-time">発走 10:20</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 未勝利クラス: オッズ9.3倍がv6.6買い帯域外</div>
   <div class="sb-preview">
@@ -958,6 +971,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
     <div class="race-info"><span class="race-num">新潟3R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1200m 15頭 ☀️良</div><div class="race-time">発走 10:50</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数0.8: 基準範囲外(2.0-20.0)</div>
   <div class="sb-preview">
@@ -984,6 +998,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
     <div class="race-info"><span class="race-num">新潟5R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝1400m 16頭 🌧️重</div><div class="race-time">発走 12:10</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.7: 基準範囲外(2.0-20.0)</div>
   <div class="sb-preview">
@@ -1011,6 +1026,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
     <div class="race-info"><span class="race-num">新潟6R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">芝2200m 14頭 🌧️重</div><div class="race-time">発走 12:40</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.1: 基準範囲外(2.0-20.0)</div>
   <div class="sb-preview">
@@ -1062,6 +1078,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
     <div class="race-info"><span class="race-num">新潟8R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1600m 13頭 🌧️重</div><div class="race-time">発走 13:40</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -1086,6 +1103,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
     <div class="race-info"><span class="race-num">新潟9R</span><div><div class="race-name">わらび賞</div><div class="race-detail">ダ1800m 15頭 ☀️良</div><div class="race-time">発走 14:10</div></div></div>
+  <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: ◎オッズ1.9倍: 買い対象帯域外</div>
   <div class="sb-preview">
@@ -1112,6 +1130,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
     <div class="race-info"><span class="race-num">新潟10R</span><div><div class="race-name">胎内川特別</div><div class="race-detail">芝1800m 15頭 🌧️重</div><div class="race-time">発走 14:45</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: 加速ラップなし(必須条件)</div>
   <div class="sb-preview">
@@ -1138,6 +1157,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
     <div class="race-info"><span class="race-num">新潟11R</span><div><div class="race-name">三条S</div><div class="race-detail">ダ1800m 15頭 ☀️良</div><div class="race-time">発走 15:20</div></div></div>
+  <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: オッズ5.7倍がv6.6買い帯域外</div>
   <div class="sb-preview">
@@ -1164,6 +1184,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="新潟">
   <div class="race-header">
     <div class="race-info"><span class="race-num">新潟12R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">芝1000m 16頭 🌧️重</div><div class="race-time">発走 16:00</div></div></div>
+  <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -1194,6 +1215,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
     <div class="race-info"><span class="race-num">東京1R</span><div><div class="race-name">3歳未勝利</div><div class="race-detail">ダ1400m 16頭 🌧️重</div><div class="race-time">発走 10:05</div></div></div>
+  <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.4: 基準範囲外(2.0-20.0)</div>
   <div class="sb-preview">
@@ -1287,6 +1309,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
     <div class="race-info"><span class="race-num">東京5R</span><div><div class="race-name">3歳1勝クラス</div><div class="race-detail">芝1400m 18頭 ☀️良</div><div class="race-time">発走 12:30</div></div></div>
+  <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -1334,6 +1357,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
     <div class="race-info"><span class="race-num">東京7R</span><div><div class="race-name">4歳以上1勝クラス</div><div class="race-detail">ダ1400m 16頭 🌧️重</div><div class="race-time">発走 13:30</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 1勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -1361,6 +1385,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
     <div class="race-info"><span class="race-num">東京8R</span><div><div class="race-name">4歳以上2勝クラス</div><div class="race-detail">芝2400m 10頭 ☀️良</div><div class="race-time">発走 14:00</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 2勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -1382,6 +1407,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
     <div class="race-info"><span class="race-num">東京9R</span><div><div class="race-name">是政S</div><div class="race-detail">ダ2100m 16頭 🌧️重</div><div class="race-time">発走 14:30</div></div></div>
+  <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.4: 基準範囲外(2.0-20.0)</div>
   <div class="sb-preview">
@@ -1409,28 +1435,30 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
     <div class="race-info"><span class="race-num">東京10R</span><div><div class="race-name">スイートピーS</div><div class="race-detail">芝1800m 11頭 ☀️良</div><div class="race-time">発走 15:05</div></div></div>
+  <div class="race-pace"><span style="background:#FF8C00;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: スロー</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 3勝クラス: オッズ8.3倍がv6.6買い帯域外</div>
   <div class="sb-preview">
-    <div class="sb-row"><span class="sb-rank">1</span><span class="sb-mark m1">◎</span><span class="sb-umaban waku-7">9</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">サムシングスイート</span><span class="sb-jockey">横山武</span><span class="sb-odds">8.3倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b1" style="width:100%"></div></div></div><span class="sb-score">83.8</span></div>
-    <div class="sb-row"><span class="sb-rank">2</span><span class="sb-mark m2">○</span><span class="sb-umaban waku-6">6</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">モートンアイランド</span><span class="sb-jockey">レーン</span><span class="sb-odds">6.9倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b2" style="width:95%"></div></div></div><span class="sb-score">82.4</span></div>
-    <div class="sb-row"><span class="sb-rank">3</span><span class="sb-mark m3">▲</span><span class="sb-umaban waku-8">11</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">カナルサンマルタン</span><span class="sb-jockey">ルメール</span><span class="sb-odds">4.4倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b3" style="width:68%"></div></div></div><span class="sb-score">75.4</span></div>
+    <div class="sb-row"><span class="sb-rank">1</span><span class="sb-mark m1">◎</span><span class="sb-umaban waku-7">9</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">サムシングスイート</span><span class="nige-badge">逃</span><span class="sb-jockey">横山武</span><span class="sb-odds">8.3倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b1" style="width:100%"></div></div></div><span class="sb-score">83.8</span></div>
+    <div class="sb-row"><span class="sb-rank">2</span><span class="sb-mark m2">○</span><span class="sb-umaban waku-6">6</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">モートンアイランド</span><span class="nige-badge">逃</span><span class="sb-jockey">レーン</span><span class="sb-odds">6.9倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b2" style="width:95%"></div></div></div><span class="sb-score">82.4</span></div>
+    <div class="sb-row"><span class="sb-rank">3</span><span class="sb-mark m3">▲</span><span class="sb-umaban waku-8">11</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">カナルサンマルタン</span><span class="nige-badge">逃</span><span class="sb-jockey">ルメール</span><span class="sb-odds">4.4倍</span></div><div class="sb-bar-wrap"><div class="sb-bar b3" style="width:68%"></div></div></div><span class="sb-score">75.4</span></div>
   </div>
   <button class="sb-more-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">4位以下を見る（残り8頭）<span class="arrow">▼</span></button>
   <div class="sb-rest">
-    <div class="sb-row"><span class="sb-rank">4</span><span class="sb-mark "></span><span class="sb-umaban waku-7">8</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">アルバンヌ</span><span class="sb-jockey">津村</span><span class="sb-odds">3.2倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:61%"></div></div></div><span class="sb-score">73.5</span></div>
-    <div class="sb-row"><span class="sb-rank">5</span><span class="sb-mark "></span><span class="sb-umaban waku-4">4</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">アストリル</span><span class="sb-jockey">田辺</span><span class="sb-odds">46.8倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:45%"></div></div></div><span class="sb-score">69.3</span></div>
-    <div class="sb-row"><span class="sb-rank">6</span><span class="sb-mark "></span><span class="sb-umaban waku-3">3</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ベルサンローラン</span><span class="sb-jockey">石橋脩</span><span class="sb-odds">32.1倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:27%"></div></div></div><span class="sb-score">64.5</span></div>
-    <div class="sb-row"><span class="sb-rank">7</span><span class="sb-mark "></span><span class="sb-umaban waku-6">7</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ラヴィニール</span><span class="sb-jockey">ディー</span><span class="sb-odds">8.5倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:19%"></div></div></div><span class="sb-score">62.5</span></div>
-    <div class="sb-row"><span class="sb-rank">8</span><span class="sb-mark "></span><span class="sb-umaban waku-5">5</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">サフランルージュ</span><span class="sb-jockey">野中</span><span class="sb-odds">24.5倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:19%"></div></div></div><span class="sb-score">62.4</span></div>
-    <div class="sb-row"><span class="sb-rank">9</span><span class="sb-mark "></span><span class="sb-umaban waku-2">2</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ドナルンバ</span><span class="sb-jockey">荻野極</span><span class="sb-odds">11.6倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:16%"></div></div></div><span class="sb-score">61.8</span></div>
-    <div class="sb-row"><span class="sb-rank">10</span><span class="sb-mark "></span><span class="sb-umaban waku-8">10</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ミツカネベネラ</span><span class="sb-jockey">横山和</span><span class="sb-odds">33.8倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:15%"></div></div></div><span class="sb-score">61.3</span></div>
-    <div class="sb-row"><span class="sb-rank">11</span><span class="sb-mark "></span><span class="sb-umaban waku-1">1</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">レディーゴール</span><span class="sb-jockey">菅原明</span><span class="sb-odds">8.1倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:10%"></div></div></div><span class="sb-score">60.1</span></div>
+    <div class="sb-row"><span class="sb-rank">4</span><span class="sb-mark "></span><span class="sb-umaban waku-7">8</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">アルバンヌ</span><span class="nige-badge">逃</span><span class="sb-jockey">津村</span><span class="sb-odds">3.2倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:61%"></div></div></div><span class="sb-score">73.5</span></div>
+    <div class="sb-row"><span class="sb-rank">5</span><span class="sb-mark "></span><span class="sb-umaban waku-4">4</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">アストリル</span><span class="nige-badge">逃</span><span class="sb-jockey">田辺</span><span class="sb-odds">46.8倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:45%"></div></div></div><span class="sb-score">69.3</span></div>
+    <div class="sb-row"><span class="sb-rank">6</span><span class="sb-mark "></span><span class="sb-umaban waku-3">3</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ベルサンローラン</span><span class="nige-badge">逃</span><span class="sb-jockey">石橋脩</span><span class="sb-odds">32.1倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:27%"></div></div></div><span class="sb-score">64.5</span></div>
+    <div class="sb-row"><span class="sb-rank">7</span><span class="sb-mark "></span><span class="sb-umaban waku-6">7</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ラヴィニール</span><span class="nige-badge">逃</span><span class="sb-jockey">ディー</span><span class="sb-odds">8.5倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:19%"></div></div></div><span class="sb-score">62.5</span></div>
+    <div class="sb-row"><span class="sb-rank">8</span><span class="sb-mark "></span><span class="sb-umaban waku-5">5</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">サフランルージュ</span><span class="nige-badge">逃</span><span class="sb-jockey">野中</span><span class="sb-odds">24.5倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:19%"></div></div></div><span class="sb-score">62.4</span></div>
+    <div class="sb-row"><span class="sb-rank">9</span><span class="sb-mark "></span><span class="sb-umaban waku-2">2</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ドナルンバ</span><span class="nige-badge">逃</span><span class="sb-jockey">荻野極</span><span class="sb-odds">11.6倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:16%"></div></div></div><span class="sb-score">61.8</span></div>
+    <div class="sb-row"><span class="sb-rank">10</span><span class="sb-mark "></span><span class="sb-umaban waku-8">10</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">ミツカネベネラ</span><span class="nige-badge">逃</span><span class="sb-jockey">横山和</span><span class="sb-odds">33.8倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:15%"></div></div></div><span class="sb-score">61.3</span></div>
+    <div class="sb-row"><span class="sb-rank">11</span><span class="sb-mark "></span><span class="sb-umaban waku-1">1</span><div class="sb-main"><div class="sb-name-row"><span class="sb-name">レディーゴール</span><span class="nige-badge">逃</span><span class="sb-jockey">菅原明</span><span class="sb-odds">8.1倍</span></div><div class="sb-bar-wrap"><div class="sb-bar bn" style="width:10%"></div></div></div><span class="sb-score">60.1</span></div>
   </div>
 </div>
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
     <div class="race-info"><span class="race-num">東京11R</span><div><div class="race-name">京王杯SC</div><div class="race-detail">芝1400m 18頭 ☀️良</div><div class="race-time">発走 15:45</div></div></div>
+  <div class="race-pace"><span style="background:#888888;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ミドル</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: EV指数1.3: 基準範囲外(2.0-20.0)</div>
   <div class="sb-preview">
@@ -1460,6 +1488,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 <div class="race-card nobuy" data-date="0502" data-venue="東京">
   <div class="race-header">
     <div class="race-info"><span class="race-num">東京12R</span><div><div class="race-name">4歳以上2勝クラス</div><div class="race-detail">ダ1600m 14頭 🌧️重</div><div class="race-time">発走 16:30</div></div></div>
+  <div class="race-pace"><span style="background:#1a6fc4;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px">予想ペース: ハイ</span></div>
   </div>
   <div class="pass-reason">💡 AIパス: 2勝クラスはv6.6で対象外</div>
   <div class="sb-preview">
@@ -1974,7 +2003,7 @@ body{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backgr
 
 <div class="footer">
   <p style="font-weight:700;color:var(--orange-pale);font-size:14px;letter-spacing:2px">NORISHICO KEIBA AI v6.6</p>
-  <p>生成: 2026-05-02 09:06</p>
+  <p>生成: 2026-05-02 09:27</p>
   <div class="disclaimer">
     想定オッズは確定前です。発走5分前にオッズ確定後、最終買い判定を行います。<br>
     本予想はAIによる自動判定です。馬券の購入は自己責任でお願いいたします。<br>

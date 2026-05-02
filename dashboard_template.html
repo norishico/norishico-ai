@@ -114,6 +114,38 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 .post-tag{display:inline-block;padding:2px 8px;background:var(--panel2);color:var(--text-sub);border-radius:4px;font-size:10px;margin-left:6px}
 .post-body{font-size:13px;color:var(--text);line-height:1.7}
 
+/* ==== Phase II Progress ==== */
+.phase2-meter{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px}
+.phase2-title{font-size:13px;font-weight:700;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.phase2-rows{display:flex;flex-direction:column;gap:12px}
+.phase2-row{display:flex;align-items:center;gap:12px}
+.phase2-label{font-size:12px;color:var(--text-sub);width:140px;flex-shrink:0}
+.phase2-bar-wrap{flex:1;height:10px;background:var(--panel2);border-radius:5px;overflow:hidden;border:1px solid var(--border)}
+.phase2-bar{height:100%;background:linear-gradient(90deg,var(--gold-dark),var(--gold));border-radius:5px;transition:width 0.4s}
+.phase2-bar.clear{background:linear-gradient(90deg,#2a7a4a,var(--green))}
+.phase2-val{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);width:90px;text-align:right;flex-shrink:0}
+.phase2-check{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;font-weight:700}
+.phase2-check.done{background:rgba(62,207,142,0.15);color:var(--green)}
+.phase2-check.pend{background:rgba(90,95,109,0.2);color:var(--text-mute)}
+.phase2-season{display:flex;gap:8px;flex:1}
+.season-badge{padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700}
+.season-badge.done{background:rgba(62,207,142,0.15);color:var(--green);border:1px solid rgba(62,207,142,0.3)}
+.season-badge.pend{background:var(--panel2);color:var(--text-mute);border:1px solid var(--border)}
+
+/* ==== Rejected Ideas ==== */
+.rejected-table{width:100%;border-collapse:collapse;font-size:12px}
+.rejected-table th{text-align:left;padding:8px 10px;color:var(--text-sub);border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
+.rejected-table td{padding:8px 10px;border-bottom:1px solid rgba(38,42,53,0.5);vertical-align:top}
+.rejected-table tr:last-child td{border-bottom:none}
+.rejected-table tr:hover td{background:rgba(255,255,255,0.02)}
+.rejected-name{font-weight:600;color:var(--text)}
+.rejected-result{font-family:'JetBrains Mono',monospace;color:var(--red);font-size:11px}
+.rejected-reason{color:var(--text-sub);font-size:11px}
+.cat-badge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700;margin-right:6px}
+.cat-scoring{background:rgba(59,130,246,0.12);color:var(--blue)}
+.cat-display{background:rgba(245,165,36,0.12);color:var(--orange)}
+.cat-bloodline{background:rgba(229,72,77,0.12);color:var(--red)}
+
 /* ==== Kanban ==== */
 .kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;overflow-x:auto}
 @media (max-width:1100px){.kanban{grid-template-columns:repeat(2,1fr)}}
@@ -155,7 +187,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
   <div class="tab" data-tab="review">🔍 レース振り返り</div>
   <div class="tab" data-tab="blood">🧬 血統・コース</div>
   <div class="tab" data-tab="committee">👯 ギャル委員会ログ</div>
+  <div class="tab" data-tab="battle">⚔️ 委員会対決</div>
+  <div class="tab" data-tab="nar">🏇 地方競馬</div>
   <div class="tab" data-tab="kanban">📋 改善管理</div>
+  <div class="tab" data-tab="system">⚙️ AI設計・運用</div>
 </div>
 
 <!-- ============ HOME ============ -->
@@ -188,28 +223,35 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
   <div class="section-title">🚀 実運用実績 (2026-04-01〜)</div>
   <div style="font-size:11px;color:var(--text-sub);margin:-8px 0 12px;padding:0 2px">※ こちらが本物の実績。実際に買い目を発射して回収も実数値</div>
-  <div class="kpi-grid">
-    <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
-      <div class="kpi-label"><span class="pill">LIVE</span> 実運用ROI</div>
-      <div class="kpi-value neg">0.0<span style="font-size:14px">%</span></div>
-      <div class="kpi-ci">95%CI [62 - 138] n=17 (小サンプル)</div>
-    </div>
-    <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
-      <div class="kpi-label"><span class="pill">LIVE</span> 実損益</div>
-      <div class="kpi-value neg">-28,000<span style="font-size:14px">円</span></div>
-      <div class="kpi-ci">投資 28,000円 / 回収 0円</div>
-    </div>
-    <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
-      <div class="kpi-label"><span class="pill">LIVE</span> 実買いR数</div>
-      <div class="kpi-value">17<span style="font-size:14px">R</span></div>
-      <div class="kpi-ci">2026-04-01〜今日</div>
-    </div>
-    <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
-      <div class="kpi-label"><span class="pill">LIVE</span> 実的中率</div>
-      <div class="kpi-value neg">0<span style="font-size:14px">%</span></div>
-      <div class="kpi-ci">0/17 (BT想定~15%)</div>
-    </div>
-  </div>
+  <div class="kpi-grid" id="liveKpiGrid"></div>
+  <script>
+  (function(){
+    const lt = DATA.live_total;
+    const roiClass = lt.roi >= 100 ? 'pos' : 'neg';
+    const plClass  = lt.pl  >= 0   ? 'pos' : 'neg';
+    document.getElementById('liveKpiGrid').innerHTML = `
+      <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
+        <div class="kpi-label"><span class="pill">LIVE</span> 実運用ROI</div>
+        <div class="kpi-value ${roiClass}">${lt.roi.toFixed(1)}<span style="font-size:14px">%</span></div>
+        <div class="kpi-ci">n=${lt.n} (小サンプル)</div>
+      </div>
+      <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
+        <div class="kpi-label"><span class="pill">LIVE</span> 実損益</div>
+        <div class="kpi-value ${plClass}">${lt.pl.toLocaleString()}<span style="font-size:14px">円</span></div>
+        <div class="kpi-ci">投資 ${lt.cost.toLocaleString()}円 / 回収 ${lt.return.toLocaleString()}円</div>
+      </div>
+      <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
+        <div class="kpi-label"><span class="pill">LIVE</span> 実買いR数</div>
+        <div class="kpi-value">${lt.n}<span style="font-size:14px">R</span></div>
+        <div class="kpi-ci">2026-04-01〜今日</div>
+      </div>
+      <div class="kpi" style="border-color:rgba(232,184,75,0.5)">
+        <div class="kpi-label"><span class="pill">LIVE</span> 実的中率</div>
+        <div class="kpi-value ${lt.hit>0?'pos':'neg'}">${lt.hit_rate.toFixed(1)}<span style="font-size:14px">%</span></div>
+        <div class="kpi-ci">${lt.hit}/${lt.n} 的中 (BT想定~15%)</div>
+      </div>`;
+  })();
+  </script>
 
   <div class="grid-2">
     <div class="panel">
@@ -222,50 +264,122 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
     </div>
   </div>
 
-  <div class="grid-3">
-    <div class="panel">
-      <div class="panel-title">今週のサマリー (4/18土+4/19日)</div>
-      <div class="health-row"><span class="health-label">買い目数</span><span class="health-value">3 R</span></div>
-      <div class="health-row"><span class="health-label">投資額</span><span class="health-value">3,000 円</span></div>
-      <div class="health-row"><span class="health-label">回収額(進行中)</span><span class="health-value">0 円</span></div>
-      <div class="health-row"><span class="health-label">当日成績(4/18)</span><span class="health-value" style="color:var(--red)">-2,000 円 (2R ハズレ)</span></div>
-      <div class="health-row"><span class="health-label">週次ROI予定</span><span class="health-value" style="color:var(--text-sub)">日曜発走後集計</span></div>
-    </div>
-    <div class="panel">
-      <div class="panel-title">システムヘルス</div>
-      <div class="health-row"><span class="health-label">DB最終更新</span><span class="health-value">2026-04-18 14:49 <span class="health-badge ok">OK</span></span></div>
-      <div class="health-row"><span class="health-label">JVLink 23:30</span><span class="health-value">04-17 成功 <span class="health-badge ok">OK</span></span></div>
-      <div class="health-row"><span class="health-label">JVLink 04:30</span><span class="health-value">04-18 成功 <span class="health-badge ok">OK</span></span></div>
-      <div class="health-row"><span class="health-label">SaturdayPreview</span><span class="health-value">04-17 21:00 <span class="health-badge ok">rc=0</span></span></div>
-      <div class="health-row"><span class="health-label">RaceDayAutoRefresh</span><span class="health-value">04-18 09:00 <span class="health-badge warn">中断</span></span></div>
-      <div class="health-row"><span class="health-label">morning_snapshot.json</span><span class="health-value" style="color:var(--text-mute)">未生成(旧コード時起動)</span></div>
-    </div>
-    <div class="panel">
-      <div class="panel-title">⚠️ アラート</div>
-      <div class="alert-list">
-        <div class="alert warn">
-          <span class="alert-icon">⚠️</span>
-          <div class="alert-body">
-            <div class="alert-title">2024 年間ROI 98.4% (閾値100%未達)</div>
-            <div class="alert-desc">F1未勝利の単年不振が主因 / memory確認済</div>
+  <div class="section-title">📦 プロジェクト状態</div>
+  <div id="projectStatusWidget"></div>
+  <script>
+  (function(){
+    const ps = DATA.project_status || {};
+    if (!ps.updated_at) { document.getElementById('projectStatusWidget').innerHTML='<div style="color:var(--text-mute);font-size:12px">データなし</div>'; return; }
+
+    const jra = ps.jra || {};
+    const nar = ps.nar || {};
+    const kb  = ps.kanban || {};
+    const cp  = ps.competition || {};
+
+    // 最終更新の経過時間
+    function elapsed(isoStr) {
+      if (!isoStr) return '不明';
+      const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 60000);
+      if (diff < 1)   return 'たった今';
+      if (diff < 60)  return diff + '分前';
+      if (diff < 1440) return Math.floor(diff/60) + '時間前';
+      return Math.floor(diff/1440) + '日前';
+    }
+
+    const narBadge = nar.has_gap
+      ? `<span style="color:var(--orange);font-weight:700">⚠️ ${nar.gap_desc||'データ欠損あり'}</span>`
+      : `<span style="color:var(--green)">✅ データ揃い</span>`;
+
+    const compPct = cp.total_entries > 0
+      ? Math.round(cp.results_filled / cp.total_entries * 100) : 0;
+
+    document.getElementById('projectStatusWidget').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:16px">
+
+        <div class="panel" style="padding:14px">
+          <div style="font-size:11px;color:var(--text-mute);margin-bottom:6px">🏇 JRA DB</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text)">${jra.db_last_date||'-'}</div>
+          <div style="font-size:11px;color:var(--text-sub);margin-top:3px">results ${(jra.results_count||0).toLocaleString()}件 / dividends ${(jra.dividends_count||0).toLocaleString()}件</div>
+        </div>
+
+        <div class="panel" style="padding:14px">
+          <div style="font-size:11px;color:var(--text-mute);margin-bottom:6px">🏟️ NAR DB</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text)">${nar.db_last_date||'-'}</div>
+          <div style="font-size:11px;margin-top:3px">${narBadge}</div>
+          <div style="font-size:11px;color:var(--text-sub);margin-top:2px">${(nar.results_count||0).toLocaleString()}件</div>
+        </div>
+
+        <div class="panel" style="padding:14px">
+          <div style="font-size:11px;color:var(--text-mute);margin-bottom:6px">📋 Kanban</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+            <span style="background:var(--red);color:#fff;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700">承認待ち ${kb.pending||0}</span>
+            <span style="background:var(--blue);color:#fff;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700">実装中 ${kb.in_progress||0}</span>
+            <span style="background:var(--orange);color:#fff;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700">検証中 ${kb.review||0}</span>
+            <span style="background:var(--green);color:#fff;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700">完了 ${kb.done||0}</span>
           </div>
         </div>
-        <div class="alert info">
-          <span class="alert-icon">ℹ️</span>
-          <div class="alert-body">
-            <div class="alert-title">2023メガヒット乖離 +38.3pt</div>
-            <div class="alert-desc">Winsorized 135%→通常 173% (中山11R +102万の影響)</div>
+
+        <div class="panel" style="padding:14px">
+          <div style="font-size:11px;color:var(--text-mute);margin-bottom:6px">⚔️ 委員会対決</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text)">${cp.results_filled||0} / ${cp.total_entries||0} 件確定</div>
+          <div style="height:5px;background:var(--panel2);border-radius:3px;margin:6px 0;overflow:hidden">
+            <div style="height:100%;width:${compPct}%;background:var(--gold);border-radius:3px"></div>
           </div>
+          <div style="font-size:11px;color:var(--text-sub)">${cp.period_start||''} 〜 ${cp.period_end||''}</div>
         </div>
-        <div class="alert danger">
-          <span class="alert-icon">🔴</span>
-          <div class="alert-body">
-            <div class="alert-title">2026(OOS) ROI 0.0% n=17</div>
-            <div class="alert-desc">ホールドアウトで大幅下振れ。要経過観察(n不足)</div>
-          </div>
-        </div>
+
       </div>
-    </div>
+      <div style="font-size:11px;color:var(--text-mute);text-align:right;margin:-8px 0 16px">
+        最終更新: ${elapsed(ps.updated_at)} (${ps.updated_by||'?'}) &nbsp;|&nbsp; ${ps.updated_at||''}
+      </div>`;
+  })();
+  </script>
+
+  <div class="section-title">🎯 Phase II 移行進捗</div>
+  <div style="font-size:11px;color:var(--text-sub);margin:-8px 0 12px;padding:0 2px">3条件すべてクリアでPhase II解禁 (XGBoost・Kelly本格化・クロス特徴量)</div>
+  <div class="phase2-meter" id="phase2Meter"></div>
+  <script>
+  (function(){
+    const p2 = DATA.phase2;
+    const nPct   = Math.min(p2.n / p2.n_target * 100, 100);
+    const roiPct = Math.min(Math.max(p2.roi, 0) / p2.roi_target * 100, 100);
+    const nOk    = p2.n >= p2.n_target;
+    const roiOk  = p2.roi >= p2.roi_target;
+    const sOk    = p2.seasons_done >= 4;
+    const s = p2.seasons;
+    const seasonHtml = [
+      ['spring','春'],['summer','夏'],['autumn','秋'],['winter','冬']
+    ].map(([k,lbl])=>`<span class="season-badge ${s[k]?'done':'pend'}">${s[k]?'✓ ':''} ${lbl}</span>`).join('');
+    document.getElementById('phase2Meter').innerHTML = `
+      <div class="phase2-title">Phase II 移行条件 (委員会決定 2026-04-22)
+        ${p2.all_clear?'<span style="color:var(--green);font-size:12px;margin-left:12px">✅ 全条件クリア！</span>':''}
+      </div>
+      <div class="phase2-rows">
+        <div class="phase2-row">
+          <div class="phase2-check ${nOk?'done':'pend'}">${nOk?'✓':'①'}</div>
+          <div class="phase2-label">実運用レース数</div>
+          <div class="phase2-bar-wrap"><div class="phase2-bar ${nOk?'clear':''}" style="width:${nPct}%"></div></div>
+          <div class="phase2-val">${p2.n} / ${p2.n_target} R</div>
+        </div>
+        <div class="phase2-row">
+          <div class="phase2-check ${roiOk?'done':'pend'}">${roiOk?'✓':'②'}</div>
+          <div class="phase2-label">累積ROI</div>
+          <div class="phase2-bar-wrap"><div class="phase2-bar ${roiOk?'clear':''}" style="width:${roiPct}%"></div></div>
+          <div class="phase2-val">${p2.roi.toFixed(1)}% / 100%</div>
+        </div>
+        <div class="phase2-row">
+          <div class="phase2-check ${sOk?'done':'pend'}">${sOk?'✓':'③'}</div>
+          <div class="phase2-label">4季節経験</div>
+          <div class="phase2-season">${seasonHtml}</div>
+          <div class="phase2-val">${p2.seasons_done} / 4 季節</div>
+        </div>
+      </div>`;
+  })();
+  </script>
+
+  <div class="grid-2">
+    <div class="panel" id="panelWeekSummary"></div>
+    <div class="panel" id="panelAlerts"></div>
   </div>
 
 </div>
@@ -297,6 +411,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
     <div class="panel-title">月別 単勝回収率ヒートマップ (2021-2026) <span class="pill blue" style="font-size:9px">2021-2025=市場全体</span> <span class="pill" style="font-size:9px">2026=実運用</span></div>
     <div id="heatmapMonthly"></div>
     <div style="font-size:10px;color:var(--text-mute);margin-top:6px">※ 2021-2025はJRA全レース(全馬)の単勝市場平均回収率 / 2026は実運用ROI。指標定義が異なる点に注意</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">月別 モデルBT回収率ヒートマップ (2022-2025) <span class="pill blue" style="font-size:9px">我々の買い条件適用後</span> <span class="pill" style="font-size:9px">Winsorized前</span></div>
+    <div id="heatmapMonthlyBT"></div>
+    <div style="font-size:10px;color:var(--text-mute);margin-top:6px">⚠️ 2月が弱い (ROI≈57%)。夏競馬 (7-8月) は強い。このデータは「夏競馬フラグ」導入検討の根拠として記録</div>
   </div>
 
   <div class="grid-2">
@@ -337,28 +457,40 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
   <div class="section-title">🔍 レース振り返り (実運用 2026-04〜)</div>
   <div style="font-size:11px;color:var(--text-sub);margin:-8px 0 12px">※ 買い目を発射した実運用レースのみ。外れ4タイプは凱旋門太郎フレームワーク準拠</div>
 
-  <div class="kpi-grid">
-    <div class="kpi">
-      <div class="kpi-label">対象期間</div>
-      <div class="kpi-value mono" style="font-size:16px">2026-04-01〜18</div>
-      <div class="kpi-ci">実運用18日目</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">外れ内訳</div>
-      <div class="kpi-value mono" style="font-size:14px;color:var(--text)">Luck 4/Narrow 1/Misread 2/Scenario 8</div>
-      <div class="kpi-ci">n=15 (2R進行中除く)</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">最頻タイプ</div>
-      <div class="kpi-value" style="font-size:18px;color:var(--orange)">Scenario 53%</div>
-      <div class="kpi-ci">展開依存の外れが主因</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">改善余地</div>
-      <div class="kpi-value" style="font-size:14px;color:var(--text-sub)">バイアス条件読み強化</div>
-      <div class="kpi-ci">中山重馬場集中 4/5日曜</div>
-    </div>
-  </div>
+  <div class="kpi-grid" id="reviewKpiGrid"></div>
+  <script>
+  (function(){
+    const mt = DATA.miss_types || {};
+    const total = Object.values(mt).reduce((a,b)=>a+b,0);
+    const topEntry = Object.entries(mt).sort((a,b)=>b[1]-a[1])[0] || ['—',0];
+    const labels = {luck:'Luck',narrow:'Narrow',misread:'Misread',scenario:'Scenario'};
+    const breakdown = ['luck','narrow','misread','scenario'].map(k=>`${labels[k]} ${mt[k]||0}`).join('/');
+    const topLabel = labels[topEntry[0]] || topEntry[0];
+    const topPct = total ? Math.round(topEntry[1]/total*100) : 0;
+    const lt = DATA.live_total;
+    document.getElementById('reviewKpiGrid').innerHTML = `
+      <div class="kpi">
+        <div class="kpi-label">対象期間</div>
+        <div class="kpi-value mono" style="font-size:16px">2026-04-01〜今日</div>
+        <div class="kpi-ci">実運用 n=${lt.n}R</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">外れ内訳</div>
+        <div class="kpi-value mono" style="font-size:13px;color:var(--text)">${breakdown}</div>
+        <div class="kpi-ci">n=${total}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">最頻タイプ</div>
+        <div class="kpi-value" style="font-size:18px;color:var(--orange)">${topLabel} ${topPct}%</div>
+        <div class="kpi-ci">${topEntry[1]}/${total}件</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">的中数</div>
+        <div class="kpi-value" style="font-size:18px;color:${lt.hit>0?'var(--green)':'var(--text-sub)'}">${lt.hit}<span style="font-size:14px">件</span></div>
+        <div class="kpi-ci">回収率 ${lt.roi.toFixed(1)}%</div>
+      </div>`;
+  })();
+  </script>
 
   <div class="grid-2">
     <div class="panel">
@@ -459,6 +591,44 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
   <div class="post-feed" id="postFeed"></div>
 
+  <!-- 1on1ログ -->
+  <div class="section-title" style="margin-top:28px">💬 1on1ログ</div>
+  <div id="oneOnOneLog"></div>
+
+</div>
+
+<!-- ============ NAR ============ -->
+<div class="tab-content" id="tab-nar">
+
+  <div class="section-title">🏇 地方競馬 (南関東) 実運用</div>
+
+  <!-- P&L サマリー -->
+  <div id="narSummary"></div>
+
+  <!-- 直近予想 -->
+  <div class="section-title" style="font-size:12px;margin:20px 0 8px">📋 直近予想結果</div>
+  <div id="narRecent"></div>
+
+  <!-- BT結果 -->
+  <div class="section-title" style="font-size:12px;margin:20px 0 8px">📊 Walk-Forward BT (v2パラメータ)</div>
+  <div id="narBt"></div>
+
+</div>
+
+<!-- ============ BATTLE ============ -->
+<div class="tab-content" id="tab-battle">
+
+  <!-- ルールカード -->
+  <div id="battleRules"></div>
+
+  <!-- 累積成績 -->
+  <div class="section-title" style="font-size:12px;margin:20px 0 8px">📊 累積成績ランキング</div>
+  <div id="battleStandings"></div>
+
+  <!-- 宣言一覧 -->
+  <div class="section-title" style="font-size:12px;margin:20px 0 8px">📋 宣言一覧</div>
+  <div id="battleEntries"></div>
+
 </div>
 
 <!-- ============ KANBAN ============ -->
@@ -468,9 +638,30 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-seri
 
   <div class="kanban" id="kanbanBoard"></div>
 
+  <div class="section-title" style="margin-top:28px">❌ 検証済み・不採用アーカイブ</div>
+  <div style="font-size:11px;color:var(--text-sub);margin:-8px 0 12px;padding:0 2px">データ検証で効果なし・悪化と判定されたアイデアの記録。同じ車輪を再発明しないために。</div>
+  <div class="panel" id="rejectedPanel"></div>
+
 </div>
 
-<div class="footer">NORISHICO KEIBA AI · Dashboard Prototype · Dummy Data · generated 2026-04-18</div>
+<!-- ============ SYSTEM ============ -->
+<div class="tab-content" id="tab-system">
+
+  <div class="section-title">⚖️ スコアリング設計 (v6.6現行)</div>
+  <div style="font-size:11px;color:var(--text-sub);margin:-8px 0 12px;padding:0 2px">各要素の比重とボーナス一覧。変更は4年BT検証後のみ。</div>
+  <div id="scoringDesignPanel"></div>
+
+  <div class="section-title" style="margin-top:28px">🗓️ 週次自動化スケジュール</div>
+  <div style="font-size:11px;color:var(--text-sub);margin:-8px 0 12px;padding:0 2px">すべての自動タスクの実行タイミング一覧</div>
+  <div id="weekSchedule"></div>
+
+  <div class="section-title" style="margin-top:28px">🔧 システムヘルス</div>
+  <div style="font-size:11px;color:var(--text-sub);margin:-8px 0 12px;padding:0 2px">各自動タスクの最終実行状態</div>
+  <div class="panel" id="panelHealth"></div>
+
+</div>
+
+<div class="footer" id="footerBar">NORISHICO KEIBA AI · Dashboard</div>
 
 <script>
 // ==================== ダミーデータ (本番JSON構造に寄せる) ====================
@@ -618,6 +809,44 @@ function roiColor(v){
   wrap.innerHTML = html;
 })();
 
+(function renderMonthlyBTHeatmap(){
+  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const wrap = document.getElementById('heatmapMonthlyBT');
+  if (!wrap || !DATA.monthly_bt || !DATA.monthly_bt.length) return;
+  let html = `<div class="heatmap" style="grid-template-columns:50px repeat(12,1fr)">`;
+  html += `<div class="heatmap-header"></div>` + months.map(m=>`<div class="heatmap-header">${m}</div>`).join('');
+  DATA.monthly_bt.forEach(row=>{
+    html += `<div class="heatmap-header mono" style="align-self:center;color:var(--gold)">${row.year}</div>`;
+    row.months.forEach(v=>{
+      const roi_w = v ? v.roi_w : null;  // Winsorized ROIで色分け
+      const roi   = v ? v.roi   : null;
+      const bg = roiColor(roi_w);
+      let txt;
+      if (v===null) {
+        txt = '—';
+      } else if (roi !== roi_w) {
+        txt = `${roi_w}%<br><span style="font-size:8px;opacity:.7">${v.n}R *(${roi}%)</span>`;
+      } else {
+        txt = `${roi_w}%<br><span style="font-size:8px;opacity:.7">${v.n}R</span>`;
+      }
+      const title = v ? `${v.n}R Win=${roi_w}% Raw=${roi}% 投資${(v.cost/1000).toFixed(0)}k` : '';
+      html += `<div class="heatmap-cell" style="background:${bg};line-height:1.3" title="${title}">${txt}</div>`;
+    });
+  });
+  // 合計行 (Winsorized)
+  html += `<div class="heatmap-header mono" style="align-self:center;color:var(--text-sub);font-size:10px">合計Win</div>`;
+  for (let mo = 0; mo < 12; mo++) {
+    let totalN=0, totalCost=0, totalRetW=0;
+    DATA.monthly_bt.forEach(row=>{ const v=row.months[mo]; if(v){totalN+=v.n;totalCost+=v.cost;totalRetW+=(v.ret_w||v.ret);} });
+    const roi = totalCost>0 ? Math.round(totalRetW/totalCost*100) : null;
+    const bg = roiColor(roi);
+    const txt = roi!==null ? `${roi}%<br><span style="font-size:8px;opacity:.7">${totalN}R</span>` : '—';
+    html += `<div class="heatmap-cell" style="background:${bg};line-height:1.3">${txt}</div>`;
+  }
+  html += `</div>`;
+  wrap.innerHTML = html;
+})();
+
 // --- Hit vs ROI bubble ---
 new Chart(document.getElementById('chartHitROI'),{
   type:'bubble',
@@ -693,12 +922,28 @@ new Chart(document.getElementById('chartRuleROI'),{
   if (!tbody) return;
   const missLabel = {luck:'Luck(運)',narrow:'Narrow(甘)',misread:'Misread(違)',scenario:'Scenario(展)'};
   const missColor = {luck:'green',narrow:'blue',misread:'warn',scenario:'red'};
+  const uid = ()=>Math.random().toString(36).slice(2,8);
   tbody.innerHTML = DATA.reviews.map(r=>{
     const hit = r.ret>0;
     const finColor = r.finish==='-'?'var(--text-mute)':hit?'var(--green)':'var(--red)';
     const missTag = r.miss?`<span class="pill ${missColor[r.miss]==='green'?'green':missColor[r.miss]==='blue'?'blue':missColor[r.miss]==='warn'?'':'red'}">${missLabel[r.miss]}</span>`:`<span style="color:var(--text-mute);font-size:11px">—</span>`;
+    const id = uid();
+    const hasReview = r.review && r.review.length > 0;
+    const expandBtn = hasReview
+      ? `<button onclick="toggleReview('${id}')" style="background:none;border:1px solid var(--border);color:var(--text-sub);cursor:pointer;border-radius:3px;padding:1px 6px;font-size:10px">▼</button>`
+      : '';
+    const pi = r.pace_info;
+    const paceTag = pi ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+      ${pi.pace && pi.pace!=='不明'?`<span style="background:#2d1f1f;color:#f87171;border-radius:3px;padding:1px 6px;font-size:11px">⚡ペース: ${pi.pace}</span>`:''}
+      ${pi.honmei_position && pi.honmei_position!=='不明'?`<span style="background:#1f2a2d;color:#60a5fa;border-radius:3px;padding:1px 6px;font-size:11px">📍位置: ${pi.honmei_position}</span>`:''}
+      ${pi.key_factor?`<span style="background:#2a1f2d;color:#c084fc;border-radius:3px;padding:1px 6px;font-size:11px">🔑 ${pi.key_factor}</span>`:''}
+      ${pi.lesson?`<div style="margin-top:4px;color:#fbbf24;font-size:11px">💡 ${pi.lesson}</div>`:''}
+    </div>` : '';
+    const reviewRow = hasReview
+      ? `<tr id="${id}" style="display:none"><td colspan="10" style="padding:8px 12px 12px 24px;background:var(--panel2);font-size:12px;color:var(--text-sub);border-bottom:1px solid var(--border);line-height:1.6">${r.review}${paceTag}</td></tr>`
+      : '';
     return `
-    <tr style="border-bottom:1px solid var(--border)">
+    <tr style="border-bottom:${hasReview?'none':'1px solid var(--border)'}">
       <td class="mono" style="padding:6px">${r.date}</td>
       <td style="padding:6px">${r.race}</td>
       <td style="padding:6px;font-weight:500">${r.rname}</td>
@@ -708,8 +953,8 @@ new Chart(document.getElementById('chartRuleROI'),{
       <td class="mono" style="padding:6px;color:${finColor}">${r.finish}</td>
       <td class="mono" style="padding:6px;text-align:right;color:${hit?'var(--green)':'var(--text-mute)'}">${r.ret.toLocaleString()}</td>
       <td style="padding:6px">${missTag}</td>
-      <td style="padding:6px;font-size:11px;color:var(--text-sub)">${r.note}</td>
-    </tr>`;
+      <td style="padding:6px;font-size:11px;color:var(--text-sub)">${expandBtn}</td>
+    </tr>${reviewRow}`;
   }).join('');
 })();
 
@@ -846,6 +1091,280 @@ renderHeatmap('heatmapStable', DATA.stable_track.tracks, DATA.stable_track.stabl
   }).join('');
 })();
 
+// --- Scoring design ---
+(function renderScoringDesign(){
+  const sd = DATA.scoring_design;
+  const el = document.getElementById('scoringDesignPanel');
+  if(!sd || !el) return;
+
+  const barColor = pct => pct >= 20 ? 'var(--green)' : pct >= 10 ? '#f5a524' : 'var(--text-sub)';
+  const weightRows = (arr) => arr.map(w => `
+    <tr>
+      <td style="padding:6px 10px;font-size:12px;white-space:nowrap">${w.name}</td>
+      <td style="padding:6px 10px;width:140px">
+        <div style="background:var(--panel2);border-radius:3px;height:10px;overflow:hidden">
+          <div style="width:${w.pct*4}px;max-width:100%;height:100%;background:${barColor(w.pct)};border-radius:3px"></div>
+        </div>
+      </td>
+      <td style="padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:${barColor(w.pct)};font-weight:700">${w.pct}%</td>
+      <td style="padding:6px 10px;font-size:11px;color:var(--text-sub)">${w.note}</td>
+    </tr>`).join('');
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="panel">
+        <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">通常レース (3勝/G1/G2/G3)</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th style="text-align:left;padding:4px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">要素</th>
+            <th style="padding:4px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)"></th>
+            <th style="padding:4px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">比重</th>
+            <th style="text-align:left;padding:4px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">内容</th>
+          </tr></thead>
+          <tbody>${weightRows(sd.weights_normal)}</tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">新馬・未勝利 (実績なし専用)</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th style="text-align:left;padding:4px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">要素</th>
+            <th style="padding:4px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)"></th>
+            <th style="padding:4px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">比重</th>
+            <th style="text-align:left;padding:4px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">内容</th>
+          </tr></thead>
+          <tbody>${weightRows(sd.weights_maiden)}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">ボーナス加点 (ベーススコアに上乗せ)</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="text-align:left;padding:5px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">テーブル名</th>
+          <th style="text-align:left;padding:5px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">最大値</th>
+          <th style="text-align:left;padding:5px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">適用条件</th>
+        </tr></thead>
+        <tbody>${sd.bonuses.map(b=>`
+          <tr style="border-bottom:1px solid rgba(38,42,53,0.5)">
+            <td style="padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)">${b.name}</td>
+            <td style="padding:6px 10px;color:var(--green);font-weight:700;white-space:nowrap">${b.max}</td>
+            <td style="padding:6px 10px;color:var(--text-sub)">${b.cond}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+})();
+
+// --- Committee Battle ---
+(function renderBattle(){
+  const cc = DATA.committee_comp;
+  if(!cc) return;
+  const meta = cc.meta || {};
+  const aiRoi = (DATA.live_total && DATA.live_total.roi != null) ? DATA.live_total.roi : null;
+
+  // ── ルールカード ──────────────────────────────────────────
+  const rEl = document.getElementById('battleRules');
+  if(rEl){
+    rEl.innerHTML = `
+    <div style="background:linear-gradient(135deg,rgba(88,166,255,0.08),rgba(148,103,218,0.08));border:1px solid rgba(88,166,255,0.25);border-radius:12px;padding:20px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <span style="font-size:20px">⚔️</span>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text)">${meta.title||'委員会 vs AI 対決'}</div>
+          <div style="font-size:11px;color:var(--text-mute)">${meta.period_start||''} 〜 ${meta.period_end||''}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:14px">
+        <div style="background:var(--panel2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--text-mute);margin-bottom:4px">🎯 買い方</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text)">${meta.bet_type||'単勝1点固定'} ${(meta.bet_amount||2000).toLocaleString()}円</div>
+        </div>
+        <div style="background:var(--panel2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--text-mute);margin-bottom:4px">📅 宣言ルール</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text)">土日 何レースでもOK</div>
+          <div style="font-size:10px;color:var(--text-mute)">前日23:59まで・後出し禁止</div>
+        </div>
+        <div style="background:var(--panel2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--text-mute);margin-bottom:4px">📊 評価指標</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text)">${meta.eval_metric||'ROI'}</div>
+          <div style="font-size:10px;color:var(--text-mute)">AI(${meta.ai_baseline||'v6.6'})との比較あり</div>
+        </div>
+        <div style="background:rgba(232,184,75,0.12);border:1px solid rgba(232,184,75,0.3);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--gold);margin-bottom:4px">🏆 1位の報酬</div>
+          <div style="font-size:12px;font-weight:600;color:var(--gold)">${meta.winner_reward||'改善案を最優先BT検証'}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── 累積成績ランキング ────────────────────────────────────
+  const sEl = document.getElementById('battleStandings');
+  if(sEl){
+    const rows = (cc.standings || []);
+    if(!rows.length){
+      sEl.innerHTML = '<div class="panel" style="color:var(--text-mute);font-size:12px;padding:14px">まだ結果なし（今週の宣言集計待ち）</div>';
+    } else {
+      const medals = ['🥇','🥈','🥉'];
+      const aiRow = aiRoi != null
+        ? `<tr style="border-top:2px solid rgba(88,166,255,0.3);background:rgba(88,166,255,0.05)">
+            <td style="padding:7px 10px;font-weight:600;color:var(--blue)">🤖 AI (v6.6)</td>
+            <td style="padding:7px 10px;text-align:right;color:var(--text-sub)">—</td>
+            <td style="padding:7px 10px;text-align:right;color:var(--text-sub)">—</td>
+            <td style="padding:7px 10px;text-align:right;font-weight:700;color:${aiRoi>=100?'var(--green)':aiRoi>=80?'#f5a524':'var(--red)'}">${aiRoi.toFixed(1)}%</td>
+            <td style="padding:7px 10px;text-align:right;color:var(--text-mute)">—</td>
+            <td style="padding:7px 10px;text-align:right;color:var(--text-mute)">基準</td>
+          </tr>` : '';
+      sEl.innerHTML = `<div class="panel"><table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 10px;color:var(--text-mute);font-size:11px;border-bottom:1px solid var(--border)">メンバー</th>
+          <th style="padding:6px 10px;color:var(--text-mute);font-size:11px;border-bottom:1px solid var(--border);text-align:right">参加</th>
+          <th style="padding:6px 10px;color:var(--text-mute);font-size:11px;border-bottom:1px solid var(--border);text-align:right">的中</th>
+          <th style="padding:6px 10px;color:var(--text-mute);font-size:11px;border-bottom:1px solid var(--border);text-align:right">ROI</th>
+          <th style="padding:6px 10px;color:var(--text-mute);font-size:11px;border-bottom:1px solid var(--border);text-align:right">損益</th>
+          <th style="padding:6px 10px;color:var(--text-mute);font-size:11px;border-bottom:1px solid var(--border);text-align:right">AI比</th>
+        </tr></thead>
+        <tbody>${rows.map((r,i)=>{
+          const roiCol = r.roi>=100?'var(--green)':r.roi>=80?'#f5a524':'var(--red)';
+          const plSign = r.pl>=0?'+':'';
+          const aiDiff = aiRoi!=null ? (r.roi - aiRoi) : null;
+          const aiDiffCell = aiDiff!=null
+            ? `<span style="color:${aiDiff>=0?'var(--green)':'var(--red)'};font-weight:600">${aiDiff>=0?'+':''}${aiDiff.toFixed(1)}%</span>`
+            : '—';
+          return `<tr style="border-bottom:1px solid rgba(38,42,53,0.4)${i===0?';background:rgba(232,184,75,0.06)':''}">
+            <td style="padding:7px 10px;font-weight:600">${medals[i]||`${i+1}.`} ${r.member}</td>
+            <td style="padding:7px 10px;text-align:right;color:var(--text-sub)">${r.n}R</td>
+            <td style="padding:7px 10px;text-align:right;color:var(--text-sub)">${r.wins}回</td>
+            <td style="padding:7px 10px;text-align:right;font-weight:700;color:${roiCol}">${r.roi}%</td>
+            <td style="padding:7px 10px;text-align:right;font-family:'JetBrains Mono',monospace;color:${r.pl>=0?'var(--green)':'var(--red)'};font-size:12px">${plSign}${r.pl.toLocaleString()}円</td>
+            <td style="padding:7px 10px;text-align:right;font-size:12px">${aiDiffCell}</td>
+          </tr>`;
+        }).join('')}${aiRow}</tbody>
+      </table></div>`;
+    }
+  }
+
+  // ── 宣言一覧 (日付グループ) ──────────────────────────────
+  const eEl = document.getElementById('battleEntries');
+  if(eEl){
+    const entries = (cc.entries || []).slice().reverse();
+    if(!entries.length){
+      eEl.innerHTML = '<div class="panel" style="color:var(--text-mute);font-size:12px;padding:14px">宣言なし — 来週の参加宣言をお待ちしています！</div>';
+    } else {
+      // 日付でグループ化
+      const byDate = {};
+      entries.forEach(e => { (byDate[e.date||'?'] = byDate[e.date||'?']||[]).push(e); });
+      const html = Object.entries(byDate).map(([date, es]) => {
+        const rows = es.map(e => {
+          const done = e.result_ret !== null && e.result_ret !== undefined;
+          const hit  = done && e.result_ret > 0;
+          const finishStr = e.pick_finish ? `${e.pick_finish}着` : '';
+          const winnerStr = e.winner ? `(1着:${e.winner})` : '';
+          const resultCell = !done
+            ? `<span style="color:var(--text-mute);font-size:10px">未発走</span>`
+            : hit
+              ? `<span style="color:var(--green);font-weight:700">✅ +${(e.result_ret-2000).toLocaleString()}円</span>`
+              : `<span style="color:var(--red);font-size:11px">❌ ${finishStr}</span><br><span style="font-size:9px;color:var(--text-mute)">${winnerStr}</span>`;
+          const declTime = e.declared_at ? e.declared_at.slice(11,16) : '';
+          return `<tr style="border-bottom:1px solid rgba(38,42,53,0.3)">
+            <td style="padding:6px 10px;font-weight:600;color:var(--text)">${e.member||''}</td>
+            <td style="padding:6px 10px;color:var(--text-sub);font-size:11px">${e.venue||''}${e.race_num||''}R ${e.race_name||''}</td>
+            <td style="padding:6px 10px;font-weight:600;color:var(--gold)">${e.pick||''}
+              <span style="font-size:10px;color:var(--text-mute);font-weight:400"> ${e.pick_odds||''}倍</span></td>
+            <td style="padding:6px 10px;color:var(--text-sub);font-size:10px;max-width:180px">${e.reason||''}</td>
+            <td style="padding:6px 10px;text-align:right">${resultCell}</td>
+            <td style="padding:6px 10px;text-align:right;font-size:10px;color:var(--text-mute)">${declTime}</td>
+          </tr>`;
+        }).join('');
+        const hitCount = es.filter(e=>e.result_ret>0).length;
+        const doneCount = es.filter(e=>e.result_ret!==null&&e.result_ret!==undefined).length;
+        return `
+          <div style="margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+              <span style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700">${date}</span>
+              <span style="font-size:11px;color:var(--text-mute)">${es.length}宣言 / ${doneCount}確定 / ${hitCount}的中</span>
+            </div>
+            <div class="panel" style="padding:0;overflow:hidden">
+              <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead><tr style="border-bottom:1px solid var(--border)">
+                  <th style="padding:5px 10px;text-align:left;font-size:10px;color:var(--text-mute)">メンバー</th>
+                  <th style="padding:5px 10px;text-align:left;font-size:10px;color:var(--text-mute)">レース</th>
+                  <th style="padding:5px 10px;text-align:left;font-size:10px;color:var(--text-mute)">◎本命</th>
+                  <th style="padding:5px 10px;text-align:left;font-size:10px;color:var(--text-mute)">軸</th>
+                  <th style="padding:5px 10px;text-align:right;font-size:10px;color:var(--text-mute)">結果</th>
+                  <th style="padding:5px 10px;text-align:right;font-size:10px;color:var(--text-mute)">宣言</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </div>`;
+      }).join('');
+      eEl.innerHTML = html;
+    }
+  }
+})();
+
+// --- Weekly schedule ---
+(function renderSchedule(){
+  const items = DATA.schedule || [];
+  const el = document.getElementById('weekSchedule');
+  if(!el) return;
+  if(!items.length){ el.innerHTML = '<div class="panel" style="color:var(--text-mute);font-size:12px;padding:12px">スケジュールデータなし</div>'; return; }
+  const colorMap = {
+    blue:   'rgba(88,166,255,0.15)',
+    purple: 'rgba(148,103,218,0.15)',
+    green:  'rgba(62,175,124,0.15)',
+    gold:   'rgba(210,160,40,0.15)',
+  };
+  const textMap = {
+    blue: '#58a6ff', purple: '#9467da', green: 'var(--green)', gold: 'var(--gold)'
+  };
+  const rows = items.map(s => {
+    const bg = colorMap[s.color] || 'transparent';
+    const tc = textMap[s.color] || 'var(--text-main)';
+    return `<tr style="border-bottom:1px solid rgba(38,42,53,0.4)">
+      <td style="padding:8px 10px;font-weight:700;color:${tc};white-space:nowrap">${s.day}</td>
+      <td style="padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap;color:${tc}">${s.time}</td>
+      <td style="padding:8px 10px;font-weight:600">${s.task}</td>
+      <td style="padding:8px 10px;font-size:11px;color:var(--text-sub)">${s.detail}</td>
+      <td style="padding:8px 10px;font-size:10px;color:var(--text-mute);font-family:'JetBrains Mono',monospace">${s.script}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<div class="panel"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr>
+      <th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">曜日</th>
+      <th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">時刻</th>
+      <th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">タスク</th>
+      <th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">内容</th>
+      <th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--text-mute);border-bottom:1px solid var(--border)">スクリプト</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+})();
+
+// --- Rejected ideas archive ---
+(function renderRejected(){
+  const items = DATA.rejected_ideas || [];
+  const el = document.getElementById('rejectedPanel');
+  if(!el) return;
+  if(!items.length){
+    el.innerHTML = '<div style="color:var(--text-mute);font-size:12px;padding:8px">記録なし</div>';
+    return;
+  }
+  const catClass = {scoring:'cat-scoring', display:'cat-display', bloodline:'cat-bloodline'};
+  const catLabel = {scoring:'scoring', display:'表示', bloodline:'血統'};
+  const rows = items.map(r=>`
+    <tr>
+      <td><span class="cat-badge ${catClass[r.category]||''}">${catLabel[r.category]||r.category}</span><span class="rejected-name">${r.name}</span></td>
+      <td><span class="rejected-result">${r.result}</span></td>
+      <td><span class="rejected-reason">${r.reason}</span></td>
+    </tr>`).join('');
+  el.innerHTML = `<table class="rejected-table">
+    <thead><tr><th>施策名</th><th>BT結果</th><th>不採用理由</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+})();
+
 // --- Kanban ---
 (function renderKanban(){
   const board = document.getElementById('kanbanBoard');
@@ -865,6 +1384,208 @@ renderHeatmap('heatmapStable', DATA.stable_track.tracks, DATA.stable_track.stabl
       `).join('')}
     </div>
   `).join('');
+})();
+
+// --- Week Summary panel ---
+(function renderWeekSummary(){
+  const ws = DATA.week_summary || {};
+  const lt = DATA.live_total || {};
+  const label = ws.date_label || '-';
+  const n = ws.n || 0;
+  const cost = (ws.cost || 0).toLocaleString();
+  const pl = lt.pl != null ? lt.pl : null;
+  const plHtml = pl != null
+    ? `<span style="color:${pl>=0?'var(--green)':'var(--red)'}">${pl>=0?'+':''}${pl.toLocaleString()} 円</span>`
+    : '<span style="color:var(--text-mute)">集計中</span>';
+  const roi = lt.roi != null ? lt.roi.toFixed(1) : '-';
+  document.getElementById('panelWeekSummary').innerHTML = `
+    <div class="panel-title">今週のサマリー (${label})</div>
+    <div class="health-row"><span class="health-label">買い目数</span><span class="health-value">${n} R</span></div>
+    <div class="health-row"><span class="health-label">投資額</span><span class="health-value">${cost} 円</span></div>
+    <div class="health-row"><span class="health-label">4月累計損益</span><span class="health-value">${plHtml}</span></div>
+    <div class="health-row"><span class="health-label">4月累計ROI</span><span class="health-value">${roi}%</span></div>
+    <div class="health-row"><span class="health-label">ダッシュボード生成</span><span class="health-value mono" style="font-size:11px">${DATA.build_time||'-'}</span></div>
+  `;
+})();
+
+// --- Health panel ---
+(function renderHealth(){
+  const h = DATA.health || {};
+  function logDate(fname){
+    const m = (fname||'').match(/(\d{8})_(\d{6})/);
+    if(!m) return fname||'-';
+    return `${m[1].slice(4,6)}-${m[1].slice(6,8)} ${m[2].slice(0,2)}:${m[2].slice(2,4)}`;
+  }
+  function badge(ok){ return ok ? '<span class="health-badge ok">OK</span>' : '<span class="health-badge warn">確認</span>'; }
+  const snap = h.snapshot_exists;
+  document.getElementById('panelHealth').innerHTML = `
+    <div class="panel-title">システムヘルス</div>
+    <div class="health-row"><span class="health-label">DB最終更新</span><span class="health-value">${h.db_last||'-'} ${badge(!!h.db_last)}</span></div>
+    <div class="health-row"><span class="health-label">JVLink (並列fetch)</span><span class="health-value">${logDate(h.jvlink_latest)} ${badge(!!h.jvlink_latest)}</span></div>
+    <div class="health-row"><span class="health-label">SaturdayPreview</span><span class="health-value">${logDate(h.sat_latest)} ${badge(!!h.sat_latest)}</span></div>
+    <div class="health-row"><span class="health-label">RaceDayAutoRefresh</span><span class="health-value">${logDate(h.raceday_latest)} ${badge(!!h.raceday_latest)}</span></div>
+    <div class="health-row"><span class="health-label">morning_snapshot.json</span><span class="health-value">${snap ? '<span class="health-badge ok">あり</span>' : '<span class="health-badge ng">なし</span>'}</span></div>
+  `;
+})();
+
+// --- Alerts panel ---
+(function renderAlerts(){
+  const alerts = DATA.alerts || [];
+  const iconMap = {warn:'⚠️', info:'ℹ️', danger:'🔴'};
+  const rows = alerts.map(a=>`
+    <div class="alert ${a.level}">
+      <span class="alert-icon">${iconMap[a.level]||'•'}</span>
+      <div class="alert-body">
+        <div class="alert-title">${a.title}</div>
+        <div class="alert-desc">${a.desc}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('panelAlerts').innerHTML = `
+    <div class="panel-title">⚠️ アラート</div>
+    <div class="alert-list">${rows||'<div style="color:var(--text-mute);font-size:12px;padding:8px">アラートなし</div>'}</div>
+  `;
+})();
+
+// --- Footer ---
+(function(){
+  const el = document.getElementById('footerBar');
+  if(el && DATA.build_time) el.textContent = `NORISHICO KEIBA AI · generated ${DATA.build_time}`;
+})();
+
+function toggleReview(id){
+  const row = document.getElementById(id);
+  if(!row) return;
+  const btn = row.previousElementSibling.querySelector('button');
+  if(row.style.display==='none'){
+    row.style.display='';
+    if(btn) btn.textContent='▲';
+  } else {
+    row.style.display='none';
+    if(btn) btn.textContent='▼';
+  }
+}
+
+// ============ 1on1ログ ============
+(function renderOneOnOne(){
+  const sessions = DATA.committee_1on1 || [];
+  const el = document.getElementById('oneOnOneLog');
+  if(!el || !sessions.length) return;
+  let html = '';
+  sessions.forEach(s => {
+    html += `<div style="margin-bottom:12px;font-size:11px;color:var(--text-sub)">
+      ${s.session_date} — ${s.format}</div>`;
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-bottom:24px">';
+    (s.members||[]).forEach(m => {
+      html += `<div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-weight:600;margin-bottom:6px">${m.name}<span style="color:var(--text-sub);font-size:11px;margin-left:6px">${m.role}</span></div>
+        <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px">💬 ホンネ</div>
+        <div style="font-size:12px;margin-bottom:8px">${m.honne||''}</div>
+        <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px">💡 改善案</div>
+        <div style="font-size:12px;color:var(--gold)">${m['kaizenан']||m.kaizen||''}</div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  el.innerHTML = html;
+})();
+
+// ============ NAR ============
+(function renderNar(){
+  const d = DATA.nar_results || {};
+  const btData = [
+    {year:'2022', n:69,  wins:7,  roi:111.4},
+    {year:'2023', n:26,  wins:5,  roi:149.2},
+    {year:'2024', n:23,  wins:4,  roi:100.9},
+    {year:'2025', n:31,  wins:5,  roi: 89.0},
+    {year:'2026', n:10,  wins:3,  roi:173.0},
+  ];
+
+  // サマリーカード
+  const sum = document.getElementById('narSummary');
+  if(sum){
+    const roiColor = (d.roi||0) >= 100 ? 'var(--green)' : 'var(--red)';
+    const plSign   = (d.pl||0) >= 0 ? '+' : '';
+    sum.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px">買い回数</div>
+          <div style="font-size:22px;font-weight:700">${d.total_n||0}R</div>
+        </div>
+        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px">的中</div>
+          <div style="font-size:22px;font-weight:700;color:var(--green)">${d.wins||0}回</div>
+        </div>
+        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px">実運用ROI</div>
+          <div style="font-size:22px;font-weight:700;color:${roiColor}">${d.roi||0}%</div>
+        </div>
+        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px">実運用P&L</div>
+          <div style="font-size:22px;font-weight:700;color:${(d.pl||0)>=0?'var(--green)':'var(--red)'}">${plSign}${(d.pl||0).toLocaleString()}円</div>
+        </div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:11px;color:var(--text-sub)">
+        📌 現行パラメータ: ${d.params||''}
+      </div>`;
+  }
+
+  // 直近予想
+  const rec = document.getElementById('narRecent');
+  if(rec && d.recent && d.recent.length){
+    let rows = '';
+    d.recent.forEach(r => {
+      const hit = r.finish===1;
+      rows += `<tr>
+        <td>${r.date}</td>
+        <td>${r.venue} ${r.race_num}R</td>
+        <td>${r.horse_name}</td>
+        <td class="mono">${r.odds}倍</td>
+        <td class="mono">${r.result_odds||'-'}倍</td>
+        <td style="color:${hit?'var(--green)':'var(--red)'};font-weight:600">${hit?'✅ 的中':'❌'}</td>
+      </tr>`;
+    });
+    rec.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--text-sub);border-bottom:1px solid var(--border)">
+        <th style="padding:6px 8px;text-align:left">日付</th>
+        <th style="padding:6px 8px;text-align:left">レース</th>
+        <th style="padding:6px 8px;text-align:left">馬名</th>
+        <th style="padding:6px 8px;text-align:right">予想オッズ</th>
+        <th style="padding:6px 8px;text-align:right">確定オッズ</th>
+        <th style="padding:6px 8px;text-align:center">結果</th>
+      </tr></thead>
+      <tbody>${rows}</tbody></table>`;
+  } else if(rec){
+    rec.innerHTML = '<div style="color:var(--text-mute);font-size:12px;padding:12px">結果確定済みの予想がありません</div>';
+  }
+
+  // BT結果テーブル
+  const bt = document.getElementById('narBt');
+  if(bt){
+    let rows = btData.map(r => {
+      const c = r.roi >= 100 ? 'var(--green)' : r.roi >= 90 ? 'var(--orange)' : 'var(--red)';
+      return `<tr>
+        <td style="padding:7px 10px">${r.year}</td>
+        <td style="padding:7px 10px;text-align:right" class="mono">${r.n}R</td>
+        <td style="padding:7px 10px;text-align:right" class="mono">${r.wins}勝</td>
+        <td style="padding:7px 10px;text-align:right;color:${c};font-weight:600" class="mono">${r.roi}%</td>
+      </tr>`;
+    }).join('');
+    bt.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;max-width:400px">
+      <thead><tr style="color:var(--text-sub);border-bottom:1px solid var(--border)">
+        <th style="padding:7px 10px;text-align:left">年</th>
+        <th style="padding:7px 10px;text-align:right">N</th>
+        <th style="padding:7px 10px;text-align:right">的中</th>
+        <th style="padding:7px 10px;text-align:right">Winsorized ROI</th>
+      </tr></thead>
+      <tbody>${rows}
+        <tr style="border-top:1px solid var(--border);font-weight:600">
+          <td style="padding:7px 10px">累計</td>
+          <td style="padding:7px 10px;text-align:right" class="mono">159R</td>
+          <td style="padding:7px 10px;text-align:right" class="mono">24勝</td>
+          <td style="padding:7px 10px;text-align:right;color:var(--green)" class="mono">115.6%</td>
+        </tr>
+      </tbody></table>`;
+  }
 })();
 </script>
 </body>

@@ -64,6 +64,79 @@ def classify_misses(buy_results):
             entry['miss_type'] = 'scenario'
 
 
+def update_committee_competition(results_list, today, db_conn):
+    """委員会対決の結果を自動更新する。save_results.py main()から呼び出す。"""
+    comp_path = Path('dashboard_config/committee_competition.json')
+    if not comp_path.exists():
+        return
+
+    comp = json.load(open(comp_path, encoding='utf-8'))
+    today_str = today.strftime('%Y-%m-%d')
+
+    # (venue, race_num) → {race_id, horses: {name: finish}, horses_list}
+    race_map = {}
+    for r in results_list:
+        venue = r.get('venue', '')
+        rnum = int(r.get('race_num', 0))
+        horses_raw = r.get('horses', [])
+        horses = {h['name'].strip(): h.get('finish') for h in horses_raw}
+        race_map[(venue, rnum)] = {
+            'race_id': r.get('race_id', ''),
+            'horses': horses,
+            'horses_list': horses_raw,
+        }
+
+    updated = 0
+    for entry in comp.get('entries', []):
+        if entry.get('date') != today_str:
+            continue
+        if entry.get('result_ret') is not None:
+            continue  # 既に更新済み
+
+        venue = entry.get('venue', '')
+        race_num = int(entry.get('race_num', 0))
+        pick = (entry.get('pick') or '').strip()
+        rdata = race_map.get((venue, race_num))
+        if not rdata:
+            continue
+
+        # 1着馬名を記録
+        for h in rdata['horses_list']:
+            if h.get('finish') == 1:
+                entry['winner'] = h.get('name', '').strip()
+                break
+
+        finish = rdata['horses'].get(pick)
+        entry['pick_finish'] = finish  # 何着かを記録
+        bet = int(entry.get('bet', 2000))
+        if finish == 1:
+            tansho = None
+            if db_conn:
+                row = db_conn.execute(
+                    "SELECT tansho_payout FROM dividends WHERE race_id=?",
+                    (rdata['race_id'],)
+                ).fetchone()
+                if row:
+                    tansho = row[0]
+            if tansho:
+                entry['result_ret'] = tansho * (bet // 100)
+            else:
+                try:
+                    odds = float(entry.get('pick_odds') or 0)
+                    entry['result_ret'] = int(odds * bet) if odds else 0
+                except Exception:
+                    entry['result_ret'] = 0
+        else:
+            entry['result_ret'] = 0
+        updated += 1
+
+    if updated:
+        comp_path.write_text(
+            json.dumps(comp, ensure_ascii=False, indent=2), encoding='utf-8'
+        )
+        print(f"  委員会対決: {updated}件更新 → {comp_path}")
+
+
 def reclassify_all():
     """既存の monthly_results_*.json 全てに外れ分類を再計算して上書き。"""
     import glob as _glob
@@ -336,6 +409,9 @@ def main():
 
     with open(monthly_file, 'w', encoding='utf-8') as f:
         json.dump(monthly, f, ensure_ascii=False, indent=2)
+
+    # 委員会対決: 今日の宣言エントリに結果を反映
+    update_committee_competition(results, today, db_conn)
 
     print(f"Saved to {monthly_file}")
     print(f"  Today: {day_entry['summary']['races']}R, cost={day_entry['summary']['cost']:,}, ret={day_entry['summary']['return']:,}, P&L={day_entry['summary']['profit']:+,}")

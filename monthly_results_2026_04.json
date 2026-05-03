@@ -25,7 +25,14 @@
           "cost": 2000,
           "return": 0,
           "profit": -2000,
-          "miss_type": "scenario"
+          "miss_type": "scenario",
+          "pace_info": {
+            "pace": "不明",
+            "honmei_position": "不明",
+            "key_factor": "重馬場崩壊",
+            "lesson": "稍重/重の中山では実力序列が崩壊しやすい。同会場3R目以降は購入抑制"
+          },
+          "review": "4/4中山の重馬場3連戦の1本目。◎クラウンインジエア(19.0倍)8着、勝者ケントン56.4倍の超大穴。重馬場で実力序列が崩壊した典型的なscenario外れ。この日中山3R全敗はいずれも道悪由来。悪馬場開催での購入基準引き上げが必要。"
         },
         {
           "venue": "中山",
@@ -44,7 +51,14 @@
           "cost": 2000,
           "return": 0,
           "profit": -2000,
-          "miss_type": "scenario"
+          "miss_type": "scenario",
+          "pace_info": {
+            "pace": "ハイペース(重馬場)",
+            "honmei_position": "中団",
+            "key_factor": "重馬場+同会場集中",
+            "lesson": "重馬場G3は上位人気の堅さが消える。同会場3R目は損失集中リスク→停止"
+          },
+          "review": "重馬場G3(ダービー卿CT)。◎エンペラーズソード(14.4倍)8着、勝者スズハローム15.9倍。馬場悪化で実力序列が崩れたscenario外れ。同日中山で3R購入し全敗。重馬場時に同一会場での複数購入は損失が集中するため停止基準の検討が必要。"
         },
         {
           "venue": "中山",
@@ -63,7 +77,14 @@
           "cost": 2000,
           "return": 0,
           "profit": -2000,
-          "miss_type": "scenario"
+          "miss_type": "scenario",
+          "pace_info": {
+            "pace": "不明",
+            "honmei_position": "不明",
+            "key_factor": "重馬場ランダム化(101倍決着)",
+            "lesson": "重×中山の非重賞は超大穴が出やすい。スコア信頼度≦40%と見なし購入見送りを検討"
+          },
+          "review": "重馬場2勝クラス。◎ショウナンラリー(20.6倍)11着、勝者コパノヴィンセント101.1倍の超大穴決着。重馬場でランダム性が高まりスコアが機能しないscenario外れ。重馬場×中山の組み合わせはスコア信頼性が著しく低下する可能性が高い。"
         },
         {
           "venue": "阪神",
@@ -82,7 +103,8 @@
           "cost": 2000,
           "return": 0,
           "profit": -2000,
-          "miss_type": "misread"
+          "miss_type": "misread",
+          "review": "稍重G3(チャーチルダウンズC)。◎リゾートアイランド(10.1倍)9着。勝者アスクイキゴミ13.8倍は近似オッズ帯だが全く別の適性馬。コース・距離適性の評価ミス(misread)。同日中山が重だったため阪神に購入したが馬場適性の読み自体も甘かった。"
         }
       ],
       "summary": {
@@ -117,7 +139,8 @@
           "cost": 2000,
           "return": 0,
           "profit": -2000,
-          "miss_type": "luck"
+          "miss_type": "luck",
+          "review": "重馬場1勝クラス。◎スカイストライプス(3.6倍)が3着惜敗、勝者シルバーレシオ2.5倍との力差は僅か。luck外れの典型で馬券選択の方向性は正しかった。重馬場での上位人気同士の差はランダム性が高く継続購入で回収期待値は維持できる。"
         },
         {
           "venue": "阪神",
@@ -136,7 +159,8 @@
           "cost": 1000,
           "return": 0,
           "profit": -1000,
-          "miss_type": "luck"
+          "miss_type": "luck",
+          "review": "稍重1勝クラス。◎ドウアドバンテージ(5.6倍)が2着、◎ニのエボルヴィング(3.7倍)が1着。本命対象馬1-2着の完全なluck外れ。ワイドなら的中していた。単勝軸のため惜しい結果で、1-2着反転はEV的に問題なし。"
         },
         {
           "venue": "阪神",
@@ -157,7 +181,14 @@
           "profit": -1000,
           "special": "ドリームプレミア",
           "special_rule": "F1_未勝利主流accel",
-          "miss_type": "scenario"
+          "miss_type": "scenario",
+          "pace_info": {
+            "pace": "不明",
+            "honmei_position": "後方",
+            "key_factor": "F1ルール適用ミス(圧倒本命存在)",
+            "lesson": "F1未勝利戦は1番人気≤3倍の圧倒本命がいる場合は見送り基準を追加する"
+          },
+          "review": "F1_未勝利主流accelで◎サトノトリニティ(13.6倍)推奨も9着惨敗。勝者カモンメーン3.2倍。4/18阪神4Rと同様のF1未勝利パターンで2件連続の外れ。F1ルールの未勝利戦適用基準を精査する必要あり。"
         },
         {
           "venue": "阪神",
@@ -176,7 +207,14 @@
           "cost": 2000,
           "return": 0,
           "profit": -2000,
-          "miss_type": "scenario"
+          "miss_type": "scenario",
+          "pace_info": {
+            "pace": "スロー→先行有利",
+            "honmei_position": "後方",
+            "key_factor": "高オッズ×重馬場(二重リスク)",
+            "lesson": "重馬場+honmei_odds≥25倍は二重リスク。後方脚質の穴馬は特に危険→見送り基準化を検討"
+          },
+          "review": "重馬場2勝クラス。◎リアド(30.0倍)が14着の大敗、勝者マテンロウブレイブ3.3倍の堅い決着。重馬場での30倍超推奨は二重リスク(道悪逆転+高オッズ)。重馬場時は高オッズ馬の推奨を抑制するフィルタが必要。"
         },
         {
           "venue": "阪神",
@@ -195,7 +233,14 @@
           "cost": 2000,
           "return": 0,
           "profit": -2000,
-          "miss_type": "scenario"
+          "miss_type": "scenario",
+          "pace_info": {
+            "pace": "ミドル→差し決着",
+            "honmei_position": "中団外",
+            "key_factor": "重馬場+同会場集中(4R目)",
+            "lesson": "同日同会場4R目は損失集中の危険信号。3R外れたら4R目以降は購入停止ルールを設ける"
+          },
+          "review": "重馬場G3(バイオレットS)。◎エブリーポッシブル(18.4倍)4着、勝者エコロレーヴ9.9倍。4着はnarrow寄りだが重馬場の展開によるscenario判定。4/5阪神は終日重馬場で計4R購入し全外れ。1日同一会場の重馬場集中購入を避けるルールを検討。"
         },
         {
           "venue": "阪神",
@@ -214,7 +259,14 @@
           "cost": 1000,
           "return": 0,
           "profit": -1000,
-          "miss_type": "scenario"
+          "miss_type": "scenario",
+          "pace_info": {
+            "pace": "スロー→先行残り",
+            "honmei_position": "中団差し",
+            "key_factor": "展開不利(差し馬がスロー戦で届かず)",
+            "lesson": "G1のスロー傾向はデータ不足。先行馬が有利になる展開を想定できなかった"
+          },
+          "review": "良馬場G1(大阪杯)。◎レーベンスティール(7.8倍)6着、勝者クロワデュノール2.5倍。良馬場なのにscenario=展開・位置取り不利による6着。G1チャレンジ枠で事前分析の差し展開が嵌まらなかった。G1での展開依存推奨は信頼性が低い。"
         },
         {
           "venue": "阪神",
@@ -233,7 +285,14 @@
           "cost": 1000,
           "return": 0,
           "profit": -1000,
-          "miss_type": "scenario"
+          "miss_type": "scenario",
+          "pace_info": {
+            "pace": "不明",
+            "honmei_position": "不明",
+            "key_factor": "重馬場+同日同会場2連敗(5R目相当)",
+            "lesson": "同日同会場で重馬場連敗中→最終Rは機械的に購入停止すべき。損失集中の典型"
+          },
+          "review": "重馬場3勝クラス(天満橋S)。◎ガンウルフ(28.1倍)10着惨敗、勝者ルークススペイ7.5倍。4/5最終R。同日阪神7Rも重馬場で14着大敗しており同一会場重馬場連続購入の典型的な失敗。重馬場開催中の同会場連続購入停止基準の設定が急務。"
         }
       ],
       "summary": {
@@ -269,7 +328,8 @@
           "cost": 2000,
           "return": 0,
           "profit": -2000,
-          "miss_type": "luck"
+          "miss_type": "luck",
+          "review": "稍重2勝クラス。◎ルーフオブヘヴン(24.4倍)が2着惜敗、勝者プレゼンティーア13.2倍。高オッズ馬で2着はluck外れ。EVは良好な選択だったが結果不運。スコアリングの方向性は正しく継続価値あり。"
         }
       ],
       "summary": {
@@ -305,7 +365,8 @@
           "cost": 2000,
           "return": 0,
           "profit": -2000,
-          "miss_type": "luck"
+          "miss_type": "luck",
+          "review": "良馬場3勝クラス(あけぼのS)。◎チャンネルトンネル(8.4倍)が2着惜敗、勝者ストレイトトーカー8.0倍とほぼ同オッズの接戦。luck外れの典型で方向性・EV共に適正範囲。継続購入で回収可能なタイプ。"
         },
         {
           "venue": "阪神",
@@ -324,7 +385,8 @@
           "cost": 2000,
           "return": 0,
           "profit": -2000,
-          "miss_type": "misread"
+          "miss_type": "misread",
+          "review": "良馬場3勝クラス(忘れな草賞)。◎ニシノサリーナ(11.5倍)12着惨敗、勝者ジュウリョクピエロ18.9倍の大穴。良馬場なのに大外れはスコアの根拠自体に問題あり(misread)。距離・コース適性か前走評価のどちらかが大きく外れている。要個別分析。"
         },
         {
           "venue": "福島",
@@ -343,7 +405,8 @@
           "cost": 2000,
           "return": 0,
           "profit": -2000,
-          "miss_type": "narrow"
+          "miss_type": "narrow",
+          "review": "良馬場3勝クラス(燧ヶ岳特別)。◎ゲンジ(4.3倍)5着、勝者ビップチェイス11.9倍。上位人気馬の5着はnarrow=若干の読み甘。スコア差が小さい混戦で選択精度に改善余地あり。v6_star3選定条件の再確認が必要。"
         }
       ],
       "summary": {
@@ -353,14 +416,271 @@
         "profit": -6000,
         "roi": 0.0
       }
+    },
+    {
+      "date": "2026-04-18",
+      "track_conditions": {
+        "中山": "良",
+        "阪神": "良",
+        "福島": "良"
+      },
+      "buy_results": [
+        {
+          "venue": "中山",
+          "race_num": 12,
+          "race_name": "葛飾特別",
+          "grade": "3勝",
+          "buy_type": "v6_challenge",
+          "honmei": "サマースイートピー",
+          "honmei_finish": 4,
+          "honmei_odds": 21.1,
+          "ni": "ドナカルナバル",
+          "ni_finish": 9,
+          "winner": "ハヤテノツバサ",
+          "winner_odds": "6.7",
+          "track_cond": "良",
+          "cost": 1000,
+          "return": 0,
+          "profit": -1000,
+          "payout_source": "none",
+          "miss_type": "narrow",
+          "review": "◎サマースイートピー(21.1倍)4着。勝者ハヤテノツバサ6.7倍に差された。方向は正しかったが強さの評価が甘く(narrow)、上位人気馬との差をスコアで出し切れなかった。枠・脚質分離の精度向上が課題。"
+        },
+        {
+          "venue": "阪神",
+          "race_num": 4,
+          "race_name": "3歳未勝利",
+          "grade": "未勝利",
+          "buy_type": "special",
+          "honmei": "フィンガーレイクス",
+          "honmei_finish": 10,
+          "honmei_odds": 9.5,
+          "ni": "アンバーウェイヴス",
+          "ni_finish": 4,
+          "winner": "ダノンテムズ",
+          "winner_odds": "1.9",
+          "track_cond": "良",
+          "cost": 1000,
+          "return": 0,
+          "profit": -1000,
+          "payout_source": "none",
+          "special": "アンバーウェイヴス",
+          "special_rule": "F1_未勝利主流accel",
+          "miss_type": "misread",
+          "review": "F1_未勝利主流accelで◎フィンガーレイクス(9.5倍)を推奨するも10着惨敗。勝者ダノンテムズ1.9倍が圧勝。単勝1.9倍以下の圧倒的本命が存在する未勝利戦でF1ルールを適用したのが問題。1番人気<2.0倍の場合はF1見送り基準の追加を検討。"
+        }
+      ],
+      "summary": {
+        "races": 2,
+        "cost": 2000,
+        "return": 0,
+        "profit": -2000,
+        "roi": 0.0
+      }
+    },
+    {
+      "date": "2026-04-19",
+      "track_conditions": {
+        "中山": "良",
+        "阪神": "良",
+        "福島": "良"
+      },
+      "buy_results": [
+        {
+          "venue": "中山",
+          "race_num": 10,
+          "race_name": "京葉S",
+          "grade": "3勝",
+          "buy_type": "v6_challenge",
+          "honmei": "ワールズコライド",
+          "honmei_finish": 14,
+          "honmei_odds": 22.4,
+          "ni": "ポッドベイダー",
+          "ni_finish": 4,
+          "winner": "ナムラフランク",
+          "winner_odds": "8.5",
+          "track_cond": "良",
+          "cost": 1000,
+          "return": 0,
+          "profit": -1000,
+          "payout_source": "none",
+          "miss_type": "misread",
+          "review": "◎ワールズコライド(22.4倍)が14着の大敗。チャレンジ枠選択の根拠(コース適性・前走スコア)が全く機能しなかった(misread)。同日同会場で皐月賞も購入しており中山集中リスクもあり。22倍超のチャレンジ枠は選別基準の見直しが必要。"
+        },
+        {
+          "venue": "中山",
+          "race_num": 11,
+          "race_name": "皐月賞",
+          "grade": "G1",
+          "buy_type": "v6_challenge",
+          "honmei": "マテンロウゲイル",
+          "honmei_finish": 10,
+          "honmei_odds": 12.9,
+          "ni": "フォルテアンジェロ",
+          "ni_finish": 5,
+          "winner": "ロブチェン",
+          "winner_odds": "4.0",
+          "track_cond": "良",
+          "cost": 1000,
+          "return": 0,
+          "profit": -1000,
+          "payout_source": "none",
+          "miss_type": "misread",
+          "review": "G1チャレンジ枠。◎マテンロウゲイル(12.9倍)10着、勝者ロブチェン4番人気 4.0倍。事前委員会分析(◎グリーンエナジー3人気/○バステール5人気)とは異なる馬を推奨しており判断の整合性に疑問。G1でのチャレンジ枠適用基準を再考。"
+        }
+      ],
+      "summary": {
+        "races": 2,
+        "cost": 2000,
+        "return": 0,
+        "profit": -2000,
+        "roi": 0.0
+      }
+    },
+    {
+      "date": "2026-04-25",
+      "track_conditions": {
+        "東京": "稍重",
+        "京都": "良",
+        "福島": "良"
+      },
+      "buy_results": [
+        {
+          "venue": "東京",
+          "race_num": 5,
+          "race_name": "３歳未勝利",
+          "grade": "未勝利",
+          "buy_type": "special",
+          "honmei": "アドマイヤパープル",
+          "honmei_finish": 7,
+          "honmei_odds": 24.1,
+          "ni": "ジュニートワン",
+          "ni_finish": 10,
+          "winner": "リラ",
+          "winner_odds": "5.2",
+          "track_cond": "良",
+          "cost": 1000,
+          "return": 0,
+          "profit": -1000,
+          "payout_source": "none",
+          "special": "アドマイヤパープル",
+          "special_rule": "F1_未勝利主流accel",
+          "miss_type": "misread",
+          "pace_info": {
+            "pace": "不明",
+            "honmei_position": "後方",
+            "key_factor": "F1ルール×24倍超高オッズ=実力評価ミス",
+            "lesson": "F1未勝利戦で24倍超は信頼度不足。F1チャレンジは概ね20倍以下に絞る基準を検討"
+          }
+        },
+        {
+          "venue": "京都",
+          "race_num": 5,
+          "race_name": "３歳未勝利",
+          "grade": "未勝利",
+          "buy_type": "special",
+          "honmei": "コスモフィレンツェ",
+          "honmei_finish": 2,
+          "honmei_odds": 3.3,
+          "ni": "フウセン",
+          "ni_finish": 1,
+          "winner": "フウセン",
+          "winner_odds": "2.9",
+          "track_cond": "良",
+          "cost": 1000,
+          "return": 0,
+          "profit": -1000,
+          "payout_source": "none",
+          "special": "レイワノキセキ",
+          "special_rule": "F1_未勝利主流accel",
+          "miss_type": "luck",
+          "pace_info": {
+            "pace": "不明",
+            "honmei_position": "先行〜中団",
+            "key_factor": "◎ニ反転(コスモフィレンツェ2着、フウセン1着)",
+            "lesson": "◎2着・○1着は典型的luck外れ。EV判断は正しく継続価値あり"
+          }
+        }
+      ],
+      "summary": {
+        "races": 2,
+        "cost": 2000,
+        "return": 0,
+        "profit": -2000,
+        "roi": 0.0
+      }
+    },
+    {
+      "date": "2026-04-26",
+      "track_conditions": {
+        "東京": "稍重",
+        "京都": "良",
+        "福島": "良"
+      },
+      "buy_results": [
+        {
+          "venue": "東京",
+          "race_num": 11,
+          "race_name": "フローラＳ",
+          "grade": "3勝",
+          "buy_type": "v6_challenge",
+          "honmei": "サムシングスイート",
+          "honmei_finish": null,
+          "honmei_odds": 22.8,
+          "ni": "リスレジャンデール",
+          "ni_finish": 6,
+          "winner": "ラフターラインズ",
+          "winner_odds": "2.2",
+          "track_cond": "良",
+          "cost": 1000,
+          "return": 1000,
+          "profit": 0,
+          "payout_source": "none",
+          "miss_type": "scratched",
+          "note": "13頭中12頭にfinish 1-12、この馬のみNone=競走除外（取り消し）と判断。払い戻し1000円"
+        },
+        {
+          "venue": "福島",
+          "race_num": 9,
+          "race_name": "飯盛山特別",
+          "grade": "3勝",
+          "buy_type": "v6_star2",
+          "honmei": "ゼンノインヴォーク",
+          "honmei_finish": 2,
+          "honmei_odds": 9.6,
+          "ni": "マイネルゼウス",
+          "ni_finish": 4,
+          "winner": "アリスメティーク",
+          "winner_odds": "6.2",
+          "track_cond": "良",
+          "cost": 2000,
+          "return": 0,
+          "profit": -2000,
+          "payout_source": "approx",
+          "miss_type": "luck",
+          "pace_info": {
+            "pace": "不明",
+            "honmei_position": "先行",
+            "key_factor": "◎2着惜敗、勝者アリスメティーク(6.2倍)が展開で先着",
+            "lesson": "◎2着はluck外れ。9.6倍×3勝クラスの選択は方向性正しく継続価値あり"
+          }
+        }
+      ],
+      "summary": {
+        "races": 2,
+        "cost": 3000,
+        "return": 1000,
+        "profit": -2000,
+        "roi": 33.3
+      }
     }
   ],
   "total": {
-    "days": 4,
-    "races": 15,
-    "cost": 26000,
-    "return": 0,
-    "profit": -26000,
-    "roi": 0.0
+    "days": 8,
+    "races": 23,
+    "cost": 35000,
+    "return": 1000,
+    "profit": -34000,
+    "roi": 2.9
   }
 }

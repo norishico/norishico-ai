@@ -565,8 +565,9 @@
       "bet": 2000,
       "reason": "EV最大レース選択 ev7=521.81 score=89.3 odds=6.3倍",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 0,
+      "winner": "アスクセクシーモア",
+      "pick_finish": 10
     },
     {
       "member": "れいな",
@@ -579,8 +580,9 @@
       "bet": 2000,
       "reason": "実際に買える馬 人気3番人気 score=72.2",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 0,
+      "winner": "アスクセクシーモア",
+      "pick_finish": 17
     },
     {
       "member": "ゆきこ",
@@ -593,8 +595,9 @@
       "bet": 2000,
       "reason": "分散最小 odds=1.0倍 buy=高スコア",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 0,
+      "winner": "メイショウハチコウ",
+      "pick_finish": 3
     },
     {
       "member": "さくら",
@@ -607,8 +610,9 @@
       "bet": 2000,
       "reason": "血統注目レース選択 blood=100 bonus=5.0",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 0,
+      "winner": "リフレックス",
+      "pick_finish": 5
     },
     {
       "member": "あかり",
@@ -621,8 +625,9 @@
       "bet": 2000,
       "reason": "市場過小評価レース選択 odds=78.8倍 buy=highscore 乖離=+7780.0%",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 0,
+      "winner": "メランジェ",
+      "pick_finish": 2
     },
     {
       "member": "ひなた",
@@ -635,8 +640,9 @@
       "bet": 2000,
       "reason": "展開改善レース選択 前走0番手 脚質=差追 odds=7.1倍",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 0,
+      "winner": "ブルーサーマル",
+      "pick_finish": 2
     },
     {
       "member": "あおい",
@@ -649,8 +655,9 @@
       "bet": 2000,
       "reason": "騎手ROI注目レース選択 騎手=荻野極 ROI=84% score=57.8",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 0,
+      "winner": "オメガディコン",
+      "pick_finish": 5
     },
     {
       "member": "まなつ",
@@ -663,8 +670,9 @@
       "bet": 2000,
       "reason": "スコア絶対最大レース選択 score=89.3 buy=none",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 0,
+      "winner": "アスクセクシーモア",
+      "pick_finish": 10
     },
     {
       "member": "りこ",
@@ -677,8 +685,9 @@
       "bet": 2000,
       "reason": "全指標揃い踏み buy=False accel=True train=True gap=13.0",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 0,
+      "winner": "アスクセクシーモア",
+      "pick_finish": 10
     },
     {
       "member": "かえで",
@@ -691,8 +700,9 @@
       "bet": 2000,
       "reason": "市場確率ずれレース選択 odds=39.9倍 人気14番 乖離=+3391.2%",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 0,
+      "winner": "ピカラ",
+      "pick_finish": 3
     },
     {
       "member": "りさ",
@@ -705,8 +715,9 @@
       "bet": 2000,
       "reason": "データ完全性最大レース選択 bd_nonzero=3 train7d=0",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 198000,
+      "winner": "レピュニット",
+      "pick_finish": 1
     },
     {
       "member": "ゆめ",
@@ -719,8 +730,9 @@
       "bet": 2000,
       "reason": "好調教レース選択 train=0本/7日 脚質=先行 score=75.8",
       "declared_at": "2026-05-03T00:29:37",
-      "result_ret": null,
-      "winner": null
+      "result_ret": 0,
+      "winner": "クロワデュノール",
+      "pick_finish": 14
     }
   ]
 }

@@ -1270,7 +1270,7 @@ renderHeatmap('heatmapStable', DATA.stable_track.tracks, DATA.stable_track.stabl
             <td style="padding:6px 10px;font-weight:600;color:var(--text)">${e.member||''}</td>
             <td style="padding:6px 10px;color:var(--text-sub);font-size:11px">${e.venue||''}${e.race_num||''}R ${e.race_name||''}</td>
             <td style="padding:6px 10px;font-weight:600;color:var(--gold)">${e.pick||''}
-              <span style="font-size:10px;color:var(--text-mute);font-weight:400"> ${e.pick_odds||''}倍</span></td>
+              ${e.pick_odds ? `<span style="display:inline-block;margin-left:4px;background:rgba(210,160,40,0.15);border:1px solid rgba(210,160,40,0.4);border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;color:var(--gold)">${e.pick_odds}倍</span>` : ''}</td>
             <td style="padding:6px 10px;color:var(--text-sub);font-size:10px;max-width:180px">${e.reason||''}</td>
             <td style="padding:6px 10px;text-align:right">${resultCell}</td>
             <td style="padding:6px 10px;text-align:right;font-size:10px;color:var(--text-mute)">${declTime}</td>

@@ -308,6 +308,16 @@
 </header>
 
 <!-- Stats bar -->
+<div style="background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,255,255,0.07)">
+  <div class="container-xl">
+    <div class="d-flex align-items-center gap-1 py-1">
+      <button id="speriod-today" class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 10px" onclick="setStatsPeriod('today')">今日</button>
+      <button id="speriod-month" class="btn btn-sm btn-secondary" style="font-size:11px;padding:2px 10px" onclick="setStatsPeriod('month')">今月</button>
+      <button id="speriod-all" class="btn btn-sm btn-secondary" style="font-size:11px;padding:2px 10px" onclick="setStatsPeriod('all')">全期間</button>
+      <span id="st-period-label" class="text-secondary ms-1" style="font-size:10px"></span>
+    </div>
+  </div>
+</div>
 <div class="border-bottom" style="background:rgba(255,255,255,0.03)">
   <div class="container-xl">
     <div class="row g-0 stats-bar-row">
@@ -1205,8 +1215,34 @@ function resetAllResults() {
 }
 
 // ── Stats ──
+let statsPeriod = 'today';
+
+function setStatsPeriod(p) {
+  statsPeriod = p;
+  ['today','month','all'].forEach(k => {
+    const btn = document.getElementById('speriod-' + k);
+    if (btn) btn.className = 'btn btn-sm ' + (k === p ? 'btn-primary' : 'btn-secondary') + ' ms-0';
+    if (btn) btn.style.cssText = 'font-size:11px;padding:2px 10px';
+  });
+  updateStats();
+}
+
+function _todayKey() {
+  const d = new Date();
+  const yy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${yy}${mm}${dd}`;
+}
+
 function updateStats() {
-  const recs = Object.values(state.records);
+  const todayKey = _todayKey();
+  const monthKey = todayKey.slice(0,6);
+  let entries = Object.entries(state.records);
+  if (statsPeriod === 'today') entries = entries.filter(([id]) => id.slice(0,8) === todayKey);
+  else if (statsPeriod === 'month') entries = entries.filter(([id]) => id.slice(0,6) === monthKey);
+  const recs = entries.map(([,r]) => r);
+
   const n = recs.length;
   const invest = n * 400;
   const ret = recs.reduce((s, r) => s + (r.payout || 0), 0);
@@ -1221,17 +1257,53 @@ function updateStats() {
   const pnlEl = document.getElementById('st-pnl');
   pnlEl.textContent = (pnl >= 0 ? '+' : '') + pnl.toLocaleString() + '円';
   pnlEl.className = 'fw-semibold ' + (pnl > 0 ? 'pnl-pos' : pnl < 0 ? 'pnl-neg' : '');
-
   document.getElementById('st-hit').textContent = hitRate !== null ? hitRate.toFixed(1) + '%' : '—%';
 
+  // ヘッダーROIは全期間を表示（参照指標として）
+  const allRecs = Object.values(state.records);
+  const allN = allRecs.length;
+  const allRet = allRecs.reduce((s, r) => s + (r.payout || 0), 0);
+  const allRoi = allN > 0 ? allRet / (allN * 400) * 100 : null;
   const roiEl = document.getElementById('hdr-roi');
-  if (roi !== null) {
-    roiEl.textContent = roi.toFixed(1) + '%';
-    roiEl.className = 'fw-bold ' + (roi >= 100 ? 'roi-pos' : 'roi-neg');
+  if (allRoi !== null) {
+    roiEl.textContent = allRoi.toFixed(1) + '%';
+    roiEl.className = 'fw-bold ' + (allRoi >= 100 ? 'roi-pos' : 'roi-neg');
   } else {
     roiEl.textContent = '—%';
     roiEl.className = 'fw-bold roi-neutral';
   }
+}
+
+// ── エクスポート / インポート ──
+function exportRecords() {
+  const data = { records: state.records, exported_at: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const ym = _todayKey().slice(0,6);
+  a.download = `mc_records_${ym}.json`;
+  a.click();
+}
+
+function importRecords(evt) {
+  const f = evt.target.files[0];
+  if (!f) return;
+  evt.target.value = '';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      const data = parsed.records || parsed;
+      let added = 0;
+      Object.entries(data).forEach(([id, rec]) => {
+        if (!state.records[id]) { state.records[id] = rec; added++; }
+      });
+      saveState(); renderHistory(); updateStats();
+      if (added > 0) alert(added + '件を復元しました');
+      else alert('新しいデータはありませんでした（全件既存）');
+    } catch(e) { alert('ファイルの形式が正しくありません'); }
+  };
+  reader.readAsText(f);
 }
 
 // ── History ──
@@ -1303,7 +1375,11 @@ function renderHistory() {
   }).join('');
   const sortLabel = historySortDesc ? '↓ 新しい順' : '↑ 古い順';
   container.innerHTML = summaryHtml + `
-    <div class="d-flex justify-content-end mb-1">
+    <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+      <div class="d-flex gap-1">
+        <button class="btn btn-sm btn-outline-secondary" style="font-size:11px" onclick="exportRecords()" title="記録をJSONでダウンロード">⬇ エクスポート</button>
+        <label class="btn btn-sm btn-outline-secondary mb-0" style="font-size:11px;cursor:pointer" title="バックアップJSONから復元">⬆ インポート<input type="file" accept=".json" style="display:none" onchange="importRecords(event)"></label>
+      </div>
       <button class="btn btn-sm btn-outline-secondary" style="font-size:11px" onclick="historySortDesc=!historySortDesc;renderHistory()">${sortLabel}</button>
     </div>
     <div class="table-responsive">
@@ -1366,7 +1442,9 @@ function migrateRecords() {
 }
 
 // ── 記録復元データ（リセットで消えた場合に自動復元） ──
-const RECOVERY_20260621 = {"20260621_函館_8":{"payout":0,"hitType":"外れ","selectedPattern":"良・稍重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260621_函館_10":{"payout":0,"hitType":"外れ","selectedPattern":"良・稍重","jiku_hit":false,"aite_hit_count":2,"auto":true},"20260621_東京_7":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260621_東京_9":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":0,"auto":true},"20260621_東京_12":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":0,"auto":true},"20260621_阪神_7":{"payout":4640,"hitType":"馬連+ワイド","selectedPattern":"重","jiku_hit":true,"aite_hit_count":1,"auto":true},"20260621_阪神_10":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":0,"auto":true},"20260621_阪神_12":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":0,"auto":true}};
+// RECOVERY_BACKUP: generate_mc_record.py が records_backup.json から自動生成
+const RECOVERY_BACKUP = {};
+const RECOVERY_20260621 ={"20260621_函館_8":{"payout":0,"hitType":"外れ","selectedPattern":"良・稍重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260621_函館_10":{"payout":0,"hitType":"外れ","selectedPattern":"良・稍重","jiku_hit":false,"aite_hit_count":2,"auto":true},"20260621_東京_7":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260621_東京_9":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":0,"auto":true},"20260621_東京_12":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":0,"auto":true},"20260621_阪神_7":{"payout":4640,"hitType":"馬連+ワイド","selectedPattern":"重","jiku_hit":true,"aite_hit_count":1,"auto":true},"20260621_阪神_10":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":0,"auto":true},"20260621_阪神_12":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":0,"auto":true}};
 const RECOVERY_20260627 = {"20260627_函館_8":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260627_函館_12":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260627_小倉_7":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260627_小倉_11":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260627_福島_3":{"payout":720,"hitType":"ワイドのみ","selectedPattern":"良・稍重","jiku_hit":true,"aite_hit_count":1,"auto":true},"20260627_福島_9":{"payout":0,"hitType":"外れ","selectedPattern":"良・稍重","jiku_hit":false,"aite_hit_count":0,"auto":true},"20260627_福島_10":{"payout":0,"hitType":"外れ","selectedPattern":"良・稍重","jiku_hit":true,"aite_hit_count":0,"auto":true}};
 
 // ── Init ──
@@ -1374,7 +1452,8 @@ loadState();
 // 過去記録が消えていた場合は自動復元
 (function() {
   let updated = false;
-  [RECOVERY_20260621, RECOVERY_20260627].forEach(recovery => {
+  [RECOVERY_BACKUP, RECOVERY_20260621, RECOVERY_20260627].forEach(recovery => {
+    if (!recovery) return;
     Object.entries(recovery).forEach(([id, rec]) => {
       if (!state.records[id]) { state.records[id] = rec; updated = true; }
     });

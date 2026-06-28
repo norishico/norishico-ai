@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="ja" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AYO keiba — 馬連+ワイド記録</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/AYO_keiba_icon.png">
+<meta name="theme-color" content="#E8865A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AYO keiba">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.2.0/dist/css/tabler.min.css">
+<style>
+  :root {
+    --coral:      #E8865A;
+    --coral-dim:  rgba(232,134,90,0.15);
+    --purple:     #8B5CF6;
+    --purple-dim: rgba(139,92,246,0.15);
+    --green:      #4ADE80;
+    --green-dim:  rgba(74,222,128,0.12);
+    --red:        #F87171;
+    --red-dim:    rgba(248,113,113,0.12);
+    --blue:       #60A5FA;
+    --blue-dim:   rgba(96,165,250,0.12);
+  }
+
+  /* ── Track pills ── */
+  .track-seg {
+    display: flex;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+  .track-pill {
+    padding: 8px 12px;
+    min-height: 36px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--bs-secondary-color);
+    background: transparent;
+    border: none;
+    transition: background .12s, color .12s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+  }
+  .track-pill.active { background: var(--coral); color: #fff; }
+
+  /* ── Sort buttons ── */
+  .sort-btn { border-radius: 20px !important; }
+
+  /* ── Venue badge ── */
+  .venue-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--coral-dim);
+    color: var(--coral);
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* ── Role badge ── */
+  .role-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .role-jiku  { background: var(--coral-dim);  color: var(--coral); }
+  .role-aite  { background: var(--purple-dim); color: var(--purple); }
+
+  /* ── 脚質バッジ ── */
+  .style-tag    { display:inline-block; font-size:10px; font-weight:600; padding:1px 5px; border-radius:3px; margin-left:4px; }
+  .style-nige   { background:rgba(248,113,113,.2); color:#f87171; }
+  .style-senkou { background:rgba(251,146,60,.2);  color:#fb923c; }
+  .style-sashi  { background:rgba(96,165,250,.2);  color:#60a5fa; }
+  .style-oikomi { background:rgba(74,222,128,.2);  color:#4ade80; }
+  .style-chutan { background:rgba(161,161,170,.2); color:#a1a1aa; }
+
+  /* ── MC bar ── */
+  .mc-wrap { display: flex; align-items: center; gap: 6px; min-width: 80px; }
+  .mc-pct  { font-size: 12px; font-variant-numeric: tabular-nums; min-width: 28px; }
+  .mc-track { flex: 1; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+  .mc-fill     { height: 100%; border-radius: 2px; background: var(--coral);  transition: width .2s; }
+  .mc-fill-sub { height: 100%; border-radius: 2px; background: var(--purple); transition: width .2s; }
+
+  /* ── Tickets ── */
+  .ticket {
+    display: inline-flex; align-items: center;
+    padding: 4px 10px; border-radius: 6px;
+    font-size: 12px; font-weight: 500;
+  }
+  .ticket-uma  { background: var(--coral-dim);  color: var(--coral); }
+  .ticket-wide { background: var(--purple-dim); color: var(--purple); }
+
+  /* ── Payout display ── */
+  .payout-display {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
+  }
+  .payout-hit-uma  { background: var(--green-dim); border-color: rgba(74,222,128,0.25); }
+  .payout-hit-wide { background: var(--blue-dim);  border-color: rgba(96,165,250,0.25); }
+  .payout-miss     { background: var(--red-dim);   border-color: rgba(248,113,113,0.2); }
+  .payout-amount   { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .payout-green { color: var(--green); }
+  .payout-blue  { color: var(--blue); }
+  .payout-red   { color: var(--red); }
+  .payout-result-info { font-size: 11px; color: var(--bs-secondary-color); }
+  .payout-breakdown { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .payout-status-text { font-size: 13px; color: var(--bs-secondary-color); }
+  .payout-item { font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+  .payout-item-hit  { background: var(--green-dim); color: var(--green); }
+  .payout-item-miss { background: rgba(255,255,255,0.05); color: var(--bs-secondary-color); text-decoration: line-through; }
+  .blink { animation: blink 1.2s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+
+  /* ── Manual form ── */
+  .manual-toggle {
+    margin-top: 8px; font-size: 11px; color: var(--bs-secondary-color);
+    cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+    display: inline-block;
+  }
+  .manual-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  .manual-form select, .manual-form input {
+    padding: 5px 10px; border-radius: 6px; font-size: 13px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--bs-body-color); outline: none;
+  }
+  .manual-form input[type=number] { width: 120px; }
+  .manual-form input[type=text]   { flex: 1; min-width: 100px; }
+  .btn-delete-custom {
+    padding: 4px 10px; background: transparent; color: var(--red);
+    border: 1px solid rgba(248,113,113,0.3); border-radius: 6px;
+    cursor: pointer; font-size: 12px;
+  }
+  .btn-delete-custom:hover { background: var(--red-dim); }
+
+  /* ── Stats bar スマホ2行化 ── */
+  @media (max-width: 575px) {
+    .stats-bar-row > .col { min-width: 33.3%; flex: 1 1 33.3%; }
+    .stats-bar-row > .col:nth-child(3) { border-right: none !important; }
+    .stats-bar-row > .col:nth-child(4) { border-top: 1px solid rgba(255,255,255,0.1); }
+    .stats-bar-row > .col:nth-child(5) { border-top: 1px solid rgba(255,255,255,0.1); border-right: none !important; }
+  }
+
+  /* ── ROI colors ── */
+  .roi-pos     { color: var(--green) !important; }
+  .roi-neg     { color: var(--red) !important; }
+  .roi-neutral { color: var(--bs-secondary-color) !important; }
+  .pnl-pos { color: var(--green) !important; font-weight: 600; }
+  .pnl-neg { color: var(--red) !important;   font-weight: 600; }
+
+  /* ── History ── */
+  .hist-empty { text-align: center; padding: 60px 20px; color: var(--bs-secondary-color); font-size: 13px; }
+
+  /* ── Refresh btn spin ── */
+  .refresh-spin { animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Logic tab custom ── */
+  .logic-hero {
+    background: linear-gradient(135deg, var(--coral-dim), var(--purple-dim));
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px; padding: 28px; margin-bottom: 24px;
+  }
+  .logic-hero-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .logic-hero-sub   { font-size: 13px; color: var(--bs-secondary-color); line-height: 1.6; }
+  .logic-section-title {
+    font-size: 12px; font-weight: 600; color: var(--bs-secondary-color);
+    text-transform: uppercase; letter-spacing: 0.8px;
+    margin-bottom: 16px; padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .logic-step {
+    display: flex; gap: 16px; padding: 20px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .logic-step:last-child { border-bottom: none; }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--coral-dim); border: 1px solid var(--coral);
+    color: var(--coral); font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .step-body { flex: 1; }
+  .step-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+  .step-desc  { font-size: 13px; color: var(--bs-secondary-color); line-height: 1.7; }
+  .step-note  {
+    font-size: 12px; color: var(--bs-secondary-color);
+    background: rgba(255,255,255,0.04); border-left: 2px solid rgba(255,255,255,0.15);
+    padding: 8px 12px; border-radius: 0 6px 6px 0; margin-top: 10px; line-height: 1.6;
+  }
+  .style-grid { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .style-chip { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .style-nige   { background: rgba(239,68,68,.15);  color: #f87171; }
+  .style-senkou { background: rgba(251,146,60,.15); color: #fb923c; }
+  .style-sashi  { background: rgba(96,165,250,.15); color: #60a5fa; }
+  .style-oikomi { background: rgba(139,92,246,.15); color: #a78bfa; }
+  .style-chutan { background: rgba(74,222,128,.15); color: #4ade80; }
+
+  .hms-table, .track-bonus-table, .bt-year-table {
+    margin: 12px 0; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; overflow: hidden; font-size: 12px;
+  }
+  .hms-row, .tb-row, .bt-yr-row {
+    display: grid; padding: 9px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    align-items: center; gap: 8px;
+  }
+  .hms-row   { grid-template-columns: 100px 1fr 1fr 1fr; }
+  .tb-row    { grid-template-columns: 90px 1fr 1fr 1fr; }
+  .bt-yr-row { grid-template-columns: 60px 1fr 1fr 80px; }
+  .hms-row:last-child, .tb-row:last-child, .bt-yr-row:last-child { border-bottom: none; }
+  .hms-header, .tb-header, .bt-yr-header { background: rgba(255,255,255,0.04); font-size: 11px; color: var(--bs-secondary-color); font-weight: 500; }
+  .bt-yr-avg { background: rgba(255,255,255,0.04); font-weight: 600; }
+
+  .track-label { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .track-label.good  { background: rgba(74,222,128,.15); color: #4ade80; }
+  .track-label.heavy { background: rgba(251,146,60,.15); color: #fb923c; }
+  .track-label.mud   { background: rgba(248,113,113,.15); color: #f87171; }
+  .bonus-pos { color: #4ade80; font-weight: 600; }
+  .bonus-neg { color: #f87171; font-weight: 600; }
+
+  .bt-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  @media (max-width: 600px) { .bt-cards { grid-template-columns: repeat(2, 1fr); } }
+  .bt-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 14px; text-align: center; }
+  .bt-val { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 4px; }
+  .bt-lbl { font-size: 11px; color: var(--bs-secondary-color); }
+  .roi-pos { color: var(--green) !important; font-weight: 600; }
+
+  .mc-example { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
+  .mc-ex-title { font-size: 12px; color: var(--bs-secondary-color); margin-bottom: 10px; }
+  .mc-ex-bar-wrap { height: 20px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden; position: relative; margin-bottom: 6px; }
+  .mc-ex-bar { height: 100%; background: linear-gradient(90deg, var(--coral), var(--purple)); border-radius: 4px; transition: width .6s ease; }
+  .mc-ex-label { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--bs-secondary-color); }
+  .mc-ex-note { font-size: 12px; color: var(--bs-secondary-color); }
+
+  .buy-example { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 14px 16px; margin: 12px 0; display: flex; flex-direction: column; gap: 8px; }
+  .buy-ex-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--bs-secondary-color); }
+  .tag-uma-ex  { background: rgba(96,165,250,.15); color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .tag-wide-ex { background: rgba(74,222,128,.15); color: #4ade80; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .buy-ex-total { margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; font-weight: 600; color: var(--coral); }
+
+  .oos-box { display: flex; align-items: center; gap: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 20px 24px; margin-bottom: 12px; }
+  .oos-item { text-align: center; }
+  .oos-val { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .oos-lbl { font-size: 11px; color: var(--bs-secondary-color); }
+  .oos-sep { font-size: 20px; color: var(--bs-secondary-color); }
+
+  .check-list { display: flex; flex-direction: column; gap: 10px; }
+  .check-item { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+  .check-ok   { background: var(--green-dim); border-color: rgba(74,222,128,.2); }
+  .check-warn { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.2); }
+  .check-icon { font-size: 14px; font-weight: 700; margin-top: 1px; flex-shrink: 0; }
+  .check-ok .check-icon   { color: #4ade80; }
+  .check-warn .check-icon { color: #fbbf24; }
+  .check-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .check-desc  { font-size: 12px; color: var(--bs-secondary-color); line-height: 1.6; }
+  .check-desc code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+
+  .faq-list { display: flex; flex-direction: column; gap: 8px; }
+  .faq-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; }
+  .faq-item:hover { border-color: rgba(255,255,255,0.2); }
+  .faq-item[open] { border-color: var(--coral); }
+  .faq-q { padding: 14px 16px; font-size: 13px; font-weight: 500; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+  .faq-q::after { content: '＋'; color: var(--bs-secondary-color); font-size: 16px; }
+  .faq-item[open] .faq-q::after { content: '－'; color: var(--coral); }
+  .faq-a { padding: 0 16px 16px; padding-top: 12px; font-size: 12px; color: var(--bs-secondary-color); line-height: 1.8; border-top: 1px solid rgba(255,255,255,0.1); }
+
+  /* ── Jiku row left accent ── */
+  .jiku-row { position: relative; }
+  .jiku-row td:first-child { position: relative; }
+</style>
+</head>
+<body class="antialiased">
+
+<!-- Navbar -->
+<header class="navbar navbar-expand-md d-print-none sticky-top" style="backdrop-filter:blur(12px)">
+  <div class="container-xl">
+    <a class="navbar-brand pe-0" href="#">
+      AYO<span style="color:var(--coral)">keiba</span>
+    </a>
+    <span class="text-secondary ms-2 d-none d-md-inline" style="font-size:12px">馬連1+ワイド3 / ダート全距離 / 400円/R</span>
+    <div class="ms-auto d-flex align-items-baseline gap-2">
+      <span class="text-secondary" style="font-size:11px">ROI</span>
+      <span id="hdr-roi" class="fw-bold roi-neutral" style="font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:-0.5px">—%</span>
+    </div>
+  </div>
+</header>
+
+<!-- Stats bar -->
+<div class="border-bottom" style="background:rgba(255,255,255,0.03)">
+  <div class="container-xl">
+    <div class="row g-0 stats-bar-row">
+      <div class="col border-end py-2 px-3">
+        <div class="fw-semibold" id="st-races" style="font-variant-numeric:tabular-nums">0R</div>
+        <div class="text-secondary" style="font-size:11px">買いR数</div>
+      </div>
+      <div class="col border-end py-2 px-3">
+        <div class="fw-semibold" id="st-invest" style="font-variant-numeric:tabular-nums">0円</div>
+        <div class="text-secondary" style="font-size:11px">総投資</div>
+      </div>
+      <div class="col border-end py-2 px-3">
+        <div class="fw-semibold" id="st-return" style="font-variant-numeric:tabular-nums">0円</div>
+        <div class="text-secondary" style="font-size:11px">総回収</div>
+      </div>
+      <div class="col border-end py-2 px-3">
+        <div class="fw-semibold" id="st-pnl" style="font-variant-numeric:tabular-nums">±0円</div>
+        <div class="text-secondary" style="font-size:11px">損益</div>
+      </div>
+      <div class="col py-2 px-3">
+        <div class="fw-semibold" id="st-hit">—%</div>
+        <div class="text-secondary" style="font-size:11px">的中率</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="border-bottom" style="background:rgba(255,255,255,0.03)">
+  <div class="container-xl">
+    <ul class="nav nav-tabs border-0">
+      <li class="nav-item">
+        <a class="nav-link active" data-tab="today" href="#" onclick="switchTab('today');return false;">今日の予想</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="history" href="#" onclick="switchTab('history');return false;">記録履歴</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="logic" href="#" onclick="switchTab('logic');return false;">MCロジック</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- Today tab -->
+<div id="tab-today">
+  <div class="container-xl pt-3 pb-1 d-flex align-items-center gap-2">
+    <span class="text-secondary" style="font-size:12px">並び替え</span>
+    <button id="sort-time"  class="btn btn-sm btn-primary sort-btn"   onclick="setSort('time')">⏱ 発走順</button>
+    <button id="sort-venue" class="btn btn-sm btn-secondary sort-btn" onclick="setSort('venue')">🏟 会場順</button>
+    <span id="sort-count" class="ms-auto text-secondary" style="font-size:12px"></span>
+  </div>
+  <div class="container-xl pb-4" id="cards-container"></div>
+</div>
+
+<!-- History tab -->
+<div id="tab-history" style="display:none">
+  <div class="container-xl pt-3 pb-1">
+    <button class="btn btn-sm btn-outline-secondary" style="font-size:11px" onclick="resetAllResults()">払戻再取得</button>
+  </div>
+  <div class="container-xl py-4" id="history-container"></div>
+</div>
+
+<!-- Logic tab -->
+<div id="tab-logic" style="display:none">
+  <div class="container-xl py-4" style="max-width:760px">
+
+    <!-- 概要 -->
+    <div class="logic-hero">
+      <div class="logic-hero-title">MC（モンテカルロ）シミュレーター</div>
+      <div class="logic-hero-sub">過去の走破データからレース展開を確率的に再現し、各馬の3着内確率を算出するエンジン</div>
+    </div>
+
+    <!-- ステップ解説 -->
+    <div class="mb-4">
+      <div class="logic-section-title">予想が出るまでの流れ</div>
+      <div>
+
+        <div class="logic-step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">過去成績の取得</div>
+            <div class="step-desc">出走馬ごとに直近10走のデータを取得します。取得項目は「着順・距離・脚質・後3F・コース・馬場状態」など。<br>今日のレース日より前のデータのみ使用（未来のデータは一切参照しない）。</div>
+          </div>
+        </div>
+
+        <div class="logic-step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">脚質の分類</div>
+            <div class="step-desc">過去成績から各馬の「逃げ・先行・差し・追い込み・中団」を自動判定。<br>
+            <div class="style-grid">
+              <div class="style-chip style-nige">逃げ</div>
+              <div class="style-chip style-senkou">先行</div>
+              <div class="style-chip style-sashi">差し</div>
+              <div class="style-chip style-oikomi">追い込み</div>
+              <div class="style-chip style-chutan">中団</div>
+            </div>
+            通過順位（pos1〜pos4）の平均から算出。例：「1〜2番手が多い → 逃げ/先行」</div>
+          </div>
+        </div>
+
+        <div class="logic-step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">MCシミュレーション（1000回）</div>
+            <div class="step-desc">各馬に「H（前半スタミナ）・M（中盤持続力）・S（後半スパート）」を脚質から設定し、1レースをシミュレート。これを1000回繰り返す。</div>
+            <div class="hms-table">
+              <div class="hms-row hms-header">
+                <span>脚質</span><span>H（前半）</span><span>M（中盤）</span><span>S（後半）</span>
+              </div>
+              <div class="hms-row"><span class="style-chip style-nige">逃げ</span><span>40</span><span>70</span><span>65</span></div>
+              <div class="hms-row"><span class="style-chip style-senkou">先行</span><span>60</span><span>75</span><span>55</span></div>
+              <div class="hms-row"><span class="style-chip style-sashi">差し</span><span>75</span><span>65</span><span>50</span></div>
+              <div class="hms-row"><span class="style-chip style-oikomi">追い込み</span><span>80</span><span>55</span><span>40</span></div>
+            </div>
+            <div class="step-note">※ 各値にランダムなブレ（±15程度）を加えてシミュレート。ブレの大きさが「競馬の不確実性」を表現している。1000回繰り返すことで確率が安定する。</div>
+          </div>
+        </div>
+
+        <div class="logic-step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">馬場状態ボーナス</div>
+            <div class="step-desc">重・不良馬場ではペースが落ちて「前残り」が増える実態を反映。</div>
+            <div class="track-bonus-table">
+              <div class="tb-row tb-header">
+                <span>馬場</span><span>逃げ</span><span>先行</span><span>差し・追込</span>
+              </div>
+              <div class="tb-row"><span class="track-label good">良・稍重</span><span>補正なし</span><span>補正なし</span><span>補正なし</span></div>
+              <div class="tb-row"><span class="track-label heavy">重</span><span class="bonus-pos">+2.0pt</span><span class="bonus-pos">+1.2pt</span><span class="bonus-neg">−1.0pt</span></div>
+              <div class="tb-row"><span class="track-label mud">不良</span><span class="bonus-pos">+3.0pt</span><span class="bonus-pos">+1.8pt</span><span class="bonus-neg">−1.5pt</span></div>
+            </div>
+            <div class="step-note">これが「馬場切替ボタン」で軸馬が変わる理由。不良馬場では逃げ・先行のMCスコアが大幅に上昇する。</div>
+          </div>
+        </div>
+
+        <div class="logic-step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">MC率の計算</div>
+            <div class="step-desc">1000回シミュレーション中「3着以内に入った回数 ÷ 1000」がMC率。</div>
+            <div class="mc-example">
+              <div class="mc-ex-title">例：MC率 0.45 の馬</div>
+              <div class="mc-ex-bar-wrap">
+                <div class="mc-ex-bar" style="width:45%"></div>
+                <span class="mc-ex-label">450回 / 1000回 3着以内</span>
+              </div>
+              <div class="mc-ex-note">= 確率45%で3着以内に来ると予測</div>
+            </div>
+            <div class="step-note">MC率が最も高い馬 → <span style="color:var(--coral);font-weight:600">軸馬</span>、2〜4位の馬 → <span style="color:var(--purple);font-weight:600">相手馬</span>として採用。</div>
+          </div>
+        </div>
+
+        <div class="logic-step">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <div class="step-title">買い目の決定</div>
+            <div class="step-desc">軸馬と相手3頭で「馬連1点 ＋ ワイド3点 ＝ 4点400円」を購入。</div>
+            <div class="buy-example">
+              <div class="buy-ex-row"><span class="tag-uma-ex">馬連</span> 軸 ↔ 相手1位　…1点（100円）</div>
+              <div class="buy-ex-row"><span class="tag-wide-ex">ワイド</span> 軸 ↔ 相手1位　…1点（100円）</div>
+              <div class="buy-ex-row"><span class="tag-wide-ex">ワイド</span> 軸 ↔ 相手2位　…1点（100円）</div>
+              <div class="buy-ex-row"><span class="tag-wide-ex">ワイド</span> 軸 ↔ 相手3位　…1点（100円）</div>
+              <div class="buy-ex-total">合計 4点 / 400円 / レース</div>
+            </div>
+            <div class="step-note">馬連が当たる時はワイド（軸×相手1位）も必ず当たる構造なので、馬連はワイドの保険として機能する。</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BTエビデンス -->
+    <div class="mb-4">
+      <div class="logic-section-title">バックテスト結果（2020〜2025年）</div>
+      <div class="bt-cards">
+        <div class="bt-card">
+          <div class="bt-val" style="color:var(--green)">210.1%</div>
+          <div class="bt-lbl">6年平均ROI</div>
+        </div>
+        <div class="bt-card">
+          <div class="bt-val">891件</div>
+          <div class="bt-lbl">年平均購入数（週17件）</div>
+        </div>
+        <div class="bt-card">
+          <div class="bt-val">14.5%</div>
+          <div class="bt-lbl">的中率</div>
+        </div>
+        <div class="bt-card">
+          <div class="bt-val" style="color:var(--green)">+23万円</div>
+          <div class="bt-lbl">年平均利益</div>
+        </div>
+      </div>
+      <div class="bt-year-table">
+        <div class="bt-yr-row bt-yr-header">
+          <span>年</span><span>件数</span><span>利益</span><span>ROI</span>
+        </div>
+        <div class="bt-yr-row"><span>2020</span><span>883件</span><span class="pnl-pos">+338,920円</span><span class="roi-pos">164%</span></div>
+        <div class="bt-yr-row"><span>2021</span><span>901件</span><span class="pnl-pos">+214,370円</span><span class="roi-pos">140%</span></div>
+        <div class="bt-yr-row"><span>2022</span><span>907件</span><span class="pnl-pos">+247,860円</span><span class="roi-pos">146%</span></div>
+        <div class="bt-yr-row"><span>2023</span><span>892件</span><span class="pnl-pos">+175,790円</span><span class="roi-pos">133%</span></div>
+        <div class="bt-yr-row"><span>2024</span><span>894件</span><span class="pnl-pos">+272,000円</span><span class="roi-pos">151%</span></div>
+        <div class="bt-yr-row"><span>2025</span><span>872件</span><span class="pnl-pos">+157,200円</span><span class="roi-pos">130%</span></div>
+        <div class="bt-yr-row bt-yr-avg">
+          <span>平均</span><span>891件</span><span class="pnl-pos">+234,356円</span><span class="roi-pos">143.8%</span>
+        </div>
+      </div>
+      <div class="step-note" style="margin-top:12px">※ ダート×全距離×馬場不問の条件。6年連続黒字（最悪年130%）。Winsorized ROI（50,000円キャップ）で外れ値を補正済み。</div>
+    </div>
+
+    <!-- OOSテスト -->
+    <div class="mb-4">
+      <div class="logic-section-title">2026年OOSテスト（未来データ検証）</div>
+      <div class="oos-box">
+        <div class="oos-item">
+          <div class="oos-val" style="color:var(--green)">166.8%</div>
+          <div class="oos-lbl">2026年1〜5月 ROI</div>
+        </div>
+        <div class="oos-sep">→</div>
+        <div class="oos-item">
+          <div class="oos-val">5/5ヶ月</div>
+          <div class="oos-lbl">黒字月</div>
+        </div>
+      </div>
+      <div class="step-note">BT期間外の2026年データで検証。過学習・リーク（未来データ流入）がないことを確認済み。</div>
+    </div>
+
+    <!-- 信頼性チェック -->
+    <div class="mb-4">
+      <div class="logic-section-title">信頼性チェック</div>
+      <div class="check-list">
+        <div class="check-item check-ok">
+          <span class="check-icon">✓</span>
+          <div>
+            <div class="check-title">リークなし</div>
+            <div class="check-desc">履歴計算は <code>date &lt; 当日</code> で遮断。当日のレースデータは一切使っていない。</div>
+          </div>
+        </div>
+        <div class="check-item check-ok">
+          <span class="check-icon">✓</span>
+          <div>
+            <div class="check-title">過学習なし</div>
+            <div class="check-desc">フィルタ条件ゼロ（脚質・オッズ・クラスで絞り込みなし）。最適化パラメータが存在しないためフィットしようがない。</div>
+          </div>
+        </div>
+        <div class="check-item check-ok">
+          <span class="check-icon">✓</span>
+          <div>
+            <div class="check-title">係数はBT非依存</div>
+            <div class="check-desc">H/M/Sの基準値は委員会の合意値（競馬の経験則）。BTデータから逆算した係数ではない。</div>
+          </div>
+        </div>
+        <div class="check-item check-ok">
+          <span class="check-icon">✓</span>
+          <div>
+            <div class="check-title">MCのエッジは本物</div>
+            <div class="check-desc">MC軸 ROI 210.1% vs 1番人気軸 75.7% vs ランダム軸 70.1%。MCに実質的な予測力がある。</div>
+          </div>
+        </div>
+        <div class="check-item check-warn">
+          <span class="check-icon">!</span>
+          <div>
+            <div class="check-title">停止ルール</div>
+            <div class="check-desc">実運用3ヶ月でROI &lt; 90% なら即停止。委員会付帯決議により義務化。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="mb-4">
+      <div class="logic-section-title">よくある疑問</div>
+      <div class="faq-list">
+        <details class="faq-item">
+          <summary class="faq-q">なぜダートだけ？芝はやらないの？</summary>
+          <div class="faq-a">芝は血統・コース適性・馬場バイアスが複雑で、MCモデルが苦手とする要素が多い。ダートはペース・体力依存の側面が強く、MCのシンプルなモデルとの相性が良い。芝三連複の中央値は1,615円（ダートより600円低い）で6年全黒字条件をクリアした組み合わせがゼロだった。</div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">なぜ馬連＋ワイドの組み合わせ？</summary>
+          <div class="faq-a">馬連が当たる時（軸1着&amp;相手1頭2着）はワイド1点も必ず当たる（1・2着 ⊂ 3着以内）。つまり馬連はワイドの「保険」として機能する。ワイド単独（軸3着以内のみ）でも的中するため、取りこぼしが少ない。</div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">なぜ相手を人気順でなくMCスコア順にする？</summary>
+          <div class="faq-a">人気4頭 ROI 143.8% → MC上位4頭 ROI 210.1%（+66pt）。MCモデルが人気とは異なる「走破力の優劣」を評価しており、人気薄の高配当馬を的確に拾うため配当が増える。軸馬の人気分布：1番人気17% / 9番人気以下24%（穴馬寄り）。</div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">馬場切替はどのタイミングでする？</summary>
+          <div class="faq-a">発走30分前に現地の馬場状態を確認して選択する。「良」「稍重」は「良・稍重」タブを使用。「重」「不良」はそれぞれ専用タブ。重・不良の時だけ逃げ・先行馬のスコアが跳ね上がるため、軸馬が変わることがある。</div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">新馬・未勝利は買わないの？</summary>
+          <div class="faq-a">MCは過去走のデータから確率を計算するため、過去走のない新馬はスコアが不安定になる。また未勝利戦も頭数のわりにデータ量が少ない。バックテストでも除外している条件と一致させるためスキップしている。</div>
+        </details>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.2.0/dist/js/tabler.min.js"></script>
+<script>
+// ── Helpers ──
+const CIRC = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯';
+const cn = n => (n >= 1 && n <= 16) ? CIRC[n-1] : String(n);
+
+const TRACKS = ['良・稍重', '重', '不良'];
+const STORAGE_KEY = 'mc_keiba_v2';
+
+// ── Race data ──
+const RACES = [
+  {
+    id: "20260628_函館_7", date: "2026-06-28", venue: "函館", rno: 7,
+    rname: "3歳以上1勝クラス", dst: 1700, cnt: 10,
+    start_time: "13:10", nk_id: "202602010607",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:9, name:"ゴールドヴィーナス", style:"差し", jockey:"松本", mc:0.52 },
+        aite: [
+          { no:5, name:"アリストクラシア", style:"差し", jockey:"岩田望", mc:0.5 },
+          { no:8, name:"サウンドルーチェ", style:"先行", jockey:"▲小林美", mc:0.37 },
+          { no:7, name:"ヒミノエトワール", style:"差し", jockey:"武豊", mc:0.35 }
+        ]
+      },
+      "重": {
+        jiku: { no:8, name:"サウンドルーチェ", style:"先行", jockey:"▲小林美", mc:0.46 },
+        aite: [
+          { no:4, name:"キャットテイル", style:"逃げ", jockey:"★河原田", mc:0.46 },
+          { no:9, name:"ゴールドヴィーナス", style:"差し", jockey:"松本", mc:0.41 },
+          { no:5, name:"アリストクラシア", style:"差し", jockey:"岩田望", mc:0.41 }
+        ]
+      },
+      "不良": {
+        jiku: { no:8, name:"サウンドルーチェ", style:"先行", jockey:"▲小林美", mc:0.52 },
+        aite: [
+          { no:4, name:"キャットテイル", style:"逃げ", jockey:"★河原田", mc:0.51 },
+          { no:6, name:"ガーネットフレア", style:"先行", jockey:"鮫島駿", mc:0.36 },
+          { no:5, name:"アリストクラシア", style:"差し", jockey:"岩田望", mc:0.36 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260628_函館_10", date: "2026-06-28", venue: "函館", rno: 10,
+    rname: "渡島特別", dst: 1700, cnt: 11,
+    start_time: "14:45", nk_id: "202602010610",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:10, name:"ウインシャーガス", style:"先行", jockey:"鮫島駿", mc:0.57 },
+        aite: [
+          { no:8, name:"ニシノラヴァンダ", style:"先行", jockey:"横山琉", mc:0.54 },
+          { no:11, name:"ドーンコーラス", style:"追い込み", jockey:"丹内", mc:0.41 },
+          { no:5, name:"ブラックルビー", style:"先行", jockey:"北村友", mc:0.41 }
+        ]
+      },
+      "重": {
+        jiku: { no:10, name:"ウインシャーガス", style:"先行", jockey:"鮫島駿", mc:0.64 },
+        aite: [
+          { no:8, name:"ニシノラヴァンダ", style:"先行", jockey:"横山琉", mc:0.57 },
+          { no:5, name:"ブラックルビー", style:"先行", jockey:"北村友", mc:0.44 },
+          { no:11, name:"ドーンコーラス", style:"追い込み", jockey:"丹内", mc:0.3 }
+        ]
+      },
+      "不良": {
+        jiku: { no:10, name:"ウインシャーガス", style:"先行", jockey:"鮫島駿", mc:0.66 },
+        aite: [
+          { no:8, name:"ニシノラヴァンダ", style:"先行", jockey:"横山琉", mc:0.64 },
+          { no:5, name:"ブラックルビー", style:"先行", jockey:"北村友", mc:0.43 },
+          { no:11, name:"ドーンコーラス", style:"追い込み", jockey:"丹内", mc:0.29 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260628_小倉_7", date: "2026-06-28", venue: "小倉", rno: 7,
+    rname: "3歳以上1勝クラス", dst: 1000, cnt: 10,
+    start_time: "13:20", nk_id: "202610020207",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:3, name:"ルディシャ", style:"追い込み", jockey:"藤懸", mc:0.48 },
+        aite: [
+          { no:6, name:"リアルアルバ", style:"先行", jockey:"西塚", mc:0.47 },
+          { no:9, name:"ミライハーモニー", style:"先行", jockey:"◇今村", mc:0.4 },
+          { no:2, name:"ゴールデンバランス", style:"逃げ", jockey:"松若", mc:0.38 }
+        ]
+      },
+      "重": {
+        jiku: { no:6, name:"リアルアルバ", style:"先行", jockey:"西塚", mc:0.52 },
+        aite: [
+          { no:3, name:"ルディシャ", style:"追い込み", jockey:"藤懸", mc:0.43 },
+          { no:2, name:"ゴールデンバランス", style:"逃げ", jockey:"松若", mc:0.41 },
+          { no:9, name:"ミライハーモニー", style:"先行", jockey:"◇今村", mc:0.41 }
+        ]
+      },
+      "不良": {
+        jiku: { no:6, name:"リアルアルバ", style:"先行", jockey:"西塚", mc:0.51 },
+        aite: [
+          { no:2, name:"ゴールデンバランス", style:"逃げ", jockey:"松若", mc:0.45 },
+          { no:9, name:"ミライハーモニー", style:"先行", jockey:"◇今村", mc:0.41 },
+          { no:3, name:"ルディシャ", style:"追い込み", jockey:"藤懸", mc:0.39 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260628_小倉_10", date: "2026-06-28", venue: "小倉", rno: 10,
+    rname: "西部日刊スポーツ杯", dst: 1700, cnt: 16,
+    start_time: "14:55", nk_id: "202610020210",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:3, name:"レーティッシュ", style:"先行", jockey:"川田", mc:0.43 },
+        aite: [
+          { no:13, name:"コスモストーム", style:"差し", jockey:"秋山稔", mc:0.34 },
+          { no:12, name:"カウンティフェア", style:"先行", jockey:"長岡", mc:0.34 },
+          { no:15, name:"ズバットマサムネ", style:"差し", jockey:"富田", mc:0.27 }
+        ]
+      },
+      "重": {
+        jiku: { no:3, name:"レーティッシュ", style:"先行", jockey:"川田", mc:0.53 },
+        aite: [
+          { no:12, name:"カウンティフェア", style:"先行", jockey:"長岡", mc:0.42 },
+          { no:13, name:"コスモストーム", style:"差し", jockey:"秋山稔", mc:0.29 },
+          { no:15, name:"ズバットマサムネ", style:"差し", jockey:"富田", mc:0.24 }
+        ]
+      },
+      "不良": {
+        jiku: { no:3, name:"レーティッシュ", style:"先行", jockey:"川田", mc:0.57 },
+        aite: [
+          { no:12, name:"カウンティフェア", style:"先行", jockey:"長岡", mc:0.49 },
+          { no:13, name:"コスモストーム", style:"差し", jockey:"秋山稔", mc:0.27 },
+          { no:9, name:"カルパ", style:"差し", jockey:"田山", mc:0.19 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260628_小倉_12", date: "2026-06-28", venue: "小倉", rno: 12,
+    rname: "3歳以上1勝クラス", dst: 1700, cnt: 16,
+    start_time: "16:15", nk_id: "202610020212",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:1, name:"ミランド", style:"差し", jockey:"西村淳", mc:0.46 },
+        aite: [
+          { no:11, name:"バトゥカーダ", style:"差し", jockey:"秋山稔", mc:0.28 },
+          { no:9, name:"ポルトドール", style:"差し", jockey:"角田和", mc:0.28 },
+          { no:13, name:"モズプリヴェール", style:"差し", jockey:"松若", mc:0.26 }
+        ]
+      },
+      "重": {
+        jiku: { no:1, name:"ミランド", style:"差し", jockey:"西村淳", mc:0.43 },
+        aite: [
+          { no:3, name:"アンティーム", style:"先行", jockey:"国分恭", mc:0.32 },
+          { no:10, name:"クイノールト", style:"先行", jockey:"幸", mc:0.3 },
+          { no:11, name:"バトゥカーダ", style:"差し", jockey:"秋山稔", mc:0.24 }
+        ]
+      },
+      "不良": {
+        jiku: { no:1, name:"ミランド", style:"差し", jockey:"西村淳", mc:0.38 },
+        aite: [
+          { no:10, name:"クイノールト", style:"先行", jockey:"幸", mc:0.35 },
+          { no:3, name:"アンティーム", style:"先行", jockey:"国分恭", mc:0.33 },
+          { no:8, name:"セルジュバローズ", style:"逃げ", jockey:"吉村", mc:0.25 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260628_福島_10", date: "2026-06-28", venue: "福島", rno: 10,
+    rname: "鶴ケ城S", dst: 1700, cnt: 11,
+    start_time: "15:10", nk_id: "202603020210",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:7, name:"ラフエイジアン", style:"差し", jockey:"ゴンサルベ", mc:0.46 },
+        aite: [
+          { no:4, name:"エクリプスルバン", style:"先行", jockey:"戸崎圭", mc:0.4 },
+          { no:9, name:"ドバイブルース", style:"先行", jockey:"横山武", mc:0.39 },
+          { no:8, name:"アイウィル", style:"差し", jockey:"田口", mc:0.36 }
+        ]
+      },
+      "重": {
+        jiku: { no:9, name:"ドバイブルース", style:"先行", jockey:"横山武", mc:0.5 },
+        aite: [
+          { no:4, name:"エクリプスルバン", style:"先行", jockey:"戸崎圭", mc:0.43 },
+          { no:5, name:"ヴァナルガンド", style:"先行", jockey:"津村", mc:0.41 },
+          { no:7, name:"ラフエイジアン", style:"差し", jockey:"ゴンサルベ", mc:0.31 }
+        ]
+      },
+      "不良": {
+        jiku: { no:9, name:"ドバイブルース", style:"先行", jockey:"横山武", mc:0.49 },
+        aite: [
+          { no:4, name:"エクリプスルバン", style:"先行", jockey:"戸崎圭", mc:0.47 },
+          { no:5, name:"ヴァナルガンド", style:"先行", jockey:"津村", mc:0.42 },
+          { no:3, name:"バギーウィップ", style:"先行", jockey:"武藤", mc:0.32 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260628_福島_12", date: "2026-06-28", venue: "福島", rno: 12,
+    rname: "3歳以上1勝クラス", dst: 1150, cnt: 14,
+    start_time: "16:30", nk_id: "202603020212",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:14, name:"ジャスフォール", style:"差し", jockey:"石橋脩", mc:0.45 },
+        aite: [
+          { no:5, name:"クアロアランチ", style:"先行", jockey:"荻野極", mc:0.41 },
+          { no:7, name:"ソニックブレイカー", style:"先行", jockey:"戸崎圭", mc:0.41 },
+          { no:1, name:"ロイヤルスパイア", style:"先行", jockey:"松山", mc:0.33 }
+        ]
+      },
+      "重": {
+        jiku: { no:5, name:"クアロアランチ", style:"先行", jockey:"荻野極", mc:0.48 },
+        aite: [
+          { no:7, name:"ソニックブレイカー", style:"先行", jockey:"戸崎圭", mc:0.43 },
+          { no:1, name:"ロイヤルスパイア", style:"先行", jockey:"松山", mc:0.37 },
+          { no:4, name:"ミルトハーバー", style:"先行", jockey:"田辺", mc:0.35 }
+        ]
+      },
+      "不良": {
+        jiku: { no:5, name:"クアロアランチ", style:"先行", jockey:"荻野極", mc:0.45 },
+        aite: [
+          { no:7, name:"ソニックブレイカー", style:"先行", jockey:"戸崎圭", mc:0.44 },
+          { no:4, name:"ミルトハーバー", style:"先行", jockey:"田辺", mc:0.39 },
+          { no:13, name:"ブーケドリス", style:"逃げ", jockey:"横山武", mc:0.37 }
+        ]
+      }
+    }
+  },
+];
+
+// ── State ──
+let state = { tracks: {}, records: {}, payouts: {} };
+
+function loadState() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) state = { ...state, ...JSON.parse(s) };
+  } catch(e) {}
+}
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  updateStats();
+}
+
+function getTrack(id) { return state.tracks[id] || '良・稍重'; }
+function getPattern(race) { return race.patterns[getTrack(race.id)]; }
+
+// ── 馬場→パターン変換 ──
+function trackToPattern(track) {
+  if (!track) return null;
+  if (track === '重')  return '重';
+  if (track === '不良') return '不良';
+  if (track === '良' || track === '稍重') return '良・稍重';
+  return null;
+}
+
+// ── API fetch payout ──
+async function fetchPayout(race, btn) {
+  if (!race.nk_id) return;
+  if (btn) { btn.classList.add('refresh-spin'); btn.disabled = true; }
+  try {
+    // Step1: 現在のパターンでAPIを叩いて actual_track を取得
+    const p0 = getPattern(race);
+    const url0 = `https://mckeibapublic.vercel.app/api/payout?nk_id=${race.nk_id}&jiku=${p0.jiku.no}&aite=${p0.aite.map(x=>x.no).join(',')}`;
+    const res0 = await fetch(url0);
+    if (!res0.ok) throw new Error('HTTP ' + res0.status);
+    const data0 = await res0.json();
+
+    if (data0.status !== 'final') {
+      state.payouts[race.id] = data0;
+      saveState(); renderCard(race.id);
+      return;
+    }
+
+    // Step2: actual_track からパターン自動更新
+    const autoPat = trackToPattern(data0.actual_track);
+    let finalData = data0;
+    if (autoPat && autoPat !== getTrack(race.id)) {
+      state.tracks[race.id] = autoPat;
+      const pNew = getPattern(race);
+      // 軸か相手が変わった場合は正しい買い目で再取得
+      const changed = pNew.jiku.no !== p0.jiku.no ||
+        pNew.aite.some((a, i) => a.no !== (p0.aite[i] || {}).no);
+      if (changed) {
+        const url1 = `https://mckeibapublic.vercel.app/api/payout?nk_id=${race.nk_id}&jiku=${pNew.jiku.no}&aite=${pNew.aite.map(x=>x.no).join(',')}`;
+        const res1 = await fetch(url1);
+        if (res1.ok) finalData = await res1.json();
+        finalData.actual_track = data0.actual_track; // 馬場情報を引き継ぐ
+      }
+    }
+
+    finalData.cached_at = Date.now();
+    state.payouts[race.id] = finalData;
+    if (finalData.status === 'final' && !state.records[race.id]) {
+      saveAutoResult(race.id);
+    } else {
+      saveState(); renderCard(race.id);
+    }
+  } catch(e) {
+    console.warn('payout fetch failed:', e);
+  } finally {
+    if (btn) { btn.classList.remove('refresh-spin'); btn.disabled = false; }
+  }
+}
+
+// Auto-poll: every 5 minutes, re-fetch for races without final result or stale cache
+const PAYOUT_STALE_MS = 8 * 60 * 60 * 1000; // 8時間でキャッシュ無効化
+let pollTimer = null;
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => {
+    const now = Date.now();
+    RACES.forEach(race => {
+      const p = state.payouts[race.id];
+      const stale = p?.status === 'final' && (!p.cached_at || now - p.cached_at > PAYOUT_STALE_MS);
+      if (!p || p.status !== 'final' || stale) fetchPayout(race, null);
+    });
+  }, 5 * 60 * 1000);
+}
+
+// ── Sort ──
+let historySortDesc = true; // 記録履歴: デフォルト降順（新しい順）
+let sortMode = 'time';
+
+function getSortedRaces() {
+  return [...RACES].sort((a, b) => {
+    if (sortMode === 'time') {
+      const t = (a.start_time || '99:99').localeCompare(b.start_time || '99:99');
+      return t !== 0 ? t : a.venue.localeCompare(b.venue, 'ja');
+    } else {
+      const v = a.venue.localeCompare(b.venue, 'ja');
+      return v !== 0 ? v : a.rno - b.rno;
+    }
+  });
+}
+
+function setSort(mode) {
+  sortMode = mode;
+  document.querySelectorAll('#sort-time,#sort-venue').forEach(b => {
+    b.className = 'btn btn-sm sort-btn ' + (b.id === 'sort-' + mode ? 'btn-primary' : 'btn-secondary');
+  });
+  renderAll();
+}
+
+// ── Render ──
+function renderAll() {
+  const container = document.getElementById('cards-container');
+  container.innerHTML = '';
+  const sorted = getSortedRaces();
+  const el = document.getElementById('sort-count');
+  if (el) el.textContent = sorted.length + '件';
+  sorted.forEach(race => {
+    const div = document.createElement('div');
+    div.id = 'card-' + race.id;
+    container.appendChild(div);
+    renderCard(race.id);
+  });
+}
+
+function renderCard(raceId) {
+  const race = RACES.find(r => r.id === raceId);
+  if (!race) return;
+  const track = getTrack(raceId);
+  const p = getPattern(race);
+  const j = p.jiku;
+  const a = p.aite;
+  const payoutData = state.payouts[raceId] || null;
+  const rec = state.records[raceId] || null;
+
+  // Track segment buttons
+  const trackBtns = TRACKS.map(t =>
+    `<button class="track-pill ${t === track ? 'active' : ''}"
+      onclick="setTrack('${raceId}','${t}')">${t}</button>`
+  ).join('');
+
+  // Horses rows
+  const allHorses = [{ ...j, role: 'jiku' }, ...a.map(x => ({ ...x, role: 'aite' }))];
+  const STYLE_CLASS = {
+    '逃げ': 'style-nige', '先行': 'style-senkou',
+    '差し': 'style-sashi', '追い込み': 'style-oikomi',
+    '差し追込': 'style-sashi', '中団': 'style-chutan'
+  };
+  const horseRows = allHorses.map((h, i) => {
+    const isJiku = h.role === 'jiku';
+    const mcPct = Math.round(h.mc * 100);
+    const barW = Math.min(100, Math.round(h.mc / 0.50 * 100));
+    const stCls = STYLE_CLASS[h.style] || 'style-chutan';
+    return `<tr class="${isJiku ? 'table-active jiku-row' : ''}">
+      <td><span class="role-badge ${isJiku ? 'role-jiku' : 'role-aite'}">${isJiku ? '軸' : '相手' + i}</span></td>
+      <td>
+        <div class="d-flex align-items-center gap-2">
+          <span style="font-size:20px;font-weight:700;min-width:26px;text-align:center;line-height:1;color:${isJiku ? 'var(--coral)' : 'var(--bs-body-color)'}">${cn(h.no)}</span>
+          <div>
+            <div class="fw-medium" style="font-size:13px">${h.name}<span class="style-tag ${stCls}">${h.style}</span></div>
+            <div class="text-secondary" style="font-size:12px">${h.jockey || ''}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="mc-wrap">
+          <span class="mc-pct">${mcPct}%</span>
+          <div class="mc-track"><div class="${isJiku ? 'mc-fill' : 'mc-fill-sub'}" style="width:${barW}%"></div></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Buy tickets
+  const buyTickets = `
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="ticket ticket-uma" style="white-space:nowrap">馬連 ${cn(j.no)}-${cn(a[0].no)}</span>
+      <span class="ticket ticket-wide" style="white-space:nowrap">W ${cn(j.no)}-${cn(a[0].no)}</span>
+      <span class="ticket ticket-wide" style="white-space:nowrap">W ${cn(j.no)}-${cn(a[1].no)}</span>
+      <span class="ticket ticket-wide" style="white-space:nowrap">W ${cn(j.no)}-${cn(a[2].no)}</span>
+      <span class="text-secondary ms-auto" style="font-size:11px;white-space:nowrap">4点 / 400円</span>
+    </div>`;
+
+  // Result display
+  let resultHtml = '';
+  if (rec) {
+    const pnl = rec.payout - 400;
+    const sign = pnl >= 0 ? '+' : '';
+    let cls = pnl > 0 ? (rec.hitType === '馬連+ワイド' ? 'payout-hit-uma' : 'payout-hit-wide') : 'payout-miss';
+    let amtCls = pnl > 0 ? (rec.hitType === '馬連+ワイド' ? 'payout-green' : 'payout-blue') : 'payout-red';
+    resultHtml = `
+      <div class="payout-display ${cls}">
+        <div>
+          <div class="payout-amount ${amtCls}">${sign}${pnl.toLocaleString()}円</div>
+          <div class="payout-result-info">回収 ${rec.payout.toLocaleString()}円 / ${rec.hitType}${rec.memo ? ' · ' + rec.memo : ''}</div>
+        </div>
+        <button class="btn-delete-custom ms-auto" onclick="deleteRecord('${raceId}')">削除</button>
+      </div>`;
+  } else if (payoutData) {
+    if (payoutData.status === 'before') {
+      resultHtml = `<div class="payout-display"><span class="payout-status-text">レース前 ・ 確定後に自動取得</span></div>`;
+    } else if (payoutData.status === 'middle') {
+      resultHtml = `<div class="payout-display"><span class="payout-status-text blink">レース中… 取得中</span></div>`;
+    } else if (payoutData.status === 'final') {
+      const total = payoutData.total_payout || 0;
+      const pnl = total - 400;
+      const sign = pnl >= 0 ? '+' : '';
+      const hasUma = payoutData.umaren && payoutData.umaren > 0;
+      const wides = payoutData.wide || [0, 0, 0];
+      const hasWide = wides.some(w => w > 0);
+      let cls = hasUma ? 'payout-hit-uma' : hasWide ? 'payout-hit-wide' : 'payout-miss';
+      let amtCls = hasUma ? 'payout-green' : hasWide ? 'payout-blue' : 'payout-red';
+      const breakdown = [];
+      if (hasUma) breakdown.push(`<span class="payout-item payout-item-hit">馬連 ${payoutData.umaren.toLocaleString()}円</span>`);
+      else breakdown.push(`<span class="payout-item payout-item-miss">馬連 外れ</span>`);
+      wides.forEach((w, i) => {
+        if (w > 0) breakdown.push(`<span class="payout-item payout-item-hit">ワイド${i+1} ${w.toLocaleString()}円</span>`);
+        else breakdown.push(`<span class="payout-item payout-item-miss">ワイド${i+1} 外れ</span>`);
+      });
+      const resText = payoutData.result_1st ? `着順: ${cn(payoutData.result_1st)}→${cn(payoutData.result_2nd)}→${cn(payoutData.result_3rd)}` : '';
+      const trackText = payoutData.actual_track ? ` 馬場:${payoutData.actual_track}` : '';
+      resultHtml = `
+        <div class="payout-display ${cls}">
+          <div style="flex:1">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+              <span class="payout-amount ${amtCls}">${sign}${pnl.toLocaleString()}円</span>
+              <span class="payout-result-info">回収 ${total.toLocaleString()}円${resText ? ' / ' + resText : ''}${trackText}</span>
+              <span class="text-secondary ms-auto" style="font-size:11px">自動記録済み</span>
+            </div>
+            <div class="payout-breakdown">${breakdown.join('')}</div>
+          </div>
+        </div>`;
+    }
+  } else {
+    resultHtml = `<div class="payout-display"><span class="payout-status-text">— 未取得</span></div>`;
+  }
+
+  // Manual form
+  let manualHtml = '';
+  if (!rec) {
+    manualHtml = `
+      <span class="manual-toggle" onclick="toggleManual('${raceId}')">手動入力</span>
+      <div id="manual-${raceId}" style="display:none">
+        <div class="manual-form">
+          <select id="mtype-${raceId}">
+            <option value="">種別</option>
+            <option value="外れ">外れ</option>
+            <option value="ワイドのみ">ワイドのみ</option>
+            <option value="馬連+ワイド">馬連+ワイド</option>
+          </select>
+          <input type="number" id="mpay-${raceId}" placeholder="回収額(円)" min="0">
+          <input type="text" id="mmemo-${raceId}" placeholder="メモ">
+          <button class="btn btn-sm btn-primary" onclick="saveManual('${raceId}')">保存</button>
+        </div>
+      </div>`;
+  }
+
+  const card = document.getElementById('card-' + raceId);
+  card.innerHTML = `
+    <div class="card mb-3">
+      <div class="card-header d-flex flex-column gap-2 pb-2">
+        <div class="d-flex align-items-center gap-2">
+          <div class="venue-badge flex-shrink-0">${race.venue[0]}</div>
+          <div class="flex-fill" style="min-width:0">
+            <div class="card-title mb-0" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${race.venue} ${race.rno}R &nbsp;${race.rname}</div>
+            <div class="text-secondary" style="font-size:12px;white-space:nowrap">ダ${race.dst}m &nbsp;${race.cnt}頭 &nbsp;<span style="color:#60a5fa;font-weight:600">${race.start_time || ''}</span></div>
+          </div>
+          <button class="btn btn-sm btn-icon flex-shrink-0" title="払戻取得" onclick="clickRefresh('${raceId}', this)">↻</button>
+        </div>
+        <div class="track-seg" style="align-self:flex-start">${trackBtns}</div>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm table-hover mb-3">
+          <thead>
+            <tr class="text-secondary" style="font-size:11px">
+              <th></th>
+              <th>馬名</th>
+              <th>MC率</th>
+            </tr>
+          </thead>
+          <tbody>${horseRows}</tbody>
+        </table>
+        <div class="p-2 mb-3 rounded" style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08)">
+          <div class="mb-1" style="font-size:11px"><span class="text-secondary">買い目</span> <span class="fw-bold" style="color:var(--coral)">${track}</span></div>
+          ${buyTickets}
+        </div>
+        <div>
+          ${resultHtml}
+          ${manualHtml}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── Actions ──
+function setTrack(raceId, track) {
+  state.tracks[raceId] = track;
+  saveState();
+  renderCard(raceId);
+}
+
+function clickRefresh(raceId, btn) {
+  const race = RACES.find(r => r.id === raceId);
+  fetchPayout(race, btn);
+}
+
+function toggleManual(raceId) {
+  const el = document.getElementById('manual-' + raceId);
+  if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+function saveManual(raceId) {
+  const hitType = document.getElementById('mtype-' + raceId)?.value;
+  const payout = parseInt(document.getElementById('mpay-' + raceId)?.value) || 0;
+  const memo = document.getElementById('mmemo-' + raceId)?.value || '';
+  if (!hitType) { alert('種別を選んでください'); return; }
+  const selectedPattern = getTrack(raceId);
+  state.records[raceId] = { hitType, payout, memo, source: 'manual',
+    selectedPattern, jiku_hit: null, aite_hit_count: null };
+  saveState();
+  renderCard(raceId);
+  renderHistory();
+}
+
+function saveAutoResult(raceId) {
+  const pdata = state.payouts[raceId];
+  if (!pdata || pdata.status !== 'final') return;
+  const total = pdata.total_payout || 0;
+  const hasUma = pdata.umaren && pdata.umaren > 0;
+  const hasWide = (pdata.wide || []).some(w => w > 0);
+  const hitType = !hasUma && !hasWide ? '外れ' : hasUma ? '馬連+ワイド' : 'ワイドのみ';
+  const selectedPattern = getTrack(raceId);
+  const race = RACES.find(r => r.id === raceId);
+  const p = race ? getPattern(race) : null;
+  const top3 = [pdata.result_1st, pdata.result_2nd, pdata.result_3rd].filter(v => v != null && v > 0);
+  const jiku_hit = p ? top3.includes(p.jiku.no) : null;
+  const aite_hit_count = p ? p.aite.filter(a => top3.includes(a.no)).length : null;
+  state.records[raceId] = { hitType, payout: total, memo: '', source: 'auto',
+    selectedPattern, jiku_hit, aite_hit_count,
+    actual_track: pdata.actual_track || null };
+  saveState();
+  renderCard(raceId);
+  renderHistory();
+}
+
+function deleteRecord(raceId) {
+  delete state.records[raceId];
+  delete state.payouts[raceId];
+  saveState();
+  renderCard(raceId);
+  renderHistory();
+}
+
+function resetAllResults() {
+  if (!confirm('払戻キャッシュをクリアして再取得しますか？\n（記録履歴・統計は消えません）')) return;
+  state.payouts = {};  // キャッシュのみクリア。records（記録・統計）は保持
+  saveState();
+  renderAll();
+  updateStats();
+  RACES.forEach(race => { if (race.nk_id) fetchPayout(race, null); });
+}
+
+// ── Stats ──
+function updateStats() {
+  const recs = Object.values(state.records);
+  const n = recs.length;
+  const invest = n * 400;
+  const ret = recs.reduce((s, r) => s + (r.payout || 0), 0);
+  const pnl = ret - invest;
+  const roi = invest > 0 ? ret / invest * 100 : null;
+  const hits = recs.filter(r => r.payout > 0).length;
+  const hitRate = n > 0 ? hits / n * 100 : null;
+
+  document.getElementById('st-races').textContent = n + 'R';
+  document.getElementById('st-invest').textContent = invest.toLocaleString() + '円';
+  document.getElementById('st-return').textContent = ret.toLocaleString() + '円';
+  const pnlEl = document.getElementById('st-pnl');
+  pnlEl.textContent = (pnl >= 0 ? '+' : '') + pnl.toLocaleString() + '円';
+  pnlEl.className = 'fw-semibold ' + (pnl > 0 ? 'pnl-pos' : pnl < 0 ? 'pnl-neg' : '');
+
+  document.getElementById('st-hit').textContent = hitRate !== null ? hitRate.toFixed(1) + '%' : '—%';
+
+  const roiEl = document.getElementById('hdr-roi');
+  if (roi !== null) {
+    roiEl.textContent = roi.toFixed(1) + '%';
+    roiEl.className = 'fw-bold ' + (roi >= 100 ? 'roi-pos' : 'roi-neg');
+  } else {
+    roiEl.textContent = '—%';
+    roiEl.className = 'fw-bold roi-neutral';
+  }
+}
+
+// ── History ──
+function renderHistory() {
+  const container = document.getElementById('history-container');
+  const recs = Object.entries(state.records);
+  if (recs.length === 0) {
+    container.innerHTML = '<div class="hist-empty">まだ記録がありません</div>';
+    return;
+  }
+
+  // 精度サマリー（自動記録分のみ）
+  const autoRecs = Object.values(state.records).filter(r => r.jiku_hit !== null && r.jiku_hit !== undefined);
+  const jikuHitN = autoRecs.filter(r => r.jiku_hit).length;
+  const jikuHitRate = autoRecs.length > 0 ? (jikuHitN / autoRecs.length * 100).toFixed(1) : null;
+  const aiteAvg = autoRecs.length > 0 ? (autoRecs.reduce((s, r) => s + (r.aite_hit_count || 0), 0) / autoRecs.length).toFixed(2) : null;
+  const patCount = {};
+  autoRecs.forEach(r => { if (r.selectedPattern) patCount[r.selectedPattern] = (patCount[r.selectedPattern] || 0) + 1; });
+  const patSummary = Object.entries(patCount).sort((a,b) => b[1]-a[1]).map(([k,v]) => `${k}:${v}件`).join(' / ');
+
+  const summaryHtml = autoRecs.length > 0 ? `
+    <div class="row g-2 mb-3">
+      <div class="col-4">
+        <div class="card text-center py-2">
+          <div class="fw-bold" style="font-size:20px;color:${parseFloat(jikuHitRate)>=60?'#2fb344':'#e35d6a'}">${jikuHitRate}%</div>
+          <div class="text-secondary" style="font-size:11px">軸的中率 (${autoRecs.length}件)</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="card text-center py-2">
+          <div class="fw-bold" style="font-size:20px">${aiteAvg}<span style="font-size:12px;color:var(--bs-secondary-color)">/3</span></div>
+          <div class="text-secondary" style="font-size:11px">相手平均ヒット</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="card text-center py-2">
+          <div class="fw-bold" style="font-size:13px;line-height:1.6">${patSummary || '—'}</div>
+          <div class="text-secondary" style="font-size:11px">選択パターン</div>
+        </div>
+      </div>
+    </div>` : '';
+
+  const sorted = recs.sort(([a],[b]) => historySortDesc ? (b > a ? 1 : -1) : (a > b ? 1 : -1));
+  const rows = sorted.map(([raceId, rec]) => {
+    const race = RACES.find(r => r.id === raceId);
+    if (!race) return '';
+    const pnl = (rec.payout || 0) - 400;
+    const sign = pnl >= 0 ? '+' : '';
+    const pnlCls = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+    const track = rec.selectedPattern || getTrack(raceId);
+    const p = race.patterns[track] || getPattern(race);
+    const j = p.jiku;
+    const jikuTxt = rec.jiku_hit === true ? '<span style="color:#2fb344;font-weight:700">○</span>'
+                  : rec.jiku_hit === false ? '<span style="color:#e35d6a;font-weight:700">✗</span>' : '—';
+    const aiteTxt = rec.aite_hit_count !== null && rec.aite_hit_count !== undefined
+      ? `<span style="color:${rec.aite_hit_count>=2?'#2fb344':rec.aite_hit_count===1?'#f59e0b':'#e35d6a'}">${rec.aite_hit_count}/3</span>` : '—';
+    // 日付をM/D形式に短縮 (2026-06-28 → 6/28)
+    const dateShort = race.date.replace(/^\d{4}-0?(\d+)-0?(\d+)$/, '$1/$2');
+    return `<tr>
+      <td style="white-space:nowrap;font-size:11px">${dateShort}</td>
+      <td style="white-space:nowrap;font-size:11px">${race.venue} ${race.rno}R</td>
+      <td style="font-size:11px;white-space:nowrap">${abbrevRname(race.rname)}</td>
+      <td style="white-space:nowrap">${cn(j.no)} ${j.name}</td>
+      <td>${jikuTxt}</td>
+      <td>${aiteTxt}</td>
+      <td class="text-secondary" style="font-size:11px;white-space:nowrap">${rec.hitType}</td>
+      <td class="${pnlCls}" style="font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700">${sign}${pnl.toLocaleString()}円</td>
+    </tr>`;
+  }).join('');
+  const sortLabel = historySortDesc ? '↓ 新しい順' : '↑ 古い順';
+  container.innerHTML = summaryHtml + `
+    <div class="d-flex justify-content-end mb-1">
+      <button class="btn btn-sm btn-outline-secondary" style="font-size:11px" onclick="historySortDesc=!historySortDesc;renderHistory()">${sortLabel}</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover">
+        <thead>
+          <tr class="text-secondary" style="font-size:11px">
+            <th>日付</th><th>レース</th><th>名称</th><th>軸馬</th><th>軸</th><th>相手</th><th>結果</th><th>損益</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// レース名を短縮（例: 3歳以上1勝クラス → 1勝C）
+function abbrevRname(name) {
+  if (!name) return '';
+  return name
+    .replace(/\d+歳(?:以上|未満|)\s*/g, '')
+    .replace('1勝クラス', '1勝C')
+    .replace('2勝クラス', '2勝C')
+    .replace('3勝クラス', '3勝C');
+}
+
+// ── Tab switch ──
+function switchTab(name) {
+  document.querySelectorAll('.nav-link[data-tab]').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === name);
+  });
+  ['today','history','logic'].forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.style.display = t === name ? '' : 'none';
+  });
+  if (name === 'history') renderHistory();
+  updateStats();
+}
+
+// ── Migration: 旧記録に精度情報を補完 ──
+function migrateRecords() {
+  let updated = false;
+  Object.entries(state.records).forEach(([raceId, rec]) => {
+    if (rec.jiku_hit !== undefined) return;
+    const pdata = state.payouts[raceId];
+    const race = RACES.find(r => r.id === raceId);
+    const pat = rec.selectedPattern || getTrack(raceId);
+    const base = { ...rec, selectedPattern: pat };
+    if (pdata && pdata.status === 'final' && race) {
+      const p = race.patterns[pat] || getPattern(race);
+      const top3 = [pdata.result_1st, pdata.result_2nd, pdata.result_3rd].filter(v => v != null && v > 0);
+      base.jiku_hit = top3.includes(p.jiku.no);
+      base.aite_hit_count = p.aite.filter(a => top3.includes(a.no)).length;
+    } else {
+      base.jiku_hit = null;
+      base.aite_hit_count = null;
+    }
+    state.records[raceId] = base;
+    updated = true;
+  });
+  if (updated) saveState();
+}
+
+// ── 記録復元データ（リセットで消えた場合に自動復元） ──
+const RECOVERY_20260621 = {"20260621_函館_8":{"payout":0,"hitType":"外れ","selectedPattern":"良・稍重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260621_函館_10":{"payout":0,"hitType":"外れ","selectedPattern":"良・稍重","jiku_hit":false,"aite_hit_count":2,"auto":true},"20260621_東京_7":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260621_東京_9":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":0,"auto":true},"20260621_東京_12":{"payout":430,"hitType":"ワイドのみ","selectedPattern":"重","jiku_hit":true,"aite_hit_count":1,"auto":true},"20260621_阪神_7":{"payout":3080,"hitType":"ワイドのみ","selectedPattern":"重","jiku_hit":true,"aite_hit_count":1,"auto":true},"20260621_阪神_10":{"payout":5330,"hitType":"ワイドのみ","selectedPattern":"重","jiku_hit":true,"aite_hit_count":1,"auto":true},"20260621_阪神_12":{"payout":430,"hitType":"ワイドのみ","selectedPattern":"重","jiku_hit":true,"aite_hit_count":1,"auto":true}};
+const RECOVERY_20260627 = {"20260627_函館_8":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260627_函館_12":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260627_小倉_7":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260627_小倉_11":{"payout":0,"hitType":"外れ","selectedPattern":"重","jiku_hit":false,"aite_hit_count":1,"auto":true},"20260627_福島_3":{"payout":720,"hitType":"ワイドのみ","selectedPattern":"良・稍重","jiku_hit":true,"aite_hit_count":1,"auto":true},"20260627_福島_9":{"payout":0,"hitType":"外れ","selectedPattern":"良・稍重","jiku_hit":false,"aite_hit_count":0,"auto":true},"20260627_福島_10":{"payout":0,"hitType":"外れ","selectedPattern":"良・稍重","jiku_hit":true,"aite_hit_count":0,"auto":true}};
+
+// ── Init ──
+loadState();
+// 過去記録が消えていた場合は自動復元
+(function() {
+  let updated = false;
+  [RECOVERY_20260621, RECOVERY_20260627].forEach(recovery => {
+    Object.entries(recovery).forEach(([id, rec]) => {
+      if (!state.records[id]) { state.records[id] = rec; updated = true; }
+    });
+  });
+  if (updated) saveState();
+})();
+migrateRecords();
+renderAll();
+updateStats();
+startPolling();
+
+setTimeout(() => {
+  const now = Date.now();
+  RACES.forEach(race => {
+    const p = state.payouts[race.id];
+    const stale = p?.status === 'final' && (!p.cached_at || now - p.cached_at > PAYOUT_STALE_MS);
+    if (!p || p.status !== 'final' || stale) fetchPayout(race, null);
+  });
+}, 1500);
+</script>
+</body>
+</html>

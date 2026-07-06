@@ -49,3 +49,27 @@ dashboard.html
 !dashboard_config/
 !dashboard_config/*.json
 
+.vercel
+
+# ==== 2026-07-05 監査で追加 ====
+# バックアップ変種（今後は git commit をバックアップとする）
+*.bak
+*.bak_*
+*.real_bak*
+*.current
+CLAUDE.md.bak*
+
+# ゴミ・一時ファイル
+.fuse_hidden*
+_tmp_*
+=*
+
+# 実行時ログ（再生成可能）
+logs/
+daily_log/
+alerts.log
+
+# アーカイブ置き場
+analysis_archive/
+reports_archive/
+db_backups/

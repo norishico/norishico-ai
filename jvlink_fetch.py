@@ -17,6 +17,35 @@ from collections import Counter
 import win32com.client
 
 
+# JVOpen/JVRTOpen 戻り値コード表 (JV-Linkインターフェース仕様書 4.9.0.1 P.54-55より)
+# rc=-1 は「該当データ無し」で正常系(fromtime以降の新規データがないだけ)。
+# rc<=-300台は認証・利用キー系のエラーで、要調査(利用キー未設定/期限切れ/認証エラー)。
+JV_OPEN_MSG = {
+    -1:   "該当データ無し（正常。新しいデータがサーバーにない）",
+    -111: "dataspec パラメータが不正",
+    -112: "fromtime パラメータが不正",
+    -201: "JVInit が行なわれていない",
+    -202: "前回の JVOpen に対して JVClose が呼ばれていない（オープン中）",
+    -211: "レジストリ内容が不正",
+    -301: "認証エラー（利用キーが正しくない、または複数マシンで同一利用キー使用）",
+    -302: "利用キーの有効期限切れ",
+    -303: "利用キーが設定されていない（利用キーが空値）→ JV-Link設定.exe で利用キーを確認・設定してください",
+    -305: "利用規約に同意していない",
+    -401: "JV-Link 内部エラー",
+    -411: "サーバーエラー(HTTP 404)", -412: "サーバーエラー(HTTP 403)",
+    -413: "サーバーエラー(HTTPその他)", -421: "サーバーエラー(応答不正)",
+    -431: "サーバーエラー(アプリ内部エラー)", -504: "サーバーメンテナンス中",
+}
+
+# 認証・利用キー系: 一過性ではなく設定確認が必要なエラー。検知したら異常終了させ、
+# fetch_and_build.py の alert() 経由でDiscord通知させる。
+JV_AUTH_ERROR_CODES = {-301, -302, -303, -304, -305}
+
+
+def jv_open_desc(rc):
+    return JV_OPEN_MSG.get(rc, "(コード表未掲載。JV-Linkインターフェース仕様書を参照)")
+
+
 JYO_NAME = {
     "01": "札幌", "02": "函館", "03": "福島", "04": "新潟", "05": "東京",
     "06": "中山", "07": "中京", "08": "京都", "09": "阪神", "10": "小倉",
@@ -29,7 +58,12 @@ TOZAI_STABLE = {"1": "美", "2": "栗", "3": "他", "4": "他"}
 
 
 def p(msg):
-    print(msg, flush=True)
+    try:
+        print(msg, flush=True)
+    except UnicodeEncodeError:
+        # コンソールがcp932の場合、cp932非対応文字(em dash等)で例外になるためフォールバック
+        sys.stdout.buffer.write(str(msg).encode("cp932", "replace") + b"\n")
+        sys.stdout.flush()
 
 
 # Offsets are 1-indexed (matches C# JVData_Struct.cs MidB2S(ref bBuff, start, len)).
@@ -461,13 +495,7 @@ def main():
     um_records = load_um_cache()
     p(f"UM cache loaded: {len(um_records)}")
     counts = Counter()
-
-    # === RACE dataspec: RA/SE/HR ===
-    rc_open = jv.JVOpen("RACE", fromtime, 1)
-    p(f"JVOpen RACE: {rc_open}")
-    if rc_open[0] != 0:
-        p(f"FAIL: JVOpen RACE rc={rc_open[0]}")
-        return
+    auth_error_seen = False  # -301〜-305系を検知したら最終exit codeを1にする
 
     def h_se(b):
         se_records.append(parse_se(b))
@@ -485,8 +513,25 @@ def main():
         if r["ketto_num"]:
             um_records[r["ketto_num"]] = r
 
-    total = jv_read_all(jv, counts, {"SE": h_se, "RA": h_ra, "HR": h_hr})
-    jv.JVClose()
+    # === RACE dataspec: RA/SE/HR ===
+    # 注意: RACEが失敗してもBLOD/SLOP/WOODの取得は独立して試みる（打ち切らない）。
+    # 旧実装はここで即return していたため、認証エラー時にSLOP/WOOD(調教データ)も
+    # 巻き添えで取得スキップされ、jvlink_dump_training.json が更新されず
+    # trainingテーブルへの調教データ供給が2026年4月から段階的に、6月末から完全に停止していた。
+    rc_open = jv.JVOpen("RACE", fromtime, 1)
+    p(f"JVOpen RACE: {rc_open}  ({jv_open_desc(rc_open[0])})")
+    total = 0
+    if rc_open[0] == 0:
+        total = jv_read_all(jv, counts, {"SE": h_se, "RA": h_ra, "HR": h_hr})
+        jv.JVClose()
+    else:
+        p(f"FAIL: JVOpen RACE rc={rc_open[0]} — {jv_open_desc(rc_open[0])}")
+        if rc_open[0] in JV_AUTH_ERROR_CODES:
+            auth_error_seen = True
+        try:
+            jv.JVClose()
+        except Exception:
+            pass
 
     # === BLOD dataspec: UM (馬マスタ差分) ===
     # ※蓄積系dataspecは契約プラン要件で -111 (RACEのみ対応の速報系契約の可能性)
@@ -530,8 +575,11 @@ def main():
                 jv.JVClose()
                 p(f"  {spec} counts: {dict(tr_counts)}")
             else:
-                p(f"  {spec} open failed rc={rc_tr[0]}, retrying...")
-                # -303 対策: 少し待って再試行
+                p(f"  {spec} open failed rc={rc_tr[0]} ({jv_open_desc(rc_tr[0])}), retrying...")
+                if rc_tr[0] in JV_AUTH_ERROR_CODES:
+                    auth_error_seen = True
+                # -303 対策: 少し待って再試行 (認証エラーは再試行しても解消しないが、
+                # 一過性のサーバー混雑等との切り分けのため試行自体は継続する)
                 import time
                 time.sleep(1)
                 try:
@@ -539,12 +587,14 @@ def main():
                 except Exception:
                     pass
                 rc_tr2 = jv.JVOpen(spec, fromtime, 1)
-                p(f"  {spec} retry: {rc_tr2}")
+                p(f"  {spec} retry: {rc_tr2}  ({jv_open_desc(rc_tr2[0])})")
                 if rc_tr2[0] == 0:
                     tr_counts = Counter()
                     total += jv_read_all(jv, tr_counts, {rec_type: handler})
                     jv.JVClose()
                     p(f"  {spec} counts (retry): {dict(tr_counts)}")
+                elif rc_tr2[0] in JV_AUTH_ERROR_CODES:
+                    auth_error_seen = True
         except Exception as e:
             p(f"  {spec} fetch error: {e}")
     p(f"training fetched: HC={len(hc_records)} WC={len(wc_records)}")
@@ -620,6 +670,11 @@ def main():
     base, _ = os.path.splitext(out_path)
     write_target_csv(ra_records, se_records, hr_records, um_records, base)
 
+    if auth_error_seen:
+        p("FAIL: 利用キー/認証系エラーを検知（詳細は上記ログ参照）。JV-Link設定.exeで利用キーを確認してください。")
+        return 1
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

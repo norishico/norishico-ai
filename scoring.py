@@ -13,6 +13,18 @@ import sqlite3
 import json
 from pathlib import Path
 
+# ── ペースシナリオモジュール (Step C, フェーズ1: 表示専用) ──────────
+try:
+    from pace_scenario import (
+        calc_race_pace_probability,
+        calc_pace_scenario_bonus,
+        get_horse_pace_scores,
+        describe_pace_scenario,
+    )
+    _PACE_SCENARIO_AVAILABLE = True
+except ImportError:
+    _PACE_SCENARIO_AVAILABLE = False
+
 DB_PATH = "keiba.db"
 
 # ── 期待値ありレース判定条件 ─────────────────────────────────
@@ -21,7 +33,47 @@ EV_CONDITIONS = {
     'min_ev_pct':    5.0,   # ② 期待値+5%以上（推定勝率×オッズ≥1.05）
     'min_odds':      3.0,   # ③ 最低オッズ3倍（売れすぎ除外）
     'max_odds':     30.0,   # ④ 最高オッズ30倍★EV異常値修正: 30倍超はsoftmax確率が破綻
+    'min_lap_bonus': -0.2,  # ⑤ ラップ適性ボーナス下限（4年BT最適値 +10,800円改善）
 }
+
+
+def calc_lap_pace_bonus(horse_name: str, date: str, surface: str,
+                        recent_pci, sc_conn) -> float:
+    """
+    過去レースのペースタイプ(H/M/S)別着順から今日のペース適性ボーナスを計算。
+    - recent_pci: 直近同コースPCI平均。<48=ハイ, >52=スロー, else=ミドル
+    - 戻り値: -2.0〜+3.0pt。データ不足時は0.0（保守的、除外しない）
+    """
+    if recent_pci is None:
+        return 0.0
+    expected_pace = 'H' if recent_pci < 48 else 'S' if recent_pci > 52 else 'M'
+    rows = sc_conn.execute("""
+        SELECT r.finish, rl.pace_type
+        FROM results r
+        JOIN race_laps rl
+          ON (r.date || '_' || r.venue || '_' || CAST(r.race_num AS TEXT)) = rl.race_id
+        WHERE r.horse_name = ?
+          AND r.date < ?
+          AND r.surface = ?
+          AND r.finish < 90
+          AND rl.pace_type IS NOT NULL
+        ORDER BY r.date DESC LIMIT 20
+    """, (horse_name, date, surface)).fetchall()
+    if len(rows) < 3:
+        return 0.0
+    pace_finishes = {'H': [], 'M': [], 'S': []}
+    for row in rows:
+        pt  = row[1] if isinstance(row, (list, tuple)) else row['pace_type']
+        fin = row[0] if isinstance(row, (list, tuple)) else row['finish']
+        if pt in pace_finishes:
+            pace_finishes[pt].append(fin)
+    target = pace_finishes.get(expected_pace, [])
+    all_f  = [f for fs in pace_finishes.values() for f in fs]
+    if len(target) < 2 or len(all_f) < 3:
+        return 0.0
+    diff  = sum(all_f) / len(all_f) - sum(target) / len(target)
+    return min(3.0, max(-2.0, round(diff * 0.6, 1)))
+
 
 def calc_win_prob_from_score(score_rank1: float, score_rank2: float,
                               all_scores: list) -> float:
@@ -441,6 +493,7 @@ def clear_score_cache():
     _last3f_cache.clear()
     _last3f_class_cache.clear()
     _surface_switch_cache.clear()
+    _rl_cache.clear()
 
 
 def score_past_performance(horse_name: str, race_date: str,
@@ -1655,6 +1708,56 @@ def calc_nicks_bonus(sire: str, dam_sire: str, surface: str, conn) -> float:
     return _nicks_cache.get((sire.strip(), dam_sire.strip()), 0.0)
 
 
+# ══════════════════════════════════════════════════════════════
+# SS×KK/ND 系統レベルニックスボーナス（family-level nicks）
+# 個別ペアnicks_bonusで未カバーの馬に限定（二重加算防止）
+# NORISHIKO_FAMILY_NICKS=1 のときのみ有効（BTフラグ管理）
+# ══════════════════════════════════════════════════════════════
+import os as _os
+
+_SS_FAMILY = frozenset([
+    'ディープインパクト','ハーツクライ','キズナ','ステイゴールド','オルフェーヴル',
+    'ゴールドシップ','ドゥラメンテ','スクリーンヒーロー','モーリス','エピファネイア',
+    'ジャスタウェイ','リアルスティール','サトノダイヤモンド','キタサンブラック',
+    'ワールドプレミア','サトノクラウン','スワーヴリチャード','シルバーステート',
+    'ブラックタイド','マカヒキ','ダイワメジャー','ネオユニヴァース',
+    'キンシャサノキセキ','イスラボニータ','ラブリーデイ','ディープブリランテ',
+    'リアルインパクト','アドマイヤムーン','ヴィクトワールピサ','ワールドエース',
+    'ストロングリターン','ダノンバラード','エイシンフラッシュ','トーセンラー',
+    'ミッキーアイル','ブリックスアンドモルタル',
+])
+_KK_FAMILY = frozenset([
+    'キングカメハメハ','ロードカナロア','ルーラーシップ','ドレフォン','レイデオロ',
+    'ホッコータルマエ','ロゴタイプ','リオンディーズ','アメリカンペイトリオット',
+    'ベルシャザール','ダノンレジェンド','トゥザグローリー','コパノリッキー',
+])
+_ND_FAMILY = frozenset([
+    'ハービンジャー','ノヴェリスト','バゴ','タートルボウル','マクフィ',
+    'ジャングルポケット','ゴールドアリュール','アグネスタキオン','タニノギムレット',
+    'ダンスインザダーク','シンボリクリスエス','ファルブラヴ','フジキセキ',
+])
+
+
+def calc_family_nicks_bonus(sire: str, dam_sire: str, surface: str, conn) -> float:
+    """SS×KK/ND 系統レベルニックスボーナス（0.3〜0.5pt、芝のみ）
+    個別ペアがnicks_bonusテーブルに存在する場合は0（二重加算防止）
+    環境変数 NORISHIKO_FAMILY_NICKS=1 のときのみ有効"""
+    if surface != '芝' or not sire or not dam_sire:
+        return 0.0
+    if _os.environ.get('NORISHIKO_FAMILY_NICKS', '0') != '1':
+        return 0.0
+    if not _nicks_loaded:
+        _load_nicks_all(conn)
+    s, d = sire.strip(), dam_sire.strip()
+    if (s, d) in _nicks_cache:
+        return 0.0
+    if s in _SS_FAMILY and d in _KK_FAMILY:
+        return 0.5
+    if s in _SS_FAMILY and d in _ND_FAMILY:
+        return 0.3
+    return 0.0
+
+
 def calc_cushion_sire_bonus(cushion: float, sire: str, surface: str, conn) -> float:
     """クッション値×父のボーナスを返す（0〜3pt、芝のみ有効）
 
@@ -1775,7 +1878,7 @@ def _get_past_avg_lap1(horse_name: str, ref_date: str, conn) -> float:
         d_from = (d0 - timedelta(days=180)).strftime('%Y-%m-%d')
         d_to = (d0 - timedelta(days=7)).strftime('%Y-%m-%d')
         row = conn.execute(
-            "SELECT AVG(lap1) FROM training WHERE horse_name=? AND date BETWEEN ? AND ? "
+            "SELECT AVG(lap1) FROM training WHERE TRIM(horse_name)=? AND date BETWEEN ? AND ? "
             "AND lap1 IS NOT NULL AND lap1 > 0",
             (horse_name.strip(), d_from, d_to),
         ).fetchone()
@@ -1793,7 +1896,7 @@ def _get_current_lap1(horse_name: str, ref_date: str, conn) -> float:
         d0 = datetime.strptime(ref_date, '%Y-%m-%d')
         d_from = (d0 - timedelta(days=7)).strftime('%Y-%m-%d')
         row = conn.execute(
-            "SELECT lap1 FROM training WHERE horse_name=? AND date BETWEEN ? AND ? "
+            "SELECT lap1 FROM training WHERE TRIM(horse_name)=? AND date BETWEEN ? AND ? "
             "AND lap1 IS NOT NULL AND lap1 > 0 ORDER BY date DESC LIMIT 1",
             (horse_name.strip(), d_from, ref_date),
         ).fetchone()
@@ -1977,6 +2080,126 @@ def calc_last3f_rank_bonus(past_runs: list) -> float:
     elif ratio <= 0.40: return  1.2   # top40%
     elif ratio <= 0.60: return -0.3   # mid60%
     else:               return -2.9   # bot40%
+
+
+# ══════════════════════════════════════════════════════════
+# レースレベルボーナス (race_level_index テーブル使用)
+# ══════════════════════════════════════════════════════════
+RACE_LEVEL_ENABLED = False   # backtest_v6.py --race-level で有効化
+
+# バリアント制御:
+#   'win_only'   : 前走1着時のみボーナス (デフォルト)
+#   'any_finish' : 前走着順不問でボーナス
+#   'full'       : ボーナス + 低レベル前走ペナルティ
+RACE_LEVEL_VARIANT = 'win_only'
+
+_rl_cache: dict = {}  # (horse_name, race_date) -> (time_z_corrected, prev_finish)
+
+
+def calc_race_level_bonus(horse_name: str, race_date: str, conn) -> float:
+    """
+    前走のレースレベル (time_z_corrected) からボーナス/ペナルティを返す。
+    race_level_index テーブルが存在しない場合は 0.0 を返す。
+    """
+    if not RACE_LEVEL_ENABLED:
+        return 0.0
+
+    key = (horse_name, race_date)
+    if key in _rl_cache:
+        z, fin = _rl_cache[key]
+    else:
+        try:
+            row = conn.execute('''
+                SELECT rl.time_z_corrected, r.finish
+                FROM results r
+                JOIN race_level_index rl ON r.race_id = rl.race_id
+                WHERE r.horse_name = ? AND r.date < ?
+                ORDER BY r.date DESC
+                LIMIT 1
+            ''', (horse_name, race_date)).fetchone()
+        except Exception:
+            _rl_cache[key] = (None, None)
+            return 0.0
+        z = row['time_z_corrected'] if row else None
+        fin = int(row['finish']) if row and row['finish'] else None
+        _rl_cache[key] = (z, fin)
+
+    if z is None:
+        return 0.0
+
+    # ---- ベーススコア (z < 0 = 速い = 高レベル) ----
+    if   z <= -2.0: base =  2.0
+    elif z <= -1.5: base =  1.0
+    elif z <= -1.0: base =  0.5
+    elif z >=  1.5: base = -1.0
+    elif z >=  1.0: base = -0.5
+    else:           return  0.0
+
+    # ---- バリアント別: 前走着順による係数 ----
+    if RACE_LEVEL_VARIANT == 'win_only':
+        # 前走1着のみ有効、ペナルティなし
+        if base > 0 and (fin is None or fin != 1):
+            return 0.0
+        if base < 0:
+            return 0.0
+        mult = 1.0
+    elif RACE_LEVEL_VARIANT == 'any_finish':
+        # 前走着順不問でボーナス、ペナルティなし
+        if base < 0:
+            return 0.0
+        if fin is None or fin > 5:
+            mult = 0.5
+        elif fin <= 1:
+            mult = 1.5
+        elif fin <= 3:
+            mult = 1.0
+        else:
+            mult = 0.7
+    else:  # 'full': ボーナス + ペナルティ
+        if fin is None:
+            mult = 0.5
+        elif fin == 1:
+            mult = 1.5
+        elif fin <= 3:
+            mult = 1.0
+        elif fin <= 5:
+            mult = 0.7
+        else:
+            mult = 0.5
+
+    return round(base * mult, 2)
+
+
+def get_race_level_badge_info(horse_name: str, race_date: str, conn) -> dict | None:
+    """
+    前走レースレベル情報を返す（バッジ表示専用、RACE_LEVEL_ENABLEDに依存しない）。
+    race_level_indexテーブルが存在しない場合はNoneを返す。
+    """
+    try:
+        row = conn.execute('''
+            SELECT rl.time_z_corrected, rl.percentile_rank,
+                   rl.venue, rl.surface, rl.distance, rl.track_cond, rl.win_time,
+                   r.finish AS prev_finish
+            FROM results r
+            JOIN race_level_index rl ON r.race_id = rl.race_id
+            WHERE r.horse_name = ? AND r.date < ?
+            ORDER BY r.date DESC
+            LIMIT 1
+        ''', (horse_name, race_date)).fetchone()
+    except Exception:
+        return None
+    if not row:
+        return None
+    return {
+        'time_z_corrected': float(row['time_z_corrected']),
+        'percentile_rank':  float(row['percentile_rank']),
+        'venue':    row['venue'],
+        'surface':  row['surface'],
+        'distance': row['distance'],
+        'track_cond': row['track_cond'],
+        'win_time': float(row['win_time']),
+        'prev_finish': int(row['prev_finish']) if row['prev_finish'] else None,
+    }
 
 
 def score_race(df_race: pd.DataFrame, race_date: str,
@@ -2192,3 +2415,69 @@ def to_json(df: pd.DataFrame, race_meta: dict, out_path: str = 'race_result.json
 
     print(f"  💾 JSON出力: {out_path}")
     return output
+
+
+# ══════════════════════════════════════════════════════════
+# DeepThink反証フラグ (表示専用、スコア非影響)
+# ══════════════════════════════════════════════════════════
+def get_warnings(conn, horse_name: str, race_date: str,
+                 surface: str = '', distance: int = 0, venue: str = '') -> list:
+    """
+    ルールベース反証フラグ。スコアに影響しない、HTML表示専用。
+    Returns: list of str (空リスト=WARNなし)
+    """
+    from datetime import date as _date
+    warns = []
+
+    rows = conn.execute("""
+        SELECT finish, date, surface, distance, num_horses
+        FROM results
+        WHERE horse_name = ?
+          AND date < ?
+          AND finish IS NOT NULL AND finish < 90
+        ORDER BY date DESC
+        LIMIT 20
+    """, (horse_name, race_date)).fetchall()
+    rows = [dict(r) for r in rows]
+
+    if not rows:
+        return warns
+
+    # WARN1: 長期休養明け (90日以上)
+    try:
+        gap_days = (_date.fromisoformat(race_date) -
+                    _date.fromisoformat(rows[0]['date'])).days
+        if gap_days >= 90:
+            warns.append(f'休養明け({gap_days}日)')
+    except Exception:
+        pass
+
+    # WARN2: 近走急下降 (直近3走で着順が連続悪化)
+    fins3 = [r['finish'] for r in rows[:3] if r['finish'] is not None]
+    if len(fins3) == 3 and fins3[0] > fins3[1] > fins3[2]:
+        warns.append(f'近走下降({fins3[2]}→{fins3[1]}→{fins3[0]}着)')
+
+    # WARN3: 初芝/初ダート転向 (直近5走すべて異なる馬場)
+    if surface:
+        prev_surfs = [r['surface'] for r in rows[:5] if r['surface']]
+        if prev_surfs and all(s != surface for s in prev_surfs):
+            alt = 'ダ' if surface == '芝' else '芝'
+            warns.append(f'初{surface}(前走まで{alt})')
+
+    # WARN4: 同距離苦手 (±200m圏内4走以上 かつ大敗率60%以上)
+    if distance:
+        same_dist = [r for r in rows if r['distance'] and abs(r['distance'] - distance) <= 200]
+        if len(same_dist) >= 4:
+            n_avg = sum(r.get('num_horses') or 10 for r in same_dist) / len(same_dist)
+            bad_th = max(8, int(n_avg * 0.7))
+            bad = sum(1 for r in same_dist if r['finish'] >= bad_th)
+            if bad / len(same_dist) >= 0.6:
+                warns.append(f'距離苦手({bad}/{len(same_dist)}走大敗, {distance}m)')
+
+    # WARN5: キャリア最長距離更新 (+400m超)
+    if distance:
+        prev_dists = [r['distance'] for r in rows if r['distance']]
+        if prev_dists and distance > max(prev_dists) + 400:
+            warns.append(f'最長距離更新({max(prev_dists)}m→{distance}m)')
+
+    return warns

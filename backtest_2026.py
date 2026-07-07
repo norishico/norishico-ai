@@ -49,8 +49,9 @@ from scoring import (
     calc_course_blood_bonus, calc_gate_cond_blood_bonus,
     calc_track_bias_bonus, calc_venue_sire_bonus,
     calc_venue_damsire_bonus, calc_cushion_sire_bonus,
-    calc_nicks_bonus,
+    calc_nicks_bonus, calc_family_nicks_bonus,
     calc_daily_bias_bonus, calc_condition_penalty, EV_CONDITIONS,
+    calc_race_level_bonus, calc_lap_pace_bonus,
     _past_runs_cache, _course_runs_cache, _running_style_cache,
     _jockey_cache, _trainer_cache, _combo_cache, _ace_cache,
     _avg_time_cache, _last3f_cache, _training_actual_cache,
@@ -200,18 +201,19 @@ def prefetch_month(conn, year, month):
 
     # training_actual_cache
     # lap2 もSELECTして accel_lap 判定に使う（加速ラップ: lap1 < lap2）
+    # training.horse_name は末尾スペース混入歴があるためTRIM照合（DB罠ルール）
     t_rows = conn.execute(f"""
         SELECT horse_name, date, lap1, lap2, source
         FROM training
-        WHERE horse_name IN ({ph})
+        WHERE TRIM(horse_name) IN ({ph})
           AND date BETWEEN date(?, '-14 days') AND ?
           AND lap1 IS NOT NULL AND lap1 > 0
         ORDER BY horse_name, lap1 ASC
-    """, horse_list + [d_from, d_to]).fetchall()
+    """, [(h or '').strip() for h in horse_list] + [d_from, d_to]).fetchall()
 
     t_map = defaultdict(list)
     for r in t_rows:
-        t_map[r['horse_name']].append(r)
+        t_map[(r['horse_name'] or '').strip()].append(r)
 
     # レース日マップを一括取得（馬ごとの個別SQLを排除）
     rd_rows = conn.execute(f"""
@@ -226,7 +228,7 @@ def prefetch_month(conn, year, month):
         for race_date in horse_race_dates.get(horse, []):
             key = (horse, race_date)
             if key not in _training_actual_cache:
-                candidates = [r for r in t_map[horse] if r['date'] < race_date]
+                candidates = [r for r in t_map[(horse or '').strip()] if r['date'] < race_date]
                 if candidates:
                     best = min(candidates, key=lambda x: x['lap1'])
                     lap1 = best['lap1']
@@ -411,7 +413,13 @@ def score_one_race(race_rows, sc_conn):
         vdsb  = calc_venue_damsire_bonus(venue, dist, h2['_dam_sire'], sc_conn)
         csb   = calc_cushion_sire_bonus(cushion, h2['_sire'], surf, sc_conn)
         nkb   = calc_nicks_bonus(h2['_sire'], h2['_dam_sire'], surf, sc_conn)
-        h2['total_score'] = round(h2['total_score'] + bonus + gcbb + tbb + vsb + vdsb + csb + nkb, 1)
+        fnkb  = calc_family_nicks_bonus(h2['_sire'], h2['_dam_sire'], surf, sc_conn)
+        rlb   = calc_race_level_bonus(h2['horse_name'], date, sc_conn)
+        h2['total_score'] = round(h2['total_score'] + bonus + gcbb + tbb + vsb + vdsb + csb + nkb + fnkb + rlb, 1)
+        # りさ戦略用: 血統・調教・コースボーナスの非ゼロ数（データの充実度）
+        h2['_bd_nonzero'] = sum(1 for v in [bonus, gcbb, tbb, vsb, vdsb, csb, nkb, fnkb, rlb,
+            h2.get('_blood_score', 0), h2.get('accel_lap') or 0, h2.get('has_good_train') or 0]
+            if v and v > 0)
 
     res.sort(key=lambda x: (-x['total_score'], x['horse_name']))
     for rank, h2 in enumerate(res, 1):
@@ -450,16 +458,23 @@ def score_one_race(race_rows, sc_conn):
         'race_name': rname, 'surface': surf, 'distance': dist,
         'grade': gr, 'heads': heads, 'standout_gap': gap,
         'nige_count': pace_ctx['nige_count'],
+        'recent_pci': recent_pci,
     }
 
 
 # ══════════════════════════════════════════════════════════════
 # バックテストメイン
 # ══════════════════════════════════════════════════════════════
-def run_backtest(year=YEAR, db_path=DB_PATH):
+def run_backtest(year=YEAR, db_path=DB_PATH, yukiko_gap=None, risa_nonzero=None):
     print(f"\n{'═'*65}")
     print(f"  ノリシコ競馬AI — バックテスト {year}年")
     print(f"{'═'*65}\n")
+    # ⚠️ リーク警告: このrun_backtest単体では血統/ニックス/クッション等のボーナステーブルを
+    # cutoff付きで再構築しない。DBに全期間ビルド(cutoff=2099)のテーブルが残っていると
+    # BT期間より未来の集計値でスコアリングされる（look-ahead）。
+    # 正式なBTは backtest_v6.py 経由（年次cutoffで再構築される）を使うこと。
+    print("⚠️ 警告: backtest_2026 単体実行はボーナステーブルのcutoff再構築を行いません。")
+    print("   全期間ビルドのテーブルが残っている場合はリークBTになります。正式BTは backtest_v6.py を使用。\n")
 
     conn    = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -473,8 +488,12 @@ def run_backtest(year=YEAR, db_path=DB_PATH):
         ).fetchall()
     ))
 
-    all_races    = []    # 全レース記録
-    bet_records  = []    # 賭けたレース記録
+    all_races       = []    # 全レース記録
+    bet_records     = []    # 賭けたレース記録（通常EV）
+    yukiko_records  = []    # ゆきこ戦略: gap >= yukiko_gap
+    risa_records    = []    # りさ戦略: bd_nonzero >= risa_nonzero
+    combo_records   = []    # 組み合わせ: gap AND bd_nonzero両方
+    lap_records     = []    # ひなた戦略: 通常EV + lap_pace_bonus >= 0
 
     for month_str in months:
         month = int(month_str)
@@ -530,6 +549,16 @@ def run_backtest(year=YEAR, db_path=DB_PATH):
             # 正解馬のランク
             winner_rank = next((h['rank'] for h in result if h['finish'] == 1), None)
 
+            # りさ戦略用: スコアブレークダウンのnon-zero数
+            bd_nonzero = honmei.get('_bd_nonzero', 0)
+            gap_val    = meta.get('standout_gap', 0) or 0
+
+            # ひなた戦略用: ラップ適性ボーナス
+            lap_bonus = calc_lap_pace_bonus(
+                honmei['horse_name'], meta['date'],
+                meta.get('surface', ''), meta.get('recent_pci'), sc_conn
+            )
+
             race_record = {
                 **meta,
                 'honmei_name':    honmei['horse_name'],
@@ -542,26 +571,47 @@ def run_backtest(year=YEAR, db_path=DB_PATH):
                 'actual_win':     actual_win,
                 'payout':         payout,
                 'winner_rank':    winner_rank,
+                'bd_nonzero':     bd_nonzero,
+                'lap_bonus':      lap_bonus,
             }
             all_races.append(race_record)
             month_races += 1
 
-            # EV判定OKのレースに賭ける
-            if honmei['ev_ok']:
-                profit = (payout / 100 - 1) if actual_win and payout else -1
-                bet_records.append({
-                    **race_record,
-                    'profit': profit,
+            def _make_bet(rec, payout, actual_win):
+                return {
+                    **rec,
+                    'profit': (payout / 100 - 1) if actual_win and payout else -1,
                     'payout_actual': payout if actual_win else 0,
-                })
+                }
+
+            # 通常EV判定OK + ラップ適性フィルタ（min_lap_bonus: -0.2）
+            min_lap = EV_CONDITIONS.get('min_lap_bonus', -999)
+            if honmei['ev_ok'] and lap_bonus >= min_lap:
+                bet_records.append(_make_bet(race_record, payout, actual_win))
                 month_bets += 1
+
+            # ゆきこ戦略: gap >= yukiko_gap (EV条件不問)
+            if yukiko_gap and gap_val >= yukiko_gap and not honmei['ev_ok']:
+                yukiko_records.append(_make_bet(race_record, payout, actual_win))
+
+            # りさ戦略: bd_nonzero >= risa_nonzero (EV条件不問)
+            if risa_nonzero and bd_nonzero >= risa_nonzero and not honmei['ev_ok']:
+                risa_records.append(_make_bet(race_record, payout, actual_win))
+
+            # 組み合わせ: 両方条件 (EV条件不問)
+            if yukiko_gap and risa_nonzero and gap_val >= yukiko_gap and bd_nonzero >= risa_nonzero and not honmei['ev_ok']:
+                combo_records.append(_make_bet(race_record, payout, actual_win))
+
+            # ひなた戦略: 通常EV通過 + lap_bonus >= 0（適性ペース）
+            if honmei['ev_ok'] and lap_bonus >= 0:
+                lap_records.append(_make_bet(race_record, payout, actual_win))
 
         print(f" {month_races}R / 賭け{month_bets}R")
 
     conn.close()
     sc_conn.close()
 
-    return all_races, bet_records
+    return all_races, bet_records, yukiko_records, risa_records, combo_records, lap_records
 
 
 # ══════════════════════════════════════════════════════════════
@@ -690,11 +740,58 @@ def report(all_races, bet_records, year=YEAR):
 # ══════════════════════════════════════════════════════════════
 # エントリポイント
 # ══════════════════════════════════════════════════════════════
-if __name__ == '__main__':
-    year = YEAR
-    for arg in sys.argv[1:]:
-        if arg.startswith('--year'):
-            year = int(arg.split('=')[-1]) if '=' in arg else int(sys.argv[sys.argv.index(arg)+1])
+def report_strategy(label, records, bet_amount=1000):
+    """戦略別レポートを出力"""
+    if not records:
+        print(f"  {label:30} 0戦 (該当なし)")
+        return
+    n = len(records)
+    wins = sum(1 for r in records if r.get('actual_win'))
+    ret = sum(r.get('payout_actual', 0) for r in records)
+    cost = n * bet_amount
+    roi = ret / cost * 100 if cost else 0
+    profit = ret - cost
+    win_rate = wins / n * 100
+    print(f"  {label:30} {n:3}戦 {wins:2}勝 勝率{win_rate:4.1f}%  収支{profit:+7,}円  ROI={roi:6.1f}%")
+    # 月別
+    from collections import defaultdict
+    monthly = defaultdict(lambda: {'n':0,'w':0,'ret':0})
+    for r in records:
+        m = r['date'][:7]
+        monthly[m]['n']+=1
+        monthly[m]['w']+=1 if r.get('actual_win') else 0
+        monthly[m]['ret']+=r.get('payout_actual',0)
+    for m in sorted(monthly.keys()):
+        s=monthly[m]; roi_m=s['ret']/(s['n']*bet_amount)*100 if s['n'] else 0
+        mark='✅' if roi_m>=100 else '❌'
+        print(f"    {m}  {s['n']:3}戦 {s['w']:2}勝  ROI={roi_m:6.1f}% {mark}")
 
-    all_races, bet_records = run_backtest(year=year)
-    report(all_races, bet_records, year=year)
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--year', type=int, default=YEAR)
+    parser.add_argument('--yukiko-gap', type=float, default=12.0,
+                        help='ゆきこ戦略: gap>=この値のレースをEV不問で買う (default=12)')
+    parser.add_argument('--risa-nonzero', type=int, default=3,
+                        help='りさ戦略: bd_nonzero>=この値のレースをEV不問で買う (default=3)')
+    args = parser.parse_args()
+
+    all_races, bet_records, yukiko_recs, risa_recs, combo_recs, lap_recs = run_backtest(
+        year=args.year,
+        yukiko_gap=args.yukiko_gap,
+        risa_nonzero=args.risa_nonzero,
+    )
+    report(all_races, bet_records, year=args.year)
+
+    # ── 追加戦略比較レポート ─────────────────────────────────
+    print(f"\n{'═'*65}")
+    print(f"  委員会戦略 比較レポート ({args.year}年)")
+    print(f"  ゆきこ: gap>={args.yukiko_gap}  /  りさ: bd>={args.risa_nonzero}  /  ひなた: lap_bonus>=0")
+    print(f"{'═'*65}")
+    report_strategy("v6.6通常(EV判定)",                   bet_records,  bet_amount=1000)
+    report_strategy(f"ゆきこ(gap>={args.yukiko_gap}, EV不問)", yukiko_recs, bet_amount=1000)
+    report_strategy(f"りさ(bd>={args.risa_nonzero}, EV不問)",  risa_recs,   bet_amount=1000)
+    report_strategy("組み合わせ(gap+bd両方)",              combo_recs,   bet_amount=1000)
+    report_strategy("ひなた(EV通常+lap適性>=0)",           lap_recs,     bet_amount=1000)
+    print(f"{'═'*65}\n")

@@ -7,6 +7,8 @@ set PROJ=C:\Users\westr\norishiko_ai
 set PYEXE=py
 set PYTHONIOENCODING=utf-8
 set PYTHONUTF8=1
+REM Fix hash randomization: BT results must be reproducible run-to-run (audit 2026-07-07)
+set PYTHONHASHSEED=0
 set LOGDIR=%PROJ%\logs
 
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
@@ -20,6 +22,11 @@ echo [%date% %time%] weekly monitoring start >> "%LOGFILE%"
 "%PYEXE%" scripts\run_monitoring.py >> "%LOGFILE%" 2>&1
 set RC=%ERRORLEVEL%
 echo [%date% %time%] run_monitoring rc=%RC% >> "%LOGFILE%"
+
+REM btv6_YYYY.json ??? (?????/????????)
+echo [%date% %time%] backtest_v6 --year %date:~0,4% start >> "%LOGFILE%"
+"%PYEXE%" -X utf8 backtest_v6.py --year %date:~0,4% >> "%LOGFILE%" 2>&1
+echo [%date% %time%] backtest_v6 rc=%ERRORLEVEL% >> "%LOGFILE%"
 
 REM build dashboard.html from latest data
 echo [%date% %time%] build_dashboard start >> "%LOGFILE%"

@@ -172,7 +172,7 @@ def run_year_lite(year, conn):
         }
 
         horses_raw = conn.execute("""
-            SELECT horse_name, umaban, jockey, finish, last3f, num_horses
+            SELECT horse_name, umaban, jockey, finish, last3f, num_horses, horse_num
             FROM results WHERE race_id=? ORDER BY horse_num
         """, (race_id,)).fetchall()
 
@@ -183,15 +183,18 @@ def run_year_lite(year, conn):
         for h in horses_raw:
             hn = h['horse_name'].strip() if h['horse_name'] else ''
             jk = h['jockey'].strip() if h['jockey'] else ''
-            style, _ = get_style_for_horse(
+            style, history = get_style_for_horse(
                 conn, hn, r['date'], r['surface'], r['distance'], jk, hist_cache
             )
+            # last3fは当該レースの実測値ではなく前走値（look-ahead防止、本番と同一ロジック）
+            prev_l3f = next((hh['last3f'] for hh in history if hh.get('last3f')), None)
             horses.append({
                 'horse_name': hn,
                 'finish': h['finish'],
-                'last3f': h['last3f'],
+                'last3f': prev_l3f,
                 'style': style,
-                'gate': _umaban_to_gate(h['umaban']),
+                # umaban NULL時(2026 JV-Link経由データ)はhorse_numで代替
+                'gate': _umaban_to_gate(h['umaban'] if h['umaban'] is not None else h['horse_num']),
             })
 
         race_info['num_horses'] = len(horses)

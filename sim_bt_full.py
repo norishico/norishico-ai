@@ -108,7 +108,7 @@ def run_bt(conn, horse_hist):
         )
 
         horses_raw = conn.execute('''
-            SELECT horse_name, umaban, jockey, finish, last3f, num_horses
+            SELECT horse_name, umaban, jockey, finish, last3f, num_horses, horse_num
             FROM results WHERE race_id=? ORDER BY horse_num
         ''', (race_id,)).fetchall()
 
@@ -121,12 +121,16 @@ def run_bt(conn, horse_hist):
             jk = (h[2] or '').strip()
             hist = get_horse_history_fast(hn, date, srf, horse_hist)
             style = gsim.classify_style(hist, dst or 1600, jockey=jk, surface=srf)
+            # last3fは当該レースの実測値(h[4])ではなく前走値を使う。
+            # 実測値はlook-ahead（generate_mc_record.py:212 の本番ロジックと同一にする）
+            prev_l3f = next((hh['last3f'] for hh in hist if hh.get('last3f')), None)
             horses.append({
                 'horse_name': hn,
                 'finish': h[3],
-                'last3f': h[4],
+                'last3f': prev_l3f,
                 'style': style,
-                'gate': umaban_to_gate(h[1]),
+                # umaban NULL時(2026 JV-Link経由データ)はhorse_numで代替(現DBで両者一致を実測確認済み)
+                'gate': umaban_to_gate(h[1] if h[1] is not None else h[6]),
             })
 
         race_info = {

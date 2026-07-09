@@ -147,6 +147,36 @@ def parse_se(b):
     }
 
 
+_JYOKEN_CD_LABEL = {
+    '701': '新馬', '702': '未出走', '703': '未勝利',
+    '005': '１勝クラス', '010': '２勝クラス', '016': '３勝クラス',
+    '099': 'オープン', '100': 'オープン', '999': 'オープン',
+}
+_KIGO_SEX_LABEL = {
+    '020': '牝', '021': '牝', '023': '牝', '024': '牝',
+}
+
+
+def _ra_class_name(hondai, jyoken_name, syubetu_cd, kigo_cd, jyoken_cds):
+    """特別競走名 → 競走条件名称 → コードテーブル の優先順でクラス名を返す
+
+    jyoken_cds: JyokenCD[0..4] のリスト。平場レースは[0]='000'固定で実コードは
+    後続要素に入る配信仕様のため、先頭の非'000'値をクラスコードとして採用する。
+    """
+    if hondai:
+        return hondai
+    if jyoken_name:
+        return jyoken_name
+    if syubetu_cd in ('18', '19'):
+        return ''
+    jyoken_cd0 = next((c for c in jyoken_cds if c and c != '000'), '')
+    cls = _JYOKEN_CD_LABEL.get(jyoken_cd0, '')
+    if not cls:
+        return ''
+    sex = _KIGO_SEX_LABEL.get(kigo_cd, '')
+    return f'{cls}・{sex}' if sex else cls
+
+
 def parse_ra(b):
     """レース詳細 (RA) - 1272 bytes."""
     rid = parse_race_id(b, 12)
@@ -156,15 +186,23 @@ def parse_ra(b):
         # RaceInfo substruct starts at offset 28
         "youbi_cd": decode(b, 28, 1),
         "toku_num": decode(b, 29, 4),
-        "hondai": decode(b, 33, 60),  # race_name
+        "hondai": decode(b, 33, 60),        # 特別競走名 (平場は空)
         "ryakusyo10": decode(b, 573, 20),
         "kubun": decode(b, 611, 1),
         "grade_cd": decode(b, 615, 1),
-        "kyori": decode(b, 698, 4),  # distance
+        # RACE_JYOKEN substruct at offset 617 (21 bytes)。JyokenCDは5要素配列(各3byte, 623/626/629/632/635)。
+        # 実データ検証(2026-07-09)の結果、平場レースは[0]='000'固定で実コードは[1]以降に入る
+        # （JV-Linkの一次配信仕様。公式SDK構造体上は[0]が先頭だが、実配信データではこう入る）。
+        # そのため全5要素から先頭の非'000'値を拾う。
+        "syubetu_cd": decode(b, 617, 2),    # 競走種別コード (11=2歳, 12=3歳, 13=3歳以上, 18/19=障害)
+        "kigo_cd": decode(b, 619, 3),       # 競走記号コード (020=牝限定)
+        "jyoken_cds": [decode(b, 623 + 3 * i, 3) for i in range(5)],  # 競走条件コード[0..4]
+        "jyoken_name": decode(b, 638, 60),  # 競走条件名称 (実配信では常に空。コード表フォールバック用に保持)
+        "kyori": decode(b, 698, 4),         # distance
         "track_cd": decode(b, 706, 2),
         "course_kubun": decode(b, 710, 2),
         "hasso_time": decode(b, 874, 4),
-        "syusso_tosu": decode(b, 884, 2),  # 出走頭数
+        "syusso_tosu": decode(b, 884, 2),   # 出走頭数
         "tenko_cd": decode(b, 888, 1),
         "siba_baba_cd": decode(b, 889, 1),
         "dirt_baba_cd": decode(b, 890, 1),
@@ -278,7 +316,8 @@ def _se_row(ra, se, um=None):
     row[4]  = JYO_NAME.get(ra.get("jyo", ""), "")
     row[5]  = ra.get("nichiji", "").lstrip("0") or "0"
     row[6]  = ra.get("race_num", "").lstrip("0") or "0"
-    row[7]  = ra.get("hondai", "")
+    row[7]  = _ra_class_name(ra.get("hondai",""), ra.get("jyoken_name",""),
+                            ra.get("syubetu_cd",""), ra.get("kigo_cd",""), ra.get("jyoken_cds",[]))
     row[8]  = (ra.get("syusso_tosu", "") or "").lstrip("0") or "0"
     surface, turf_type = _surface_from_track_cd(ra.get("track_cd", ""))
     row[9]  = surface
@@ -345,7 +384,8 @@ def _hr_row(ra, hr):
     row[4] = JYO_NAME.get((ra or hr).get("jyo", ""), "")
     row[5] = (ra or hr).get("nichiji", "").lstrip("0") or "0"
     row[6] = (ra or hr).get("race_num", "").lstrip("0") or "0"
-    row[7] = ra.get("hondai", "") if ra else ""
+    row[7] = _ra_class_name(ra.get("hondai",""), ra.get("jyoken_name",""),
+                           ra.get("syubetu_cd",""), ra.get("kigo_cd",""), ra.get("jyoken_cds",[])) if ra else ""
     row[8] = ((ra.get("syusso_tosu", "") if ra else hr.get("syusso_tosu", "")) or "").lstrip("0") or "0"
     surface, turf_type = _surface_from_track_cd(ra.get("track_cd", "") if ra else "")
     row[9]  = surface

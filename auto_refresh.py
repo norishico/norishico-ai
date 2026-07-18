@@ -10,12 +10,68 @@ Usage:
   python auto_refresh.py --full       # フル更新モード（従来動作）
 """
 
-import json, time, subprocess, sys, argparse, re, shutil, tempfile
+import json, time, subprocess, sys, argparse, re, shutil, tempfile, sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 
 PROJ_DIR = Path(__file__).parent
 PYEXE = shutil.which('py') or sys.executable
+DB_PATH = PROJ_DIR / 'keiba.db'
+
+
+def save_odds_snapshot(race_id, date, venue, race_num, horses, snapshot_type):
+    """A8: オッズ時系列ロギング (docs/odds_snapshot_design.md, 2026-07-18 /committee承認)
+    horses: [{'umaban':int,'horse_name':str,'odds':float,'popularity':int}, ...]
+    """
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS odds_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                race_id TEXT NOT NULL,
+                date TEXT NOT NULL,
+                venue TEXT NOT NULL,
+                race_num INTEGER NOT NULL,
+                umaban INTEGER NOT NULL,
+                horse_name TEXT,
+                odds REAL,
+                popularity INTEGER,
+                snapshot_type TEXT NOT NULL,
+                fetched_at TEXT NOT NULL
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_odds_snap_race ON odds_snapshots(race_id, snapshot_type)"
+        )
+        now = datetime.now().isoformat()
+        rows = []
+        for h in horses:
+            try:
+                umaban = int(h.get('umaban') or h.get('horse_num') or 0)
+            except (TypeError, ValueError):
+                umaban = 0
+            if not umaban:
+                continue
+            try:
+                odds_v = float(h['odds']) if h.get('odds') not in (None, '') else None
+            except (TypeError, ValueError):
+                odds_v = None
+            pop_v = h.get('popularity')
+            rows.append((race_id, date, venue, race_num, umaban,
+                          h.get('name') or h.get('horse_name'),
+                          odds_v, pop_v, snapshot_type, now))
+        if rows:
+            conn.executemany("""
+                INSERT INTO odds_snapshots
+                (race_id,date,venue,race_num,umaban,horse_name,odds,popularity,snapshot_type,fetched_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?)
+            """, rows)
+            conn.commit()
+        conn.close()
+        return len(rows)
+    except Exception as e:
+        print(f"  ⚠️ odds_snapshot保存エラー {race_id}: {e}")
+        return 0
 
 
 def load_all_race_schedule(minutes_before=10):
@@ -397,6 +453,10 @@ def quick_odds_refresh(morning_mode=False):
                 except:
                     pass
             updated += 1
+            # A8: オッズ時系列スナップショット保存 (2026-07-18 /committee承認)
+            snap_type = 'morning' if morning_mode else 'pre_race_10min'
+            save_odds_snapshot(rid, today_str, race.get('venue', ''),
+                                race.get('race_num', 0), race.get('horses', []), snap_type)
         except:
             pass
 

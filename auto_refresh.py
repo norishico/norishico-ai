@@ -17,14 +17,19 @@ from pathlib import Path
 PROJ_DIR = Path(__file__).parent
 PYEXE = shutil.which('py') or sys.executable
 DB_PATH = PROJ_DIR / 'keiba.db'
+ODDS_SNAPSHOT_DB_PATH = PROJ_DIR / 'odds_snapshots.db'
 
 
 def save_odds_snapshot(race_id, date, venue, race_num, horses, snapshot_type):
     """A8: オッズ時系列ロギング (docs/odds_snapshot_design.md, 2026-07-18 /committee承認)
     horses: [{'umaban':int,'horse_name':str,'odds':float,'popularity':int}, ...]
+
+    専用DB(odds_snapshots.db)に保存する。keiba.dbに置くとfetch_and_build.pyの
+    atomic_swap(staging保護分岐でclone省略時)がstaging側に無いテーブルごと
+    prodを丸ごと置換してしまい、蓄積データが消滅するため(2026-07-18に実際に発生・発覚)。
     """
     try:
-        conn = sqlite3.connect(str(DB_PATH))
+        conn = sqlite3.connect(str(ODDS_SNAPSHOT_DB_PATH))
         conn.execute("""
             CREATE TABLE IF NOT EXISTS odds_snapshots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

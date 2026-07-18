@@ -4,6 +4,11 @@
 （`auto_refresh.py: save_odds_snapshot()`、`quick_odds_refresh()`に統合済み）。
 分析は8-12週間データが貯まってから着手する方針は据え置き。
 
+**⚠️ 保存先はkeiba.dbではなく専用DB `odds_snapshots.db`**（2026-07-18、実装直後に発覚・修正）。
+keiba.dbに置いた初版は、fetch_and_build.pyのatomic_swap（staging保護分岐でclone省略時）が
+staging側に無いテーブルごとprodを丸ごと置換し、蓄積データが消滅する実害が即日発生したため。
+odds_snapshotsはJV-Linkパイプラインと無関係な独立データなので、専用DBに分離するのが正しい設計。
+
 ## 目的
 
 netkeiba/JV-Linkの前日〜直前オッズは現在保存しておらず、遡及取得が不可能。「オッズの変動

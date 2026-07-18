@@ -1,0 +1,68 @@
+[
+  {
+    "name": "daily_bias P4",
+    "category": "scoring",
+    "result": "+800/4年",
+    "reason": "ノイズ。当初+6,400はtmp_db汚染の幻"
+  },
+  {
+    "name": "condition_penalty (休養明け罰則)",
+    "category": "scoring",
+    "result": "-50,050/4年",
+    "reason": "悪化。休養明け馬が逆に狙い目だった"
+  },
+  {
+    "name": "H2 逃げ単騎加点",
+    "category": "scoring",
+    "result": "-29,000/2025年固定",
+    "reason": "全パラメータで2025年-29k固定悪化"
+  },
+  {
+    "name": "初版nicks 531件",
+    "category": "scoring",
+    "result": "-14,700/4年",
+    "reason": "パターン過多で過剰適合"
+  },
+  {
+    "name": "Phase I確率較正 (Platt/ローリング)",
+    "category": "scoring",
+    "result": "-142,900/4年",
+    "reason": "過学習。較正がBTデータに過適合"
+  },
+  {
+    "name": "R1 馬体重変動表示",
+    "category": "display",
+    "result": "効果なし",
+    "reason": "◎本命BT740件で効果なし。市場折り込み済み。2歳は逆効果"
+  },
+  {
+    "name": "Y3 連敗アラート",
+    "category": "display",
+    "result": "効果なし",
+    "reason": "上位人気全馬でフラット。◎本命でも4連敗n=77でノイズ範囲"
+  },
+  {
+    "name": "trackcond_damsire_bonus (重/不良×母父)",
+    "category": "bloodline",
+    "result": "-4,200/4年",
+    "reason": "n_heavy少なく過剰適合。市場効率性が働く典型"
+  },
+  {
+    "name": "distbucket_damsire_bonus (距離帯×母父・上乗せ)",
+    "category": "bloodline",
+    "result": "-9,000/4年",
+    "reason": "venue_damsire_bonusとの二重計上でノイズ化"
+  },
+  {
+    "name": "距離延長×父",
+    "category": "bloodline",
+    "result": "シグナルなし",
+    "reason": "延長全体が19.1%と低く、父別プラスパターンがゼロ件"
+  },
+  {
+    "name": "gate_style_bias本番反映",
+    "category": "scoring",
+    "result": "-8.9pt/4年(123.1%→114.2%)",
+    "reason": "S1簡易ゲート実験は+11.1pt改善だったが本番相当ゲートの真のWF CVでは逆に悪化。2023年に本命馬入れ替えでメガヒットレースを取りこぼし"
+  }
+]

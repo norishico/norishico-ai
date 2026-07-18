@@ -44,7 +44,7 @@ BT_YEARLY = [
 
 # ============ 2. 実運用2026集計 =======================================
 def aggregate_live_2026():
-    """monthly_results_2026_*.json から2026年の実値を集計"""
+    """monthly_results_2026_*.json から2026年の実値を集計。scratched(除外馬)はROI/n計算から除外"""
     total_cost, total_return, total_n = 0, 0, 0
     monthly = []
     all_buys = []
@@ -55,7 +55,6 @@ def aggregate_live_2026():
         except Exception as e:
             print(f'  [warn] {f}: {e}')
             continue
-        tot = d.get('total', {})
         m = d.get('month','')  # '2026_04' 形式
         mo = 0
         for sep in ('_','-','/'):
@@ -63,27 +62,34 @@ def aggregate_live_2026():
                 try: mo = int(m.split(sep)[1])
                 except Exception: pass
                 break
-        monthly.append({
-            'month':mo,
-            'roi': tot.get('roi', 0),
-            'cost': tot.get('cost', 0),
-            'return': tot.get('return', 0),
-            'n': tot.get('races', 0),
-        })
-        total_cost += tot.get('cost', 0)
-        total_return += tot.get('return', 0)
-        total_n += tot.get('races', 0)
-        # 各レースを buys に
+        # scratchedを除いて月次集計を再計算
+        mo_cost, mo_return, mo_n = 0, 0, 0
         for day in d.get('days', []):
             date = day.get('date','')
             for br in day.get('buy_results', []):
                 br_copy = dict(br)
                 br_copy['date'] = date
                 all_buys.append(br_copy)
+                if br.get('miss_type') == 'scratched':
+                    continue
+                mo_cost += br.get('cost', 0)
+                mo_return += br.get('return', 0)
+                mo_n += 1
+        mo_roi = (mo_return / mo_cost * 100) if mo_cost else 0
+        monthly.append({
+            'month': mo,
+            'roi': round(mo_roi, 1),
+            'cost': mo_cost,
+            'return': mo_return,
+            'n': mo_n,
+        })
+        total_cost += mo_cost
+        total_return += mo_return
+        total_n += mo_n
 
     roi = (total_return / total_cost * 100) if total_cost else 0
     pl = total_return - total_cost
-    hits = sum(1 for b in all_buys if b.get('return', 0) > 0)
+    hits = sum(1 for b in all_buys if b.get('return', 0) > 0 and b.get('miss_type') != 'scratched')
     hit_rate = (hits / total_n * 100) if total_n else 0
     return {
         'total':{'n':total_n, 'cost':total_cost, 'return':total_return, 'pl':pl, 'roi':round(roi,1), 'hit':hits, 'hit_rate':round(hit_rate,1)},
@@ -156,6 +162,8 @@ def build_reviews(live):
             'ret': b.get('return', 0),
             'miss': b.get('miss_type'),
             'note': _build_note(b),
+            'review': b.get('review', ''),
+            'pace_info': b.get('pace_info'),
         })
     # 新しい順
     reviews.sort(key=lambda x: x['date'], reverse=True)
@@ -415,28 +423,249 @@ def build_stable_track(conn):
     return {'tracks':tracks, 'stables':stables_simple, 'data':data}
 
 
-# ============ 12. EV分布/的中率vsROI(ダミー、BT値) ====================
-EV_HIST = [
-    {'ev':'2-4','n':108},{'ev':'4-6','n':225},{'ev':'6-8','n':312},
-    {'ev':'8-10','n':268},{'ev':'10-12','n':198},{'ev':'12-14','n':142},
-    {'ev':'14-16','n':89},{'ev':'16-18','n':48},{'ev':'18-20','n':29},
-]
-HIT_ROI = [
-    {'cls':'新馬C2', 'hit':18.2, 'roi':135.4, 'n':48},
-    {'cls':'未勝利F1', 'hit':21.5, 'roi':175.2, 'n':102},
-    {'cls':'3勝(normal)', 'hit':15.8, 'roi':127.0, 'n':193},
-    {'cls':'3勝(challenge)', 'hit':7.2, 'roi':97.3, 'n':56},
-    {'cls':'G1/G2', 'hit':12.4, 'roi':112.8, 'n':148},
-]
+# ============ 12. EV分布/的中率vsROI(btv6_*.json から動的集計) ========
+def build_ev_hist_and_hit_roi():
+    from collections import defaultdict
+    records, all_races = [], []
+    for f in sorted(glob.glob(str(PROJ / 'btv6_2[0-9]*.json'))):
+        try:
+            d = json.load(open(f, encoding='utf-8'))
+        except Exception:
+            continue
+        records.extend(d.get('bet_records', []))
+        for r in d.get('all_races', []):
+            if r.get('buy_zone') and r.get('ev7') is not None:
+                all_races.append(r)
+
+    # EV_HIST: buy_zone全件のev7をバケット集計
+    ev_buckets = defaultdict(int)
+    for r in all_races:
+        ev = r.get('ev7', 0) or 0
+        lo = int(ev // 2) * 2
+        ev_buckets[f'{lo}-{lo+2}'] += 1
+    ev_hist = [
+        {'ev': k, 'n': ev_buckets[k]}
+        for k in sorted(ev_buckets, key=lambda x: int(x.split('-')[0]))
+    ]
+
+    # HIT_ROI: rule別的中率とROI
+    rule_label = {'C2': 'C2新馬', 'F1': 'F1未勝利', '': 'v6_normal', '3rentan': 'G1/G2_3連単'}
+    buckets = defaultdict(lambda: {'cost': 0, 'ret': 0, 'n': 0, 'hits': 0})
+    for r in records:
+        rule = r.get('rule', '')
+        if rule.startswith('C2'):       key = 'C2新馬'
+        elif rule.startswith('F1'):     key = 'F1未勝利'
+        elif rule == '':                key = 'v6_normal'
+        elif '3rentan' in rule:         key = 'G1/G2_3連単'
+        else:                           key = 'その他'
+        buckets[key]['cost'] += r.get('cost', 0)
+        buckets[key]['ret']  += r.get('ret', 0)
+        buckets[key]['n']    += 1
+        if r.get('ret', 0) > 0:
+            buckets[key]['hits'] += 1
+    order = ['v6_normal', 'C2新馬', 'F1未勝利', 'G1/G2_3連単', 'その他']
+    hit_roi = []
+    for key in order:
+        if key not in buckets:
+            continue
+        v = buckets[key]
+        roi = round(v['ret'] / v['cost'] * 100, 1) if v['cost'] else 0
+        hit = round(v['hits'] / v['n'] * 100, 1) if v['n'] else 0
+        hit_roi.append({'cls': key, 'hit': hit, 'roi': roi, 'n': v['n']})
+
+    return ev_hist, hit_roi
+
+
+EV_HIST, HIT_ROI = build_ev_hist_and_hit_roi()
 
 
 # ============ 13. 取りこぼしログ(見送り好成績) =========================
+def build_project_status():
+    """dashboard_config/project_status.json を読み込んで返す。なければ generate して返す。"""
+    f = CFG / 'project_status.json'
+    if not f.exists():
+        try:
+            from generate_project_status import generate
+            return generate('build_dashboard')
+        except Exception:
+            return {}
+    try:
+        return json.load(open(f, encoding='utf-8'))
+    except Exception:
+        return {}
+
+
+def build_nar_results():
+    """NAR実運用成績をnar_predictions/から集計して返す"""
+    import glob as _glob
+    pred_dir = PROJ / 'nar_predictions'
+    files = sorted(_glob.glob(str(pred_dir / 'nar_pred_*.json')))
+    records = []
+    for fpath in files:
+        try:
+            preds = json.load(open(fpath, encoding='utf-8'))
+            for p in preds:
+                if p.get('finish') is not None:
+                    records.append(p)
+        except Exception:
+            pass
+
+    total_n = len(records)
+    wins    = [r for r in records if r.get('finish') == 1]
+    cost    = total_n * 1000
+    ret     = sum(int(r.get('result_odds', 0) * 100) * 10 for r in wins)
+    roi     = round(ret / cost * 100, 1) if cost else 0
+    pl      = ret - cost
+
+    # 直近10件
+    recent = sorted(records, key=lambda x: x.get('date',''), reverse=True)[:10]
+
+    # 現行パラメータ
+    params = 'score≥4.5 / odds 5-25倍 / gap≥2.5 / class空欄除外 (v2 2026-04-27)'
+
+    return {
+        'total_n': total_n,
+        'wins':    len(wins),
+        'cost':    cost,
+        'ret':     ret,
+        'roi':     roi,
+        'pl':      pl,
+        'recent':  recent,
+        'params':  params,
+    }
+
+
+def build_committee_1on1():
+    """1on1ログをdashboard_config/committee_1on1_*.jsonから読み込む"""
+    import glob as _glob
+    files = sorted(_glob.glob(str(CFG / 'committee_1on1_*.json')), reverse=True)
+    sessions = []
+    for fpath in files:
+        try:
+            d = json.load(open(fpath, encoding='utf-8'))
+            sessions.append(d)
+        except Exception:
+            pass
+    return sessions
+
+
+def build_committee_comp():
+    """委員会 vs AI 対決データを集計して返す。"""
+    f = CFG / 'committee_competition.json'
+    if not f.exists():
+        return {'meta': {}, 'entries': [], 'standings': []}
+    d = json.load(open(f, encoding='utf-8'))
+    entries = d.get('entries', [])
+
+    # メンバー別累積成績
+    from collections import defaultdict
+    stats = defaultdict(lambda: {'n': 0, 'cost': 0, 'ret': 0, 'wins': 0})
+    for e in entries:
+        m = e.get('member', '')
+        if not m:
+            continue
+        ret = e.get('result_ret')
+        if ret is None:
+            continue  # 未発走は集計しない
+        raw_cost = e.get('bet', 2000)
+        cost = raw_cost if isinstance(raw_cost, (int, float)) else 1000
+        stats[m]['n']    += 1
+        stats[m]['cost'] += cost
+        stats[m]['ret']  += ret
+        if ret > 0:
+            stats[m]['wins'] += 1
+
+    standings = []
+    for member, s in stats.items():
+        roi = round(s['ret'] / s['cost'] * 100, 1) if s['cost'] else 0
+        standings.append({
+            'member': member,
+            'n':      s['n'],
+            'wins':   s['wins'],
+            'roi':    roi,
+            'pl':     s['ret'] - s['cost'],
+        })
+    standings.sort(key=lambda x: x['roi'], reverse=True)
+
+    return {
+        'meta':      d.get('meta', {}),
+        'entries':   entries,
+        'standings': standings,
+    }
+
+
+def build_scoring_design():
+    """スコアリング設計（比重・ボーナス）を返す。scoring.pyの定数と同期。"""
+    return {
+        'weights_normal': [
+            {'name': '過去成績',     'key': 'past_performance', 'pct': 20, 'note': 'タイム・着順・重賞実績'},
+            {'name': '調教',         'key': 'training',         'pct': 20, 'note': '前走タイム・加速ラップ（市場非織込★）'},
+            {'name': 'コース適性',   'key': 'course_fitness',   'pct': 17, 'note': '同距離・同馬場での過去実績'},
+            {'name': '騎手・調教師', 'key': 'jockey_trainer',   'pct': 12, 'note': '騎手複勝率・師弟コンビボーナス'},
+            {'name': '血統(父)',      'key': 'sire',             'pct': 10, 'note': '父の会場・距離適性'},
+            {'name': '枠順・脚質',   'key': 'gate_style',       'pct':  8, 'note': 'コース別バイアステーブル（市場非織込★）'},
+            {'name': 'ローテーション','key': 'rotation',        'pct':  7, 'note': '間隔・前走着順・距離変化'},
+            {'name': '血統(母父)',    'key': 'dam_sire',         'pct':  6, 'note': '母父の適性'},
+        ],
+        'weights_maiden': [
+            {'name': '調教',         'key': 'training',         'pct': 33, 'note': '新馬は実績なし→調教が主役'},
+            {'name': '騎手・調教師', 'key': 'jockey_trainer',   'pct': 19, 'note': '新馬は騎手の腕が出やすい'},
+            {'name': '血統(父)',      'key': 'sire',             'pct': 16, 'note': '新馬は血統で素質を判断'},
+            {'name': 'コース適性',   'key': 'course_fitness',   'pct':  9, 'note': ''},
+            {'name': '血統(母父)',    'key': 'dam_sire',         'pct':  7, 'note': ''},
+            {'name': '枠順・脚質',   'key': 'gate_style',       'pct':  6, 'note': ''},
+            {'name': 'ローテーション','key': 'rotation',        'pct':  5, 'note': ''},
+            {'name': '過去成績',     'key': 'past_performance', 'pct':  5, 'note': '新馬は過去走なし→最小'},
+        ],
+        'bonuses': [
+            {'name': 'venue_sire_bonus',    'max': '+5pt',  'cond': '会場×父 相性(n≥30, diff≥+12)'},
+            {'name': 'venue_damsire_bonus', 'max': '+3pt',  'cond': '会場×母父 相性(係数控えめ)'},
+            {'name': 'cushion_sire_bonus',  'max': '+1.5pt','cond': '芝クッション値×父(soft/normal/firm)'},
+            {'name': 'nicks_bonus',         'max': '+1.5pt','cond': '父×母父ニックス(n≥100, diff≥+10)'},
+            {'name': 'course_blood_bonus',  'max': '+5pt',  'cond': 'コース×血統の特殊相性(芝/ダ別)'},
+            {'name': 'gate_cond_blood_bonus','max': '可変', 'cond': '枠順・馬場×血統'},
+            {'name': 'track_bias_bonus',    'max': '可変',  'cond': 'バイアスフィルタ(内枠偏重場で見送り)'},
+        ],
+    }
+
+
 def build_missed(conn):
-    """見送ったが1着だったレースを抽出する。
-    実装には過去の weekend_predictions.json のアーカイブが必要(現状未実装)。
-    将来: archive/predictions_YYYYMMDD.json に毎日保存→当日結果と突合。
-    Phase 1: 空配列で未実装であることを明示する。"""
-    return []
+    """btv6_*.json の all_races から buy_zone=None かつ honmei が1着だったレースを抽出。"""
+    missed = []
+    for f in sorted(glob.glob(str(PROJ / 'btv6_*.json'))):
+        try:
+            d = json.load(open(f, encoding='utf-8'))
+        except Exception:
+            continue
+        for r in d.get('all_races', []):
+            if r.get('buy_zone'):
+                continue
+            if not (r.get('actual_win') or r.get('honmei_finish') == 1):
+                continue
+            odds = r.get('honmei_odds') or 0
+            missed.append({
+                'date':   r.get('date', ''),
+                'race':   f"{r.get('venue','')}{r.get('race_num','')}R",
+                'horse':  r.get('honmei_name', ''),
+                'finish': '1着',
+                'odds':   f"{odds}倍",
+                'reason': r.get('pass_reason') or _missed_reason(r),
+            })
+    missed.sort(key=lambda x: x['date'], reverse=True)
+    return missed[:50]
+
+
+def _missed_reason(r):
+    odds = r.get('honmei_odds') or 0
+    ev   = r.get('honmei_ev') or 0
+    grade = r.get('grade', '')
+    if grade in ('1勝', '2勝'):
+        return f'{grade}クラスは対象外'
+    if odds < 7:
+        return f'オッズ{odds}倍: 買い帯域外'
+    if ev < 2.0:
+        return f'EV{ev:.1f}: 基準未満'
+    return '買い条件不成立'
 
 
 # ============ 14a. 券種別ROI (btv6_YYYY.json から集計) ==================
@@ -504,6 +733,56 @@ def build_bet_type_roi():
     return result
 
 
+# ============ 14b. 月別BT分析 ==========================================
+def build_monthly_bt():
+    """btv6_*.json の bet_records から我々のモデルの月別BT成績を集計 (2022-2025)。
+    bet_records は実際に賭けたレースのみ。all_races は全候補で混在するので使わない。
+    Winsorized ROI (50k cap) も併記してメガヒット依存を可視化する。
+    """
+    result = {}  # {year: {month: {n, cost, ret, ret_w}}}
+    for f in sorted(glob.glob(str(PROJ / 'btv6_*.json'))):
+        try:
+            d = json.load(open(f, encoding='utf-8'))
+        except Exception:
+            continue
+        yr_s = os.path.basename(f).replace('btv6_', '').replace('.json', '')
+        try:
+            yr = int(yr_s)
+        except ValueError:
+            continue
+        if yr not in result:
+            result[yr] = {}
+        for r in d.get('bet_records', []):
+            date_s = r.get('date', '')
+            try:
+                mo = int(date_s[5:7])
+            except (ValueError, TypeError, IndexError):
+                continue
+            if mo not in result[yr]:
+                result[yr][mo] = {'n': 0, 'cost': 0, 'ret': 0, 'ret_w': 0}
+            e = result[yr][mo]
+            ret = r.get('ret', 0) or 0
+            cost = r.get('cost', 0) or 0
+            e['n']     += 1
+            e['cost']  += cost
+            e['ret']   += ret
+            e['ret_w'] += min(ret, WINSORIZE_CAP)
+
+    rows = []
+    for yr in sorted(result):
+        months = []
+        for mo in range(1, 13):
+            e = result[yr].get(mo)
+            if e and e['cost'] > 0:
+                roi   = round(e['ret']   / e['cost'] * 100, 1)
+                roi_w = round(e['ret_w'] / e['cost'] * 100, 1)
+                months.append({'n': e['n'], 'cost': e['cost'], 'ret': e['ret'], 'roi': roi, 'roi_w': roi_w})
+            else:
+                months.append(None)
+        rows.append({'year': yr, 'months': months})
+    return rows
+
+
 # ============ 14. アラート(閾値超過検知) ===============================
 def build_alerts(yearly, live):
     alerts = []
@@ -534,8 +813,8 @@ def build_health(conn):
     # 直近ログ
     logs = PROJ / 'logs'
     def _latest(pattern):
-        fs = sorted(glob.glob(str(logs / pattern)))
-        return os.path.basename(fs[-1]) if fs else '-'
+        fs = glob.glob(str(logs / pattern))
+        return os.path.basename(max(fs, key=os.path.getmtime)) if fs else '-'
     health['jvlink_latest'] = _latest('parallel_fetch_*.log')
     health['sat_latest'] = _latest('saturday_preview_*.log')
     health['raceday_latest'] = _latest('race_day_auto_refresh_*.log')
@@ -544,25 +823,100 @@ def build_health(conn):
     return health
 
 
-# ============ 16. 今週サマリ(weekend_predictions.json) ================
+# ============ 16. Phase II進捗集計 ================
+def build_phase2_progress(live):
+    """Phase II移行条件の進捗を集計 (2026-04-22委員会決定)
+    条件: N>=100 AND 累積ROI>=100% AND 4季節経験
+    """
+    n = live['total']['n']
+    roi = live['total']['roi']
+
+    # 経験済み季節の判定 (monthly_results から月を抽出)
+    season_months = set()
+    files = sorted(glob.glob(str(PROJ / 'monthly_results_2026_*.json')))
+    for f in files:
+        try:
+            d = json.load(open(f, encoding='utf-8'))
+            for day in d.get('days', []):
+                dt = day.get('date', '')
+                if len(dt) >= 7:
+                    mo = int(dt[5:7])
+                    season_months.add(mo)
+        except Exception:
+            pass
+
+    seasons = {
+        'spring': any(m in season_months for m in [3, 4, 5]),
+        'summer': any(m in season_months for m in [6, 7, 8]),
+        'autumn': any(m in season_months for m in [9, 10, 11]),
+        'winter': any(m in season_months for m in [12, 1, 2]),
+    }
+    seasons_done = sum(seasons.values())
+
+    return {
+        'n': n, 'n_target': 100,
+        'roi': roi, 'roi_target': 100,
+        'seasons': seasons, 'seasons_done': seasons_done,
+        'all_clear': n >= 100 and roi >= 100 and seasons_done >= 4,
+    }
+
+
+# ============ 17. 今週サマリ(weekend_predictions.json) ================
 def build_week_summary():
     wp = PROJ / 'weekend_predictions.json'
     if not wp.exists():
-        return {'n':0, 'cost':0}
+        return {'n':0, 'cost':0, 'date_label':''}
     try:
         d = json.load(open(wp, encoding='utf-8'))
     except Exception:
-        return {'n':0,'cost':0}
+        return {'n':0, 'cost':0, 'date_label':''}
     n = 0; cost = 0
     for p in d:
         bt = p.get('buy_type'); sp = p.get('special_horse')
         if bt or sp:
             n += 1
             cost += 1000 if (bt == 'v6_challenge' or sp) else 2000
-    return {'n':n, 'cost':cost}
+    from datetime import date, timedelta
+    today = date.today()
+    days_since_sat = (today.weekday() - 5) % 7
+    sat = today - timedelta(days=days_since_sat)
+    sun = sat + timedelta(days=1)
+    date_label = f'{sat.month}/{sat.day}(Sat)+{sun.month}/{sun.day}(Sun)'
+    return {'n':n, 'cost':cost, 'date_label':date_label}
 
 
-# ============ 17. main: 集計→埋込 =====================================
+# ============ 17. 週次自動化スケジュール ==================================
+def build_schedule():
+    """週次自動化タスクのスケジュール一覧を返す"""
+    return [
+        {'day': '月〜木', 'time': '20:00', 'task': '調教データ取込',
+         'detail': 'TFJV DAT → keiba.db training table',
+         'script': 'training_import.bat', 'color': 'blue'},
+        {'day': '金', 'time': '19:00', 'task': '土曜予想生成',
+         'detail': '枠確定 → スコアリング → weekend_predictions.json → dashboard更新',
+         'script': 'saturday_preview.bat', 'color': 'purple'},
+        {'day': '土', 'time': '09:00', 'task': '朝確認・買いGO判定',
+         'detail': 'オッズ取得 → ±20%チェック → 買いGO / 見送り Discord通知 → dashboard.html再生成',
+         'script': 'race_day_auto_refresh.bat (--once)', 'color': 'green'},
+        {'day': '土', 'time': '各発走10分前', 'task': '直前オッズ確認+ロック',
+         'detail': 'auto_refresh.py ループ: オッズ変動±20%でロック / discord通知',
+         'script': 'auto_refresh.py', 'color': 'green'},
+        {'day': '土', 'time': '20:00', 'task': '日曜予想生成',
+         'detail': '土+日両日再生成 → dashboard更新',
+         'script': 'sunday_preview.bat', 'color': 'purple'},
+        {'day': '日', 'time': '09:00', 'task': '朝確認・買いGO判定',
+         'detail': 'オッズ取得 → ±20%チェック → 買いGO / 見送り Discord通知 → dashboard.html再生成',
+         'script': 'race_day_auto_refresh.bat --sunday (--once)', 'color': 'green'},
+        {'day': '日', 'time': '各発走10分前', 'task': '直前オッズ確認+ロック',
+         'detail': 'auto_refresh.py --sunday ループ',
+         'script': 'auto_refresh.py --sunday', 'color': 'green'},
+        {'day': '日', 'time': '全レース終了後', 'task': '結果保存・委員会対決更新・Dashboard再生成',
+         'detail': 'save_results.py → monthly_results更新 → committee_competition.json更新 → build_dashboard.py',
+         'script': 'publish_weekend.py --save-results', 'color': 'gold'},
+    ]
+
+
+# ============ 18. main: 集計→埋込 =====================================
 def main():
     print(f'🐴 NORISHICO Dashboard Build ({datetime.now().strftime("%H:%M:%S")})')
     t0 = datetime.now()
@@ -571,6 +925,7 @@ def main():
     committee = json.load(open(CFG/'committee.json', encoding='utf-8'))
     kanban = json.load(open(CFG/'kanban.json', encoding='utf-8'))
     rule_roi_cfg = json.load(open(CFG/'rule_roi.json', encoding='utf-8'))
+    rejected_ideas = json.load(open(CFG/'rejected_ideas.json', encoding='utf-8')) if (CFG/'rejected_ideas.json').exists() else []
 
     # live 2026
     live = aggregate_live_2026()
@@ -608,9 +963,16 @@ def main():
     # week summary
     week_summary = build_week_summary()
 
+    # Phase II progress
+    phase2 = build_phase2_progress(live)
+
     # 券種別ROI(btv6_*.json集計)
     bet_type_roi = build_bet_type_roi()
     print(f'  ✅ 券種別ROI: 全体 {bet_type_roi["total"]["n"]}R ROI={bet_type_roi["total"]["roi"]}% / 3連単 {bet_type_roi["sanrentan"]["n"]}R ROI={bet_type_roi["sanrentan"]["roi"]}%')
+
+    # 月別BT成績
+    monthly_bt = build_monthly_bt()
+    print(f'  ✅ 月別BT: {len(monthly_bt)}年分')
 
     DATA = {
         'yearly': yearly,
@@ -636,6 +998,16 @@ def main():
         'week_summary': week_summary,
         'live_total': live['total'],
         'bet_type_roi': bet_type_roi,
+        'phase2': phase2,
+        'rejected_ideas': rejected_ideas,
+        'scoring_design': build_scoring_design(),
+        'committee_comp': build_committee_comp(),
+        'committee_1on1': build_committee_1on1(),
+        'nar_results':    build_nar_results(),
+        'schedule': build_schedule(),
+        'monthly_bt': monthly_bt,
+        'project_status': build_project_status(),
+        'build_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
 
     # テンプレ読込→埋込

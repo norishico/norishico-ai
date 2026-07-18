@@ -67,7 +67,7 @@ def step_fetch(dates, proj_dir, _retry=0):
     print(f"STEP 1: netkeibaからデータ取得 {'(retry)' if _retry else ''}")
     print("="*60)
 
-    from fetch_shutsuba import create_driver, fetch_race_list, fetch_shutsuba
+    from fetch_shutsuba import create_driver, quit_driver, fetch_race_list, fetch_shutsuba
 
     driver = create_driver()
     all_races = []
@@ -78,10 +78,26 @@ def step_fetch(dates, proj_dir, _retry=0):
             time.sleep(0.5)
             for race in races:
                 race_data = fetch_shutsuba(driver, race['race_id'])
+                race_data['date'] = datetime.strptime(date_str, '%Y%m%d').strftime('%Y-%m-%d')
                 all_races.append(race_data)
                 time.sleep(0.5)
     finally:
-        driver.quit()
+        quit_driver(driver)
+
+    # race.netkeiba.com が 0 件（IP ブロック等）→ sp.netkeiba.com フォールバック
+    if not all_races:
+        print("\n[fallback] race.netkeiba.com から 0 件 → sp.netkeiba.com フォールバックを試みます")
+        try:
+            from fetch_shutsuba import create_driver as _cd, quit_driver as _qd
+            import fetch_shutsuba_sp as _sp
+            _drv = _cd()
+            try:
+                all_races = _sp.fetch_this_week_races_sp(_drv)
+            finally:
+                _qd(_drv)
+            print(f"[fallback] sp フォールバック成功: {len(all_races)} 件")
+        except Exception as _e:
+            print(f"[fallback] sp フォールバックも失敗: {_e}")
 
     rate = _odds_valid_rate(all_races)
     print(f"\n  オッズ有効率: {rate*100:.1f}%")
@@ -159,16 +175,18 @@ def step_fetch_results(date_str, proj_dir):
     print(f"STEP R: {date_str} の結果取得")
     print("="*60)
 
-    import re
+    import re, tempfile, shutil as _shutil
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.common.by import By
 
+    _tmpdir_results = tempfile.mkdtemp(prefix='chrome_results_')
     opts = Options()
     opts.add_argument('--headless=new')
     opts.add_argument('--no-sandbox')
     opts.add_argument('--disable-dev-shm-usage')
     opts.add_argument('--lang=ja')
+    opts.add_argument(f'--user-data-dir={_tmpdir_results}')
     opts.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
     d = webdriver.Chrome(options=opts)
 
@@ -224,6 +242,7 @@ def step_fetch_results(date_str, proj_dir):
         all_results.append(info)
 
     d.quit()
+    _shutil.rmtree(_tmpdir_results, ignore_errors=True)
 
     outfile = proj_dir / f'results_{date_str}.json'
     with open(outfile, 'w', encoding='utf-8') as f:
@@ -380,16 +399,24 @@ def step_deploy(proj_dir):
         return False
 
     # git add + commit + push
+    # GIT_TERMINAL_PROMPT=0: スケジュールタスク環境で認証プロンプトがハングするのを防ぐ
+    _git_env = {**os.environ, 'GIT_TERMINAL_PROMPT': '0'}
     try:
-        subprocess.run(['git', 'add', 'docs/index.html'], cwd=str(proj_dir), check=True)
+        subprocess.run(['git', 'add', 'docs/index.html'], cwd=str(proj_dir), check=True,
+                       env=_git_env)
         now = datetime.now().strftime('%Y-%m-%d %H:%M')
         subprocess.run(
             ['git', 'commit', '-m', f'Update prediction {now}'],
-            cwd=str(proj_dir), check=True
+            cwd=str(proj_dir), check=True, env=_git_env
         )
-        subprocess.run(['git', 'push'], cwd=str(proj_dir), check=True)
+        subprocess.run(['git', 'push'], cwd=str(proj_dir), check=True,
+                       env=_git_env, timeout=120)
         print(f"  ✅ GitHub Pages デプロイ完了")
         return True
+    except subprocess.TimeoutExpired:
+        print(f"  ⚠️ git push がタイムアウト(120秒)。認証情報の問題の可能性。")
+        print("  手動で git push してください")
+        return False
     except subprocess.CalledProcessError as e:
         print(f"  ⚠️ git操作でエラー: {e}")
         print("  手動で git push してください")

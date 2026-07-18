@@ -1,24 +1,161 @@
 {
-  "承認待ち":[
-    {"title":"レースレベル補正","owner":"みなみ","prio":"high","desc":"重賞/準OP/平場で係数を分けて精度向上。BT検証済、+2.8pt見込み"},
-    {"title":"着差補正","owner":"さくら","prio":"mid","desc":"前走着差が大きいレースの勝ち馬のスコア加点"}
+  "承認待ち": [],
+  "実装中": [
+    {
+      "title": "騎手×会場ボーナス",
+      "owner": "あおい",
+      "prio": "mid",
+      "desc": "ジョッキー別の得意会場を+0-3ptで加算(実装40%)"
+    }
   ],
-  "実装中":[
-    {"title":"距離変更補正","owner":"ひなた","prio":"high","desc":"短縮/延長の臨戦過程を展開スコアに織り込み"},
-    {"title":"騎手×会場ボーナス","owner":"あおい","prio":"mid","desc":"ジョッキー別の得意会場を+0-3ptで加算(実装40%)"}
+  "検証中": [
+    {
+      "title": "market_momentum cutoff調整",
+      "owner": "あかり",
+      "prio": "mid",
+      "desc": "20%→15%に緩和して発動頻度UP。IS/OOS検証待ち"
+    },
+    {
+      "title": "スコア→確率キャリブレーション",
+      "owner": "かえで",
+      "prio": "mid",
+      "desc": "主要帯(15-30%, n=9135)の予測20.8%≈実績20.9%。補正ほぼ不要。30%超でわずかに過大推定傾向。Isotonic curve実装の必要性は低い可能性。(2026-04-30分析完了)"
+    }
   ],
-  "検証中":[
-    {"title":"market_momentum cutoff調整","owner":"あかり","prio":"mid","desc":"20%→15%に緩和して発動頻度UP。IS/OOS検証待ち"}
+  "検証中の疑問": [
+    {
+      "title": "2024不振の根本原因",
+      "owner": "ゆきこ",
+      "prio": "high",
+      "desc": "F1単年ノイズの結論に本当に納得できるか。SHAPで再解析中"
+    },
+    {
+      "title": "cushion_sire 年次ぶれ",
+      "owner": "さくら",
+      "prio": "mid",
+      "desc": "2023+5.2pt vs 2024+0.8ptの差、血統別に切り出し調査中"
+    },
+    {
+      "title": "features.py 一元化",
+      "owner": "りさ",
+      "prio": "mid",
+      "desc": "scoring/backtest/predictに散在する特徴量計算を1ファイルに集約。機能変更なし、BT数値変わらず"
+    },
+    {
+      "title": "先行×長直線ボーナス（再設計案）",
+      "owner": "ひなた",
+      "prio": "mid",
+      "desc": "元の先行/差し×短/長直線仮説とは逆。長直線(東京/新潟)×先行でEV=1.016(全honmei中唯一>1.0)。venue_sire_bonusとの独立性要確認。BTで効果測定後に再提案。(2026-04-30)"
+    },
+    {
+      "title": "輸送ストレスデバフ（交差分析待ち）",
+      "owner": "ゆめ",
+      "prio": "low",
+      "desc": "美浦→関西遠征: EV=0.616 vs 美浦地元0.821(-0.205)。栗東→関東は逆にEV=0.891。n=179で小さい。train_count_7dとの相関確認が先決。一律輸送デバフは誤り。(2026-04-30)"
+    }
   ],
-  "検証中の疑問":[
-    {"title":"2024不振の根本原因","owner":"ゆきこ","prio":"high","desc":"F1単年ノイズの結論に本当に納得できるか。SHAPで再解析中"},
-    {"title":"cushion_sire 年次ぶれ","owner":"さくら","prio":"mid","desc":"2023+5.2pt vs 2024+0.8ptの差、血統別に切り出し調査中"}
-  ],
-  "完了":[
-    {"title":"Winsorize上限導入","owner":"ゆきこ","prio":"high","desc":"50,000円/R上限。2023メガヒット問題対処済 (+98,650/4年)"},
-    {"title":"UTF-8 bat ASCII化","owner":"ゆきこ","prio":"high","desc":"rc=9009爆弾の全6bat修復済"},
-    {"title":"note記事Yukinote風","owner":"れいな","prio":"low","desc":"注目データ記事テイスト刷新・血統辞書30種導入"},
-    {"title":"Discord通知設計再編","owner":"ゆきこ","prio":"high","desc":"前日通知廃止/morning_summary/added/状態変化トリガー化"},
-    {"title":"±20%ロック朝値基準","owner":"まなつ","prio":"high","desc":"累積ズレ欠陥修正。morning_snapshot日付キー付き"}
+  "完了": [
+    {
+      "title": "ブルードメアサイア系統ニックス",
+      "owner": "さくら",
+      "prio": "low",
+      "desc": "SS×KK T3R+5.5pt(n=5656)は本物のシグナルだが、系統レベル0.3/0.5ptボーナスBT: Winsorized 4年平均-0.4pt(4年で3件しか条件変化なし)。gap≥8pt要件に対してボーナスが小さすぎて無効。個別ペアn≥100・diff≥10で掘るほうが現実的。不採用確定(2026-04-30)"
+    },
+    {
+      "title": "WF ウィンドウ幅感度分析",
+      "owner": "まなつ",
+      "prio": "mid",
+      "desc": "4年固定の根拠確認。全ウィンドウ幅で最悪年=2024(同じ)。4年が恣意性最小・データ量最大で正当。SHAP可視化はsklearn導入後に別途実施(2026-04-30)"
+    },
+    {
+      "title": "着差補正",
+      "owner": "さくら",
+      "prio": "mid",
+      "desc": "前走大差1着(n=53): EV=0.509, avg_odds=8.4倍。市場が既に価格反映(過大評価)。スコアボーナスは改悪リスクのみ。不採用確定(2026-04-30)"
+    },
+    {
+      "title": "Half-Kelly配分",
+      "owner": "ゆきこ",
+      "prio": "mid",
+      "desc": "キャリブレーション良好(主要帯予測20.8%≈実績20.9%)。v6 normal=16件/年で統計的に効果測定不可。4年シミュレーション現行573%>HK538%。年50件以上になるまで見送り確定(2026-04-30)"
+    },
+    {
+      "title": "距離変更補正",
+      "owner": "ひなた",
+      "prio": "high",
+      "desc": "dist-filter(差し追×600m超): 4年平均-1.1pt、2025-7.7pt。フィルタ発動0件(600m超は全体の5%以下)。脚質自体のEV差であり距離変更方向に追加シグナルなし。不採用確定(2026-04-30)"
+    },
+    {
+      "title": "Winsorize上限導入",
+      "owner": "ゆきこ",
+      "prio": "high",
+      "desc": "50,000円/R上限。2023メガヒット問題対処済 (+98,650/4年)"
+    },
+    {
+      "title": "UTF-8 bat ASCII化",
+      "owner": "ゆきこ",
+      "prio": "high",
+      "desc": "rc=9009爆弾の全6bat修復済"
+    },
+    {
+      "title": "note記事Yukinote風",
+      "owner": "れいな",
+      "prio": "low",
+      "desc": "注目データ記事テイスト刷新・血統辞書30種導入"
+    },
+    {
+      "title": "Discord通知設計再編",
+      "owner": "ゆきこ",
+      "prio": "high",
+      "desc": "前日通知廃止/morning_summary/added/状態変化トリガー化"
+    },
+    {
+      "title": "±20%ロック朝値基準",
+      "owner": "まなつ",
+      "prio": "high",
+      "desc": "累積ズレ欠陥修正。morning_snapshot日付キー付き"
+    },
+    {
+      "title": "外回りロス代理指標",
+      "owner": "みなみ",
+      "prio": "low",
+      "desc": "BT検証→オッズコントロール後シグナルなし。不採用確定(2026-04-26)"
+    },
+    {
+      "title": "[NAR] 信頼度表示→WARN件数連動",
+      "owner": "りこ",
+      "prio": "high",
+      "desc": "★★★(WARNなし)/★★(WARN1件)/★(WARN2件以上)実装済み(2026-04-28)"
+    },
+    {
+      "title": "[JRA] get_warnings()実装",
+      "owner": "りさ",
+      "prio": "mid",
+      "desc": "scoring.py末尾に追加。generate_weekend_prediction.pyでバッジ表示統合済み(2026-04-28)"
+    },
+    {
+      "title": "エラー通知Discord化",
+      "owner": "りさ",
+      "prio": "mid",
+      "desc": "完了(2026-04-29): fetch_and_build.alert()→Discord通知追加。nar_daily.pyスクレイプ失敗時通知追加。毎朝目視確認を廃止"
+    },
+    {
+      "title": "ボーナス多重カウント検証",
+      "owner": "みなみ",
+      "prio": "high",
+      "desc": "完了(2026-04-29): 全ペアr<0.03。多重カウントなし確定。係数現状維持"
+    },
+    {
+      "title": "オッズ捕捉率計測",
+      "owner": "あかり",
+      "prio": "high",
+      "desc": "完了(2026-04-29): 捕捉率95%(2週サンプル)。±20%ロック機能中。実運用ROI≈BT×0.95下限"
+    },
+    {
+      "title": "レースレベル補正（3勝odds10+）",
+      "owner": "みなみ",
+      "prio": "high",
+      "desc": "3勝odds8-11→10-11変更BT: WinROI4年平均+3.4ptも2025年-11.5pt反転・累計損益マイナス。不採用確定(2026-04-29)"
+    }
   ]
 }

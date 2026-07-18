@@ -1258,13 +1258,14 @@ renderHeatmap('heatmapStable', DATA.stable_track.tracks, DATA.stable_track.stabl
         const rows = es.map(e => {
           const done = e.result_ret !== null && e.result_ret !== undefined;
           const hit  = done && e.result_ret > 0;
+          const bet  = e.bet || 2000;
           const finishStr = e.pick_finish ? `${e.pick_finish}着` : '';
           const winnerStr = e.winner ? `(1着:${e.winner})` : '';
           const resultCell = !done
             ? `<span style="color:var(--text-mute);font-size:10px">未発走</span>`
             : hit
-              ? `<span style="color:var(--green);font-weight:700">✅ +${(e.result_ret-2000).toLocaleString()}円</span>`
-              : `<span style="color:var(--red);font-size:11px">❌ ${finishStr}</span><br><span style="font-size:9px;color:var(--text-mute)">${winnerStr}</span>`;
+              ? `<span style="color:var(--green);font-weight:700">✅ 1着 +${(e.result_ret-bet).toLocaleString()}円</span>`
+              : `<span style="color:var(--red);font-size:11px">❌ ${finishStr} <span style="font-size:10px">-${bet.toLocaleString()}円</span></span><br><span style="font-size:9px;color:var(--text-mute)">${winnerStr}</span>`;
           const declTime = e.declared_at ? e.declared_at.slice(11,16) : '';
           return `<tr style="border-bottom:1px solid rgba(38,42,53,0.3)">
             <td style="padding:6px 10px;font-weight:600;color:var(--text)">${e.member||''}</td>

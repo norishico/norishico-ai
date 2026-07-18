@@ -158,7 +158,8 @@
     .stats-bar-row > .col { min-width: 33.3%; flex: 1 1 33.3%; }
     .stats-bar-row > .col:nth-child(3) { border-right: none !important; }
     .stats-bar-row > .col:nth-child(4) { border-top: 1px solid rgba(255,255,255,0.1); }
-    .stats-bar-row > .col:nth-child(5) { border-top: 1px solid rgba(255,255,255,0.1); border-right: none !important; }
+    .stats-bar-row > .col:nth-child(5) { border-top: 1px solid rgba(255,255,255,0.1); }
+    .stats-bar-row > .col:nth-child(6) { border-top: 1px solid rgba(255,255,255,0.1); border-right: none !important; }
   }
 
   /* ── ROI colors ── */
@@ -289,6 +290,25 @@
   /* ── Jiku row left accent ── */
   .jiku-row { position: relative; }
   .jiku-row td:first-child { position: relative; }
+
+  /* ── Dim finished races ── */
+  .card-finished { opacity: 0.45; transition: opacity .2s; }
+  .card-finished:hover { opacity: 0.8; }
+
+  /* ── Stats bar larger numbers ── */
+  #st-races, #st-invest, #st-return, #st-pnl, #st-hit { font-size: 18px !important; }
+
+  /* ── Undo toast ── */
+  .undo-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1e293b; color: #e2e8f0; padding: 10px 18px; border-radius: 10px;
+    display: flex; align-items: center; gap: 14px; z-index: 9999;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5); font-size: 13px; white-space: nowrap;
+    animation: slideup .2s ease;
+  }
+  @keyframes slideup { from { transform: translateX(-50%) translateY(16px); opacity:0; } to { transform: translateX(-50%) translateY(0); opacity:1; } }
+  @keyframes fadeout { to { opacity:0; transform: translateX(-50%) translateY(8px); } }
+  .undo-btn { background: var(--coral); border: none; color: #fff; padding: 4px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
 </style>
 </head>
 <body class="antialiased">
@@ -337,9 +357,13 @@
         <div class="fw-semibold" id="st-pnl" style="font-variant-numeric:tabular-nums">±0円</div>
         <div class="text-secondary" style="font-size:11px">損益</div>
       </div>
-      <div class="col py-2 px-3">
+      <div class="col border-end py-2 px-3">
         <div class="fw-semibold" id="st-hit">—%</div>
         <div class="text-secondary" style="font-size:11px">的中率</div>
+      </div>
+      <div class="col py-2 px-3">
+        <div class="fw-semibold" id="st-roi">—%</div>
+        <div class="text-secondary" style="font-size:11px">ROI（この期間）</div>
       </div>
     </div>
   </div>
@@ -494,21 +518,24 @@
     <!-- BTエビデンス -->
     <div class="mb-4">
       <div class="logic-section-title">バックテスト結果（2020〜2025年）</div>
+      <div style="background:rgba(220,53,69,0.12);border:1px solid rgba(220,53,69,0.5);border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px">
+        ⚠️ <strong>2026-07-07 重要修正</strong>: 旧BT（ROI 232%表示）は、シミュレーションに「そのレースの実測上がり3F」を入力する実装バグ（look-ahead）があり、実際には得られない未来情報で成績が水増しされていた。バグ修正後の再計測が下記の数値。<strong>現行ロジックに市場を上回る予測力は確認できず、運用継続可否を委員会で審議中。</strong>
+      </div>
       <div class="bt-cards">
         <div class="bt-card">
-          <div class="bt-val" style="color:var(--green)">210.1%</div>
+          <div class="bt-val" style="color:var(--red,#dc3545)">62.1%</div>
           <div class="bt-lbl">6年平均ROI</div>
         </div>
         <div class="bt-card">
-          <div class="bt-val">891件</div>
+          <div class="bt-val">920件</div>
           <div class="bt-lbl">年平均購入数（週17件）</div>
         </div>
         <div class="bt-card">
-          <div class="bt-val">14.5%</div>
+          <div class="bt-val">13.9%</div>
           <div class="bt-lbl">的中率</div>
         </div>
         <div class="bt-card">
-          <div class="bt-val" style="color:var(--green)">+23万円</div>
+          <div class="bt-val" style="color:var(--red,#dc3545)">−14万円</div>
           <div class="bt-lbl">年平均利益</div>
         </div>
       </div>
@@ -516,17 +543,17 @@
         <div class="bt-yr-row bt-yr-header">
           <span>年</span><span>件数</span><span>利益</span><span>ROI</span>
         </div>
-        <div class="bt-yr-row"><span>2020</span><span>883件</span><span class="pnl-pos">+338,920円</span><span class="roi-pos">164%</span></div>
-        <div class="bt-yr-row"><span>2021</span><span>901件</span><span class="pnl-pos">+214,370円</span><span class="roi-pos">140%</span></div>
-        <div class="bt-yr-row"><span>2022</span><span>907件</span><span class="pnl-pos">+247,860円</span><span class="roi-pos">146%</span></div>
-        <div class="bt-yr-row"><span>2023</span><span>892件</span><span class="pnl-pos">+175,790円</span><span class="roi-pos">133%</span></div>
-        <div class="bt-yr-row"><span>2024</span><span>894件</span><span class="pnl-pos">+272,000円</span><span class="roi-pos">151%</span></div>
-        <div class="bt-yr-row"><span>2025</span><span>872件</span><span class="pnl-pos">+157,200円</span><span class="roi-pos">130%</span></div>
+        <div class="bt-yr-row"><span>2020</span><span>912件</span><span class="pnl-neg">−96,780円</span><span class="roi-neg">73.5%</span></div>
+        <div class="bt-yr-row"><span>2021</span><span>931件</span><span class="pnl-neg">−168,480円</span><span class="roi-neg">54.8%</span></div>
+        <div class="bt-yr-row"><span>2022</span><span>930件</span><span class="pnl-neg">−156,380円</span><span class="roi-neg">58.0%</span></div>
+        <div class="bt-yr-row"><span>2023</span><span>920件</span><span class="pnl-neg">−85,920円</span><span class="roi-neg">76.7%</span></div>
+        <div class="bt-yr-row"><span>2024</span><span>931件</span><span class="pnl-neg">−152,650円</span><span class="roi-neg">59.0%</span></div>
+        <div class="bt-yr-row"><span>2025</span><span>899件</span><span class="pnl-neg">−176,790円</span><span class="roi-neg">50.8%</span></div>
         <div class="bt-yr-row bt-yr-avg">
-          <span>平均</span><span>891件</span><span class="pnl-pos">+234,356円</span><span class="roi-pos">143.8%</span>
+          <span>平均</span><span>920件</span><span class="pnl-neg">−139,500円</span><span class="roi-neg">62.1%</span>
         </div>
       </div>
-      <div class="step-note" style="margin-top:12px">※ ダート×全距離×馬場不問の条件。6年連続黒字（最悪年130%）。Winsorized ROI（50,000円キャップ）で外れ値を補正済み。</div>
+      <div class="step-note" style="margin-top:12px">※ ダート×全距離×馬場不問の条件。軸=MCスコア最高馬、相手=MC上位3頭、馬連1点+ワイド3点買い（400円/R）。リーク修正後は6年全て赤字。Winsorized ROI（50,000円キャップ）適用。参考: 1番人気軸+人気相手=80.2% / ランダム軸=67.7% → MC軸62.1%は両ベースラインを下回る。</div>
     </div>
 
     <!-- OOSテスト -->
@@ -534,55 +561,48 @@
       <div class="logic-section-title">2026年OOSテスト（未来データ検証）</div>
       <div class="oos-box">
         <div class="oos-item">
-          <div class="oos-val" style="color:var(--green)">166.8%</div>
-          <div class="oos-lbl">2026年1〜5月 ROI</div>
+          <div class="oos-val" style="color:var(--red,#dc3545)">88.7%</div>
+          <div class="oos-lbl">2026年1〜3月 ROI</div>
         </div>
         <div class="oos-sep">→</div>
         <div class="oos-item">
-          <div class="oos-val">5/5ヶ月</div>
+          <div class="oos-val">2/3ヶ月</div>
           <div class="oos-lbl">黒字月</div>
         </div>
       </div>
-      <div class="step-note">BT期間外の2026年データで検証。過学習・リーク（未来データ流入）がないことを確認済み。</div>
+      <div class="step-note">リーク修正後BTでの再計測（1月47.0% / 2月116.4% / 3月117.7%）。※4〜5月分は直近データの umaban 未収録（JV-Link経由データの既知の欠落）のため配当照合ができず、集計対象外。</div>
     </div>
 
     <!-- 信頼性チェック -->
     <div class="mb-4">
       <div class="logic-section-title">信頼性チェック</div>
       <div class="check-list">
-        <div class="check-item check-ok">
-          <span class="check-icon">✓</span>
+        <div class="check-item check-warn">
+          <span class="check-icon">!</span>
           <div>
-            <div class="check-title">リークなし</div>
-            <div class="check-desc">履歴計算は <code>date &lt; 当日</code> で遮断。当日のレースデータは一切使っていない。</div>
-          </div>
-        </div>
-        <div class="check-item check-ok">
-          <span class="check-icon">✓</span>
-          <div>
-            <div class="check-title">過学習なし</div>
-            <div class="check-desc">フィルタ条件ゼロ（脚質・オッズ・クラスで絞り込みなし）。最適化パラメータが存在しないためフィットしようがない。</div>
+            <div class="check-title">リーク: 発見→修正済み（2026-07-07）</div>
+            <div class="check-desc">履歴計算は <code>date &lt; 当日</code> で遮断されていたが、BTのみ「当該レースの実測上がり3F」をシミュ入力に使うバグがあった（本番予想は前走値を使用）。修正済み。本ページの数値は修正後BT。</div>
           </div>
         </div>
         <div class="check-item check-ok">
           <span class="check-icon">✓</span>
           <div>
             <div class="check-title">係数はBT非依存</div>
-            <div class="check-desc">H/M/Sの基準値は委員会の合意値（競馬の経験則）。BTデータから逆算した係数ではない。</div>
-          </div>
-        </div>
-        <div class="check-item check-ok">
-          <span class="check-icon">✓</span>
-          <div>
-            <div class="check-title">MCのエッジは本物</div>
-            <div class="check-desc">MC軸 ROI 210.1% vs 1番人気軸 75.7% vs ランダム軸 70.1%。MCに実質的な予測力がある。</div>
+            <div class="check-desc">H/M/Sの基準値は委員会の合意値（競馬の経験則）。BTデータから逆算した係数ではない。フィルタ条件もゼロ。</div>
           </div>
         </div>
         <div class="check-item check-warn">
           <span class="check-icon">!</span>
           <div>
-            <div class="check-title">停止ルール</div>
-            <div class="check-desc">実運用3ヶ月でROI &lt; 90% なら即停止。委員会付帯決議により義務化。</div>
+            <div class="check-title">MCのエッジ: 現状確認できず</div>
+            <div class="check-desc">リーク修正後: MC軸 ROI 62.1% vs 1番人気軸 80.2% vs ランダム軸 67.7%。現行の脚質×ペースのみのMCモデルには市場を上回る予測力がない。旧232%はリークの産物だった。</div>
+          </div>
+        </div>
+        <div class="check-item check-warn">
+          <span class="check-icon">!</span>
+          <div>
+            <div class="check-title">停止ルール該当 → 委員会審議中</div>
+            <div class="check-desc">「実運用3ヶ月でROI &lt; 90% なら即停止」の委員会付帯決議に対し、修正後BTは全期間でROI &lt; 90%。運用継続の可否を委員会で審議中。</div>
           </div>
         </div>
       </div>
@@ -594,7 +614,7 @@
       <div class="faq-list">
         <details class="faq-item">
           <summary class="faq-q">なぜダートだけ？芝はやらないの？</summary>
-          <div class="faq-a">芝は血統・コース適性・馬場バイアスが複雑で、MCモデルが苦手とする要素が多い。ダートはペース・体力依存の側面が強く、MCのシンプルなモデルとの相性が良い。芝三連複の中央値は1,615円（ダートより600円低い）で6年全黒字条件をクリアした組み合わせがゼロだった。</div>
+          <div class="faq-a">芝は血統・コース適性・馬場バイアスが複雑で、MCモデルが苦手とする要素が多いという設計判断だった。※当初の「ダート6年全黒字」の根拠BTはリーク（上の修正参照）を含んでいたため、ダート選定の優位性自体も再検証が必要。</div>
         </details>
         <details class="faq-item">
           <summary class="faq-q">なぜ馬連＋ワイドの組み合わせ？</summary>
@@ -602,7 +622,7 @@
         </details>
         <details class="faq-item">
           <summary class="faq-q">なぜ相手を人気順でなくMCスコア順にする？</summary>
-          <div class="faq-a">人気4頭 ROI 143.8% → MC上位4頭 ROI 210.1%（+66pt）。MCモデルが人気とは異なる「走破力の優劣」を評価しており、人気薄の高配当馬を的確に拾うため配当が増える。軸馬の人気分布：1番人気17% / 9番人気以下24%（穴馬寄り）。</div>
+          <div class="faq-a">【2026-07-07更新】リーク修正前は「MC上位3頭が人気3頭を+85pt上回る」とされていたが、修正後は逆転: 人気3頭 ROI 68.1% &gt; MC上位3頭 ROI 62.1%。MC順の相手選定に優位性は確認できなくなった。この選定方式も委員会審議の対象。</div>
         </details>
         <details class="faq-item">
           <summary class="faq-q">馬場切替はどのタイミングでする？</summary>
@@ -630,218 +650,187 @@ const STORAGE_KEY = 'mc_keiba_v2';
 // ── Race data ──
 const RACES = [
   {
-    id: "20260628_函館_7", date: "2026-06-28", venue: "函館", rno: 7,
-    rname: "3歳以上1勝クラス", dst: 1700, cnt: 10,
-    start_time: "13:10", nk_id: "202602010607",
+    id: "20260718_函館_7", date: "2026-07-18", venue: "函館", rno: 7,
+    rname: "3歳以上1勝クラス", dst: 1700, cnt: 14,
+    start_time: "13:10", nk_id: "202602011107",
     patterns: {
       "良・稍重": {
-        jiku: { no:9, name:"ゴールドヴィーナス", style:"差し", jockey:"松本", mc:0.52 },
+        jiku: { no:7, name:"グランセレスト", style:"逃げ", jockey:"丹内", mc:0.44 },
         aite: [
-          { no:5, name:"アリストクラシア", style:"差し", jockey:"岩田望", mc:0.5 },
-          { no:8, name:"サウンドルーチェ", style:"先行", jockey:"▲小林美", mc:0.37 },
-          { no:7, name:"ヒミノエトワール", style:"差し", jockey:"武豊", mc:0.35 }
+          { no:12, name:"カーマンライン", style:"差し", jockey:"▲遠藤", mc:0.38 },
+          { no:9, name:"シェーンルスカ", style:"追い込み", jockey:"★河原田", mc:0.33 },
+          { no:14, name:"ホウオウバローロ", style:"先行", jockey:"△鷲頭", mc:0.28 }
         ]
       },
       "重": {
-        jiku: { no:8, name:"サウンドルーチェ", style:"先行", jockey:"▲小林美", mc:0.46 },
+        jiku: { no:7, name:"グランセレスト", style:"逃げ", jockey:"丹内", mc:0.53 },
         aite: [
-          { no:4, name:"キャットテイル", style:"逃げ", jockey:"★河原田", mc:0.46 },
-          { no:9, name:"ゴールドヴィーナス", style:"差し", jockey:"松本", mc:0.41 },
-          { no:5, name:"アリストクラシア", style:"差し", jockey:"岩田望", mc:0.41 }
+          { no:8, name:"パラダイスフェイス", style:"先行", jockey:"古川吉", mc:0.38 },
+          { no:14, name:"ホウオウバローロ", style:"先行", jockey:"△鷲頭", mc:0.36 },
+          { no:12, name:"カーマンライン", style:"差し", jockey:"▲遠藤", mc:0.32 }
         ]
       },
       "不良": {
-        jiku: { no:8, name:"サウンドルーチェ", style:"先行", jockey:"▲小林美", mc:0.52 },
+        jiku: { no:7, name:"グランセレスト", style:"逃げ", jockey:"丹内", mc:0.55 },
         aite: [
-          { no:4, name:"キャットテイル", style:"逃げ", jockey:"★河原田", mc:0.51 },
-          { no:6, name:"ガーネットフレア", style:"先行", jockey:"鮫島駿", mc:0.36 },
-          { no:5, name:"アリストクラシア", style:"差し", jockey:"岩田望", mc:0.36 }
+          { no:8, name:"パラダイスフェイス", style:"先行", jockey:"古川吉", mc:0.45 },
+          { no:14, name:"ホウオウバローロ", style:"先行", jockey:"△鷲頭", mc:0.38 },
+          { no:5, name:"ウィズマスタング", style:"先行", jockey:"横山武", mc:0.32 }
         ]
       }
     }
   },
   {
-    id: "20260628_函館_10", date: "2026-06-28", venue: "函館", rno: 10,
-    rname: "渡島特別", dst: 1700, cnt: 11,
-    start_time: "14:45", nk_id: "202602010610",
+    id: "20260718_函館_11", date: "2026-07-18", venue: "函館", rno: 11,
+    rname: "マリーンS", dst: 1700, cnt: 13,
+    start_time: "15:20", nk_id: "202602011111",
     patterns: {
       "良・稍重": {
-        jiku: { no:10, name:"ウインシャーガス", style:"先行", jockey:"鮫島駿", mc:0.57 },
+        jiku: { no:4, name:"ホールシバン", style:"追い込み", jockey:"横山琉", mc:0.36 },
         aite: [
-          { no:8, name:"ニシノラヴァンダ", style:"先行", jockey:"横山琉", mc:0.54 },
-          { no:11, name:"ドーンコーラス", style:"追い込み", jockey:"丹内", mc:0.41 },
-          { no:5, name:"ブラックルビー", style:"先行", jockey:"北村友", mc:0.41 }
+          { no:7, name:"ラタフォレスト", style:"差し", jockey:"横山武", mc:0.31 },
+          { no:5, name:"イガッチ", style:"先行", jockey:"池添", mc:0.3 },
+          { no:8, name:"ハグ", style:"先行", jockey:"鮫島駿", mc:0.27 }
         ]
       },
       "重": {
-        jiku: { no:10, name:"ウインシャーガス", style:"先行", jockey:"鮫島駿", mc:0.64 },
+        jiku: { no:5, name:"イガッチ", style:"先行", jockey:"池添", mc:0.34 },
         aite: [
-          { no:8, name:"ニシノラヴァンダ", style:"先行", jockey:"横山琉", mc:0.57 },
-          { no:5, name:"ブラックルビー", style:"先行", jockey:"北村友", mc:0.44 },
-          { no:11, name:"ドーンコーラス", style:"追い込み", jockey:"丹内", mc:0.3 }
+          { no:4, name:"ホールシバン", style:"追い込み", jockey:"横山琉", mc:0.3 },
+          { no:10, name:"ウェイワードアクト", style:"先行", jockey:"舟山", mc:0.3 },
+          { no:8, name:"ハグ", style:"先行", jockey:"鮫島駿", mc:0.3 }
         ]
       },
       "不良": {
-        jiku: { no:10, name:"ウインシャーガス", style:"先行", jockey:"鮫島駿", mc:0.66 },
+        jiku: { no:5, name:"イガッチ", style:"先行", jockey:"池添", mc:0.37 },
         aite: [
-          { no:8, name:"ニシノラヴァンダ", style:"先行", jockey:"横山琉", mc:0.64 },
-          { no:5, name:"ブラックルビー", style:"先行", jockey:"北村友", mc:0.43 },
-          { no:11, name:"ドーンコーラス", style:"追い込み", jockey:"丹内", mc:0.29 }
+          { no:8, name:"ハグ", style:"先行", jockey:"鮫島駿", mc:0.32 },
+          { no:10, name:"ウェイワードアクト", style:"先行", jockey:"舟山", mc:0.31 },
+          { no:3, name:"オウギノカナメ", style:"先行", jockey:"丹内", mc:0.3 }
         ]
       }
     }
   },
   {
-    id: "20260628_小倉_7", date: "2026-06-28", venue: "小倉", rno: 7,
-    rname: "3歳以上1勝クラス", dst: 1000, cnt: 10,
-    start_time: "13:20", nk_id: "202610020207",
+    id: "20260718_小倉_10", date: "2026-07-18", venue: "小倉", rno: 10,
+    rname: "熊本城特別", dst: 1700, cnt: 12,
+    start_time: "14:55", nk_id: "202610020710",
     patterns: {
       "良・稍重": {
-        jiku: { no:3, name:"ルディシャ", style:"追い込み", jockey:"藤懸", mc:0.48 },
+        jiku: { no:7, name:"ワンダーカモン", style:"差し", jockey:"Ｍデムーロ", mc:0.37 },
         aite: [
-          { no:6, name:"リアルアルバ", style:"先行", jockey:"西塚", mc:0.47 },
-          { no:9, name:"ミライハーモニー", style:"先行", jockey:"◇今村", mc:0.4 },
-          { no:2, name:"ゴールデンバランス", style:"逃げ", jockey:"松若", mc:0.38 }
+          { no:6, name:"タマモナポリ", style:"先行", jockey:"酒井", mc:0.37 },
+          { no:12, name:"タガノヘラクレス", style:"差し", jockey:"高杉", mc:0.36 },
+          { no:9, name:"ナリタヒカリ", style:"先行", jockey:"太宰", mc:0.36 }
         ]
       },
       "重": {
-        jiku: { no:6, name:"リアルアルバ", style:"先行", jockey:"西塚", mc:0.52 },
+        jiku: { no:6, name:"タマモナポリ", style:"先行", jockey:"酒井", mc:0.46 },
         aite: [
-          { no:3, name:"ルディシャ", style:"追い込み", jockey:"藤懸", mc:0.43 },
-          { no:2, name:"ゴールデンバランス", style:"逃げ", jockey:"松若", mc:0.41 },
-          { no:9, name:"ミライハーモニー", style:"先行", jockey:"◇今村", mc:0.41 }
+          { no:9, name:"ナリタヒカリ", style:"先行", jockey:"太宰", mc:0.44 },
+          { no:2, name:"ワイドクリーガー", style:"先行", jockey:"団野", mc:0.39 },
+          { no:12, name:"タガノヘラクレス", style:"差し", jockey:"高杉", mc:0.28 }
         ]
       },
       "不良": {
-        jiku: { no:6, name:"リアルアルバ", style:"先行", jockey:"西塚", mc:0.51 },
+        jiku: { no:6, name:"タマモナポリ", style:"先行", jockey:"酒井", mc:0.5 },
         aite: [
-          { no:2, name:"ゴールデンバランス", style:"逃げ", jockey:"松若", mc:0.45 },
-          { no:9, name:"ミライハーモニー", style:"先行", jockey:"◇今村", mc:0.41 },
-          { no:3, name:"ルディシャ", style:"追い込み", jockey:"藤懸", mc:0.39 }
+          { no:9, name:"ナリタヒカリ", style:"先行", jockey:"太宰", mc:0.45 },
+          { no:2, name:"ワイドクリーガー", style:"先行", jockey:"団野", mc:0.43 },
+          { no:12, name:"タガノヘラクレス", style:"差し", jockey:"高杉", mc:0.28 }
         ]
       }
     }
   },
   {
-    id: "20260628_小倉_10", date: "2026-06-28", venue: "小倉", rno: 10,
-    rname: "西部日刊スポーツ杯", dst: 1700, cnt: 16,
-    start_time: "14:55", nk_id: "202610020210",
+    id: "20260718_小倉_12", date: "2026-07-18", venue: "小倉", rno: 12,
+    rname: "3歳以上1勝クラス", dst: 1700, cnt: 14,
+    start_time: "16:15", nk_id: "202610020712",
     patterns: {
       "良・稍重": {
-        jiku: { no:3, name:"レーティッシュ", style:"先行", jockey:"川田", mc:0.43 },
+        jiku: { no:13, name:"ヨカオウ", style:"差し", jockey:"☆田山", mc:0.64 },
         aite: [
-          { no:13, name:"コスモストーム", style:"差し", jockey:"秋山稔", mc:0.34 },
-          { no:12, name:"カウンティフェア", style:"先行", jockey:"長岡", mc:0.34 },
-          { no:15, name:"ズバットマサムネ", style:"差し", jockey:"富田", mc:0.27 }
+          { no:5, name:"バートラガッツ", style:"先行", jockey:"松山", mc:0.4 },
+          { no:12, name:"フリッシュ", style:"追い込み", jockey:"藤懸", mc:0.28 },
+          { no:3, name:"スマートクラビ", style:"差し", jockey:"吉村", mc:0.25 }
         ]
       },
       "重": {
-        jiku: { no:3, name:"レーティッシュ", style:"先行", jockey:"川田", mc:0.53 },
+        jiku: { no:13, name:"ヨカオウ", style:"差し", jockey:"☆田山", mc:0.6 },
         aite: [
-          { no:12, name:"カウンティフェア", style:"先行", jockey:"長岡", mc:0.42 },
-          { no:13, name:"コスモストーム", style:"差し", jockey:"秋山稔", mc:0.29 },
-          { no:15, name:"ズバットマサムネ", style:"差し", jockey:"富田", mc:0.24 }
+          { no:5, name:"バートラガッツ", style:"先行", jockey:"松山", mc:0.49 },
+          { no:12, name:"フリッシュ", style:"追い込み", jockey:"藤懸", mc:0.26 },
+          { no:7, name:"ブラックレジェンド", style:"先行", jockey:"◇今村", mc:0.24 }
         ]
       },
       "不良": {
-        jiku: { no:3, name:"レーティッシュ", style:"先行", jockey:"川田", mc:0.57 },
+        jiku: { no:13, name:"ヨカオウ", style:"差し", jockey:"☆田山", mc:0.56 },
         aite: [
-          { no:12, name:"カウンティフェア", style:"先行", jockey:"長岡", mc:0.49 },
-          { no:13, name:"コスモストーム", style:"差し", jockey:"秋山稔", mc:0.27 },
-          { no:9, name:"カルパ", style:"差し", jockey:"田山", mc:0.19 }
+          { no:5, name:"バートラガッツ", style:"先行", jockey:"松山", mc:0.54 },
+          { no:12, name:"フリッシュ", style:"追い込み", jockey:"藤懸", mc:0.25 },
+          { no:10, name:"フランキーバローズ", style:"先行", jockey:"団野", mc:0.25 }
         ]
       }
     }
   },
   {
-    id: "20260628_小倉_12", date: "2026-06-28", venue: "小倉", rno: 12,
-    rname: "3歳以上1勝クラス", dst: 1700, cnt: 16,
-    start_time: "16:15", nk_id: "202610020212",
+    id: "20260718_福島_10", date: "2026-07-18", venue: "福島", rno: 10,
+    rname: "米沢特別", dst: 1700, cnt: 15,
+    start_time: "15:10", nk_id: "202603020710",
     patterns: {
       "良・稍重": {
-        jiku: { no:1, name:"ミランド", style:"差し", jockey:"西村淳", mc:0.46 },
+        jiku: { no:3, name:"グロスビーク", style:"先行", jockey:"戸崎圭", mc:0.48 },
         aite: [
-          { no:11, name:"バトゥカーダ", style:"差し", jockey:"秋山稔", mc:0.28 },
-          { no:9, name:"ポルトドール", style:"差し", jockey:"角田和", mc:0.28 },
-          { no:13, name:"モズプリヴェール", style:"差し", jockey:"松若", mc:0.26 }
+          { no:2, name:"グラスブランシュ", style:"追い込み", jockey:"杉原", mc:0.34 },
+          { no:11, name:"ホープエトワール", style:"先行", jockey:"木幡巧", mc:0.31 },
+          { no:7, name:"ライジンマル", style:"先行", jockey:"木幡初", mc:0.27 }
         ]
       },
       "重": {
-        jiku: { no:1, name:"ミランド", style:"差し", jockey:"西村淳", mc:0.43 },
+        jiku: { no:3, name:"グロスビーク", style:"先行", jockey:"戸崎圭", mc:0.52 },
         aite: [
-          { no:3, name:"アンティーム", style:"先行", jockey:"国分恭", mc:0.32 },
-          { no:10, name:"クイノールト", style:"先行", jockey:"幸", mc:0.3 },
-          { no:11, name:"バトゥカーダ", style:"差し", jockey:"秋山稔", mc:0.24 }
+          { no:11, name:"ホープエトワール", style:"先行", jockey:"木幡巧", mc:0.34 },
+          { no:7, name:"ライジンマル", style:"先行", jockey:"木幡初", mc:0.3 },
+          { no:2, name:"グラスブランシュ", style:"追い込み", jockey:"杉原", mc:0.3 }
         ]
       },
       "不良": {
-        jiku: { no:1, name:"ミランド", style:"差し", jockey:"西村淳", mc:0.38 },
+        jiku: { no:3, name:"グロスビーク", style:"先行", jockey:"戸崎圭", mc:0.55 },
         aite: [
-          { no:10, name:"クイノールト", style:"先行", jockey:"幸", mc:0.35 },
-          { no:3, name:"アンティーム", style:"先行", jockey:"国分恭", mc:0.33 },
-          { no:8, name:"セルジュバローズ", style:"逃げ", jockey:"吉村", mc:0.25 }
+          { no:11, name:"ホープエトワール", style:"先行", jockey:"木幡巧", mc:0.37 },
+          { no:12, name:"タケルハーロック", style:"逃げ", jockey:"石田", mc:0.31 },
+          { no:7, name:"ライジンマル", style:"先行", jockey:"木幡初", mc:0.31 }
         ]
       }
     }
   },
   {
-    id: "20260628_福島_10", date: "2026-06-28", venue: "福島", rno: 10,
-    rname: "鶴ケ城S", dst: 1700, cnt: 11,
-    start_time: "15:10", nk_id: "202603020210",
+    id: "20260718_福島_12", date: "2026-07-18", venue: "福島", rno: 12,
+    rname: "3歳以上1勝クラス", dst: 1150, cnt: 16,
+    start_time: "16:30", nk_id: "202603020712",
     patterns: {
       "良・稍重": {
-        jiku: { no:7, name:"ラフエイジアン", style:"差し", jockey:"ゴンサルベ", mc:0.46 },
+        jiku: { no:2, name:"ソニックブレイカー", style:"差し", jockey:"戸崎圭", mc:0.49 },
         aite: [
-          { no:4, name:"エクリプスルバン", style:"先行", jockey:"戸崎圭", mc:0.4 },
-          { no:9, name:"ドバイブルース", style:"先行", jockey:"横山武", mc:0.39 },
-          { no:8, name:"アイウィル", style:"差し", jockey:"田口", mc:0.36 }
+          { no:3, name:"ディヴァインスカイ", style:"差し", jockey:"津村", mc:0.33 },
+          { no:13, name:"ベルゼビュート", style:"先行", jockey:"菊沢", mc:0.31 },
+          { no:15, name:"ロックオブソシジ", style:"先行", jockey:"柴田大", mc:0.27 }
         ]
       },
       "重": {
-        jiku: { no:9, name:"ドバイブルース", style:"先行", jockey:"横山武", mc:0.5 },
+        jiku: { no:13, name:"ベルゼビュート", style:"先行", jockey:"菊沢", mc:0.41 },
         aite: [
-          { no:4, name:"エクリプスルバン", style:"先行", jockey:"戸崎圭", mc:0.43 },
-          { no:5, name:"ヴァナルガンド", style:"先行", jockey:"津村", mc:0.41 },
-          { no:7, name:"ラフエイジアン", style:"差し", jockey:"ゴンサルベ", mc:0.31 }
+          { no:2, name:"ソニックブレイカー", style:"差し", jockey:"戸崎圭", mc:0.4 },
+          { no:15, name:"ロックオブソシジ", style:"先行", jockey:"柴田大", mc:0.34 },
+          { no:14, name:"エコロカディス", style:"先行", jockey:"杉原", mc:0.32 }
         ]
       },
       "不良": {
-        jiku: { no:9, name:"ドバイブルース", style:"先行", jockey:"横山武", mc:0.49 },
+        jiku: { no:13, name:"ベルゼビュート", style:"先行", jockey:"菊沢", mc:0.43 },
         aite: [
-          { no:4, name:"エクリプスルバン", style:"先行", jockey:"戸崎圭", mc:0.47 },
-          { no:5, name:"ヴァナルガンド", style:"先行", jockey:"津村", mc:0.42 },
-          { no:3, name:"バギーウィップ", style:"先行", jockey:"武藤", mc:0.32 }
-        ]
-      }
-    }
-  },
-  {
-    id: "20260628_福島_12", date: "2026-06-28", venue: "福島", rno: 12,
-    rname: "3歳以上1勝クラス", dst: 1150, cnt: 14,
-    start_time: "16:30", nk_id: "202603020212",
-    patterns: {
-      "良・稍重": {
-        jiku: { no:14, name:"ジャスフォール", style:"差し", jockey:"石橋脩", mc:0.45 },
-        aite: [
-          { no:5, name:"クアロアランチ", style:"先行", jockey:"荻野極", mc:0.41 },
-          { no:7, name:"ソニックブレイカー", style:"先行", jockey:"戸崎圭", mc:0.41 },
-          { no:1, name:"ロイヤルスパイア", style:"先行", jockey:"松山", mc:0.33 }
-        ]
-      },
-      "重": {
-        jiku: { no:5, name:"クアロアランチ", style:"先行", jockey:"荻野極", mc:0.48 },
-        aite: [
-          { no:7, name:"ソニックブレイカー", style:"先行", jockey:"戸崎圭", mc:0.43 },
-          { no:1, name:"ロイヤルスパイア", style:"先行", jockey:"松山", mc:0.37 },
-          { no:4, name:"ミルトハーバー", style:"先行", jockey:"田辺", mc:0.35 }
-        ]
-      },
-      "不良": {
-        jiku: { no:5, name:"クアロアランチ", style:"先行", jockey:"荻野極", mc:0.45 },
-        aite: [
-          { no:7, name:"ソニックブレイカー", style:"先行", jockey:"戸崎圭", mc:0.44 },
-          { no:4, name:"ミルトハーバー", style:"先行", jockey:"田辺", mc:0.39 },
-          { no:13, name:"ブーケドリス", style:"逃げ", jockey:"横山武", mc:0.37 }
+          { no:2, name:"ソニックブレイカー", style:"差し", jockey:"戸崎圭", mc:0.38 },
+          { no:14, name:"エコロカディス", style:"先行", jockey:"杉原", mc:0.35 },
+          { no:15, name:"ロックオブソシジ", style:"先行", jockey:"柴田大", mc:0.35 }
         ]
       }
     }
@@ -942,8 +931,19 @@ function startPolling() {
 let historySortDesc = true; // 記録履歴: デフォルト降順（新しい順）
 let sortMode = 'time';
 
+function isRaceFinished(race) {
+  if (!race.start_time) return false;
+  const now = new Date();
+  const [h, m] = race.start_time.split(':').map(Number);
+  const t = new Date(now); t.setHours(h, m, 0, 0);
+  return now > t;
+}
+
 function getSortedRaces() {
   return [...RACES].sort((a, b) => {
+    const fa = isRaceFinished(a) ? 1 : 0;
+    const fb = isRaceFinished(b) ? 1 : 0;
+    if (fa !== fb) return fa - fb;
     if (sortMode === 'time') {
       const t = (a.start_time || '99:99').localeCompare(b.start_time || '99:99');
       return t !== 0 ? t : a.venue.localeCompare(b.venue, 'ja');
@@ -972,6 +972,7 @@ function renderAll() {
   sorted.forEach(race => {
     const div = document.createElement('div');
     div.id = 'card-' + race.id;
+    if (isRaceFinished(race)) div.classList.add('card-finished');
     container.appendChild(div);
     renderCard(race.id);
   });
@@ -986,6 +987,7 @@ function renderCard(raceId) {
   const a = p.aite;
   const payoutData = state.payouts[raceId] || null;
   const rec = state.records[raceId] || null;
+  const isFinal = payoutData?.status === 'final';
 
   // Track segment buttons
   const trackBtns = TRACKS.map(t =>
@@ -1119,7 +1121,7 @@ function renderCard(raceId) {
             <div class="card-title mb-0" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${race.venue} ${race.rno}R &nbsp;${race.rname}</div>
             <div class="text-secondary" style="font-size:12px;white-space:nowrap">ダ${race.dst}m &nbsp;${race.cnt}頭 &nbsp;<span style="color:#60a5fa;font-weight:600">${race.start_time || ''}</span></div>
           </div>
-          <button class="btn btn-sm btn-icon flex-shrink-0" title="払戻取得" onclick="clickRefresh('${raceId}', this)">↻</button>
+          <button class="btn btn-sm btn-icon flex-shrink-0${isFinal ? ' text-success' : ''}" title="${isFinal ? '取得済み（再取得）' : '払戻取得'}" onclick="clickRefresh('${raceId}', this)">${isFinal ? '✓' : '↻'}</button>
         </div>
         <div class="track-seg" style="align-self:flex-start">${trackBtns}</div>
       </div>
@@ -1197,12 +1199,52 @@ function saveAutoResult(raceId) {
   renderHistory();
 }
 
+const _pendingDeletes = {};
+
 function deleteRecord(raceId) {
+  if (_pendingDeletes[raceId]) {
+    clearTimeout(_pendingDeletes[raceId].timer);
+    delete _pendingDeletes[raceId];
+  }
+  const savedRecord = state.records[raceId];
+  const savedPayout = state.payouts[raceId];
   delete state.records[raceId];
   delete state.payouts[raceId];
   saveState();
   renderCard(raceId);
   renderHistory();
+  updateStats();
+  const race = RACES.find(r => r.id === raceId);
+  const label = race ? `${race.venue} ${race.rno}R` : raceId;
+  const toastId = 'undo-toast-' + raceId;
+  const old = document.getElementById(toastId);
+  if (old) old.remove();
+  const div = document.createElement('div');
+  div.id = toastId;
+  div.className = 'undo-toast';
+  div.innerHTML = `<span>${label} を削除</span><button class="undo-btn" onclick="undoDelete('${raceId}')">元に戻す</button>`;
+  document.body.appendChild(div);
+  const timer = setTimeout(() => {
+    delete _pendingDeletes[raceId];
+    const el = document.getElementById(toastId);
+    if (el) { el.style.animation = 'fadeout .3s ease forwards'; setTimeout(() => { const e = document.getElementById(toastId); if (e) e.remove(); }, 320); }
+  }, 5000);
+  _pendingDeletes[raceId] = { timer, savedRecord, savedPayout };
+}
+
+function undoDelete(raceId) {
+  const pending = _pendingDeletes[raceId];
+  if (!pending) return;
+  clearTimeout(pending.timer);
+  delete _pendingDeletes[raceId];
+  if (pending.savedRecord) state.records[raceId] = pending.savedRecord;
+  if (pending.savedPayout) state.payouts[raceId] = pending.savedPayout;
+  saveState();
+  renderCard(raceId);
+  renderHistory();
+  updateStats();
+  const el = document.getElementById('undo-toast-' + raceId);
+  if (el) el.remove();
 }
 
 function resetAllResults() {
@@ -1258,6 +1300,15 @@ function updateStats() {
   pnlEl.textContent = (pnl >= 0 ? '+' : '') + pnl.toLocaleString() + '円';
   pnlEl.className = 'fw-semibold ' + (pnl > 0 ? 'pnl-pos' : pnl < 0 ? 'pnl-neg' : '');
   document.getElementById('st-hit').textContent = hitRate !== null ? hitRate.toFixed(1) + '%' : '—%';
+
+  const roiEl2 = document.getElementById('st-roi');
+  if (roi !== null) {
+    roiEl2.textContent = roi.toFixed(1) + '%';
+    roiEl2.className = 'fw-semibold ' + (roi >= 100 ? 'pnl-pos' : 'pnl-neg');
+  } else {
+    roiEl2.textContent = '—%';
+    roiEl2.className = 'fw-semibold';
+  }
 
   // ヘッダーROIは全期間を表示（参照指標として）
   const allRecs = Object.values(state.records);
@@ -1365,11 +1416,11 @@ function renderHistory() {
     return `<tr>
       <td style="white-space:nowrap;font-size:11px">${dateShort}</td>
       <td style="white-space:nowrap;font-size:11px">${race.venue} ${race.rno}R</td>
-      <td style="font-size:11px;white-space:nowrap">${abbrevRname(race.rname)}</td>
-      <td style="white-space:nowrap">${cn(j.no)} ${j.name}</td>
+      <td class="d-none d-sm-table-cell" style="font-size:11px;white-space:nowrap">${abbrevRname(race.rname)}</td>
+      <td class="d-none d-sm-table-cell" style="white-space:nowrap">${cn(j.no)} ${j.name}</td>
       <td>${jikuTxt}</td>
       <td>${aiteTxt}</td>
-      <td class="text-secondary" style="font-size:11px;white-space:nowrap">${rec.hitType}</td>
+      <td class="d-none d-sm-table-cell text-secondary" style="font-size:11px;white-space:nowrap">${rec.hitType}</td>
       <td class="${pnlCls}" style="font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700">${sign}${pnl.toLocaleString()}円</td>
     </tr>`;
   }).join('');
@@ -1386,7 +1437,7 @@ function renderHistory() {
       <table class="table table-sm table-hover">
         <thead>
           <tr class="text-secondary" style="font-size:11px">
-            <th>日付</th><th>レース</th><th>名称</th><th>軸馬</th><th>軸</th><th>相手</th><th>結果</th><th>損益</th>
+            <th>日付</th><th>レース</th><th class="d-none d-sm-table-cell">名称</th><th class="d-none d-sm-table-cell">軸馬</th><th>軸</th><th>相手</th><th class="d-none d-sm-table-cell">結果</th><th>損益</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>

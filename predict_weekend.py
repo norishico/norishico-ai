@@ -7,13 +7,14 @@ sys.path.insert(0, '.')
 import importlib, scoring
 importlib.reload(scoring)
 
-from scoring import (get_conn, score_past_performance, score_course_fitness,
+from scoring import (
+    calc_lap_pace_bonus,get_conn, score_past_performance, score_course_fitness,
     score_jockey_trainer, score_rotation, score_training_actual, score_bloodline,
     score_gate_style, get_weights, calc_pace_context, _infer_running_style,
     score_surface_switch, _surface_switch_cache,
     calc_course_blood_bonus, calc_gate_cond_blood_bonus, calc_track_bias_bonus,
     calc_venue_sire_bonus, calc_venue_damsire_bonus, calc_cushion_sire_bonus,
-    calc_nicks_bonus,
+    calc_nicks_bonus, get_race_level_badge_info,
     calc_daily_bias_bonus, calc_condition_penalty, EV_CONDITIONS,
     _past_runs_cache, _course_runs_cache, _running_style_cache,
     _jockey_cache, _trainer_cache, _combo_cache, _ace_cache,
@@ -24,6 +25,18 @@ from backtest_full import prefetch_score_caches, prefetch_jt, grade_full
 from backtest_v2 import calc_win_prob_s12, calc_ev_scale7
 from backtest_v6 import is_buy_v6, is_special_buy, SUNDAY_SIRES
 import numpy as np
+
+# ── ペースシナリオ (Step C, フェーズ1: 表示専用) ───────────────────
+try:
+    from pace_scenario import (
+        calc_race_pace_probability,
+        calc_pace_scenario_bonus,
+        get_horse_pace_scores,
+        describe_pace_scenario,
+    )
+    _PACE_SCENARIO_AVAILABLE = True
+except ImportError:
+    _PACE_SCENARIO_AVAILABLE = False
 
 DB_PATH = 'keiba.db'
 
@@ -105,13 +118,29 @@ def score_weekend_race(race, conn, sc_conn):
     venue = race.get('venue', '')
     surf_raw = race.get('surface', '芝')
     surface = '芝' if '芝' in str(surf_raw) else 'ダ'
-    dist = race.get('distance', 1600)
+    dist_raw = race.get('distance', 0)
+    try:
+        dist = int(dist_raw) if dist_raw else 0
+    except (ValueError, TypeError):
+        dist = 0
+    if not dist:
+        return None  # 障害レースなど距離不明は対象外
     cond = race.get('track_cond', '良') or '良'
     rname = race.get('race_name', '')
-    # race_idの下4桁目-3桁目が日次（05=土,06=日 etc）→実日付をマッピング
-    rid = str(race.get('race_id', ''))
-    day_code = rid[8:10] if len(rid) >= 10 else '05'
-    date = '2026-04-12' if day_code == '06' else '2026-04-11'
+    # レースの実日付を使用（this_week_races.jsonに date フィールドがある場合優先）
+    explicit_date = race.get('date', '')
+    if explicit_date and len(explicit_date) == 10:
+        date = explicit_date
+    else:
+        import datetime as _dt_mod
+        rid = str(race.get('race_id', ''))
+        day_code = rid[8:10] if len(rid) >= 10 else '01'
+        today = _dt_mod.date.today()
+        wd = today.weekday()  # 0=Mon ... 5=Sat 6=Sun
+        sat = today + _dt_mod.timedelta(days=(5 - wd) % 7)
+        sun = sat + _dt_mod.timedelta(days=1)
+        date = sat.strftime('%Y-%m-%d') if int(day_code) % 2 == 1 else sun.strftime('%Y-%m-%d')
+    race['date'] = date  # JSON出力に反映させる
     heads = len(horses)
     gr = grade_for_prediction(race)
     W = get_weights(gr)
@@ -124,9 +153,11 @@ def score_weekend_race(race, conn, sc_conn):
 
     # 展開コンテキスト
     race_styles = []
+    _style_map = {}
     for h in horses:
         style = _infer_running_style(h['name'], date, surface, dist, sc_conn)
         race_styles.append(style)
+        _style_map[h['name']] = style
 
     pci_row = sc_conn.execute("""
         SELECT AVG(pci) as avg_pci FROM (
@@ -267,18 +298,47 @@ def score_weekend_race(race, conn, sc_conn):
                         if pr_pace_unfav:
                             bias_overcome = True
 
+        # 直近7日調教本数 (表示専用・scoring未組込)
+        tc_row = sc_conn.execute(
+            "SELECT COUNT(*) FROM training WHERE TRIM(horse_name)=TRIM(?)"
+            " AND date>=DATE(?,'-7 days') AND date<?",
+            (name, date, date)
+        ).fetchone()
+        train_count_7d = tc_row[0] if tc_row else 0
+
+        # レースレベルバッジ (表示専用・scoring未組込)
+        _rl_info = get_race_level_badge_info(name, date, sc_conn)
+        _rl_badge = (
+            _rl_info is not None
+            and _rl_info['time_z_corrected'] <= -1.5
+            and _rl_info['prev_finish'] is not None
+            and _rl_info['prev_finish'] <= 3
+        )
+        if _rl_badge:
+            _fin_str = f"{_rl_info['prev_finish']}着"
+            _pct = round(_rl_info['percentile_rank'], 1)
+            _rl_detail = (
+                f"前走{_rl_info['venue']}{_rl_info['surface']}{_rl_info['distance']}m"
+                f"({_rl_info['track_cond']}) {_fin_str} / 勝ち時計 歴代上位{_pct}%"
+            )
+        else:
+            _rl_detail = ''
+
         results.append({
             'horse_name': name, 'horse_num': hn, 'jockey': jockey,
             'odds': odds, 'popularity': pop, 'total_score': round(total, 1),
             '_blood_score': sb['score'], '_sire': sire, '_dam_sire': dam_sire,
             '_prev_pos4': int(prev_runs[0]['pos4']) if prev_runs and prev_runs[0].get('pos4') else 0,
-            '_running_style': style,
+            '_running_style': _style_map.get(name),
             'accel_lap': st.get('accel_lap', False),
             'has_good_train': st.get('has_good_train', False),
             'trainer': trainer, 'waku': h.get('waku', 0),
             'bias_overcome': bias_overcome,
             'bias_close_loss': bias_close_loss,
             'surface_switch': s_switch['detail'] if s_switch else '',
+            'train_count_7d': train_count_7d,
+            '_rl_badge': _rl_badge,
+            '_rl_detail': _rl_detail,
         })
 
     results.sort(key=lambda x: x['total_score'], reverse=True)
@@ -335,7 +395,11 @@ def score_weekend_race(race, conn, sc_conn):
     honmei_good = honmei.get('has_good_train', False)
     honmei_sire = honmei.get('_sire', '')
     honmei_accel = honmei.get('accel_lap', False)
-    buy_zone, ev_ok = is_buy_v6(gr, heads, gap, honmei_odds, ev7, good_train=honmei_good, sire=honmei_sire, track_cond=cond, accel=honmei_accel)
+    honmei_train_count = honmei.get('train_count_7d', 99)
+    buy_zone, ev_ok = is_buy_v6(gr, heads, gap, honmei_odds, ev7, good_train=honmei_good, sire=honmei_sire, track_cond=cond, accel=honmei_accel, train_count_7d=honmei_train_count)
+    # ラップ適性フィルタ（min_lap_bonus: -0.2 / データなし=0.0で通過）
+    _lap_bonus = calc_lap_pace_bonus(honmei.get('horse_name',''), date, surface, recent_pci, sc_conn)
+    ev_ok = ev_ok and (_lap_bonus >= EV_CONDITIONS.get('min_lap_bonus', -999))
     if ev_ok:
         # 強バイアス不利枠フィルタ: honmeiが内枠(≤35%)で不利な3パターンは見送り
         from scoring import _get_opening_week
@@ -406,6 +470,8 @@ def score_weekend_race(race, conn, sc_conn):
     if calc_venue_sire_bonus(venue, dist, honmei_sire, sc_conn) > 0: reasons.append('コース適性◎')
     if calc_venue_damsire_bonus(venue, dist, honmei.get('_dam_sire',''), sc_conn) > 0: reasons.append('母父適性◎')
     if honmei_odds >= 10: reasons.append('配当妙味◎')
+    if honmei.get('_prev_pos4', 0) == 1: reasons.append('⚡前走逃げ')
+    if honmei.get('_rl_badge'): reasons.append('⚡ 強敵撃破')
     if not reasons: reasons.append('AI総合評価')
 
     # 損益分岐オッズ（クラス別勝率から逆算）
@@ -422,6 +488,38 @@ def score_weekend_race(race, conn, sc_conn):
         top3_others = [h for h in pop_sorted if h['horse_name'] != honmei_name and h['horse_name'] != ni_name][:3]
         sanrentan_targets = [{'name': h['horse_name'], 'odds': h.get('odds', 0), 'horse_num': h.get('horse_num', 0)} for h in top3_others]
 
+    # ── ペースシナリオ (Step C フェーズ1: 表示専用, スコア非影響) ──────
+    pace_probs = None
+    pace_scenario_text = ''
+    if _PACE_SCENARIO_AVAILABLE:
+        try:
+            # _style_mapは既にこの関数内で構築済み
+            horses_with_style = [
+                {'running_style': _style_map.get(h['name'], ''), **h}
+                for h in horses
+            ]
+            pace_probs = calc_race_pace_probability(sc_conn, venue, surface, dist, horses_with_style)
+            pace_scenario_text = describe_pace_scenario(pace_probs)
+            # pace_probs をレース dict に付与
+            race['pace_probs'] = pace_probs
+            race['pace_scenario_text'] = pace_scenario_text
+        except Exception as _e_pace:
+            pass
+
+    # 各馬に pace_bonus を付与 (フェーズ1は常に0.0, 表示専用)
+    for h2 in results:
+        horse_pace_s = None
+        if _PACE_SCENARIO_AVAILABLE and pace_probs:
+            try:
+                horse_pace_s = get_horse_pace_scores(h2['horse_name'], date, surface, sc_conn)
+                h2['pace_bonus'] = calc_pace_scenario_bonus(horse_pace_s, pace_probs)
+            except Exception:
+                h2['pace_bonus'] = 0.0
+        else:
+            h2['pace_bonus'] = 0.0
+        if horse_pace_s:
+            h2['_pace_scores'] = horse_pace_s  # デバッグ用 (表示には未使用)
+
     return {
         'race': race, 'grade': gr, 'results': results, 'gap': gap, 'ev7': ev7,
         'buy_type': buy_type, 'special_horse': special_horse, 'reasons': reasons,
@@ -430,6 +528,8 @@ def score_weekend_race(race, conn, sc_conn):
         'honmei': honmei, 'ni': ni, 'heads': heads,
         'breakeven_odds': breakeven_odds,
         'sanrentan_targets': sanrentan_targets,
+        'pace_probs': pace_probs,
+        'pace_scenario_text': pace_scenario_text,
     }
 
 

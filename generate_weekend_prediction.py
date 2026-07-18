@@ -1,8 +1,74 @@
 """weekend_predictions.jsonから予想HTMLを生成（v2: タブ切替+FB全反映）"""
-import json, os, glob
+import json, os, glob, sqlite3
 from datetime import datetime
 from collections import defaultdict
 from alerts_log import load_alerts
+from scoring import get_warnings as _get_jra_warnings
+
+# ペースシナリオ (Step D: 表示専用)
+try:
+    from pace_scenario import (
+        calc_race_pace_probability,
+        describe_pace_scenario,
+    )
+    _PACE_SCENARIO_AVAILABLE = True
+except ImportError:
+    _PACE_SCENARIO_AVAILABLE = False
+
+# WARNフラグ用DB接続 (モジュールロード時に一度だけ開く)
+try:
+    _warn_conn = sqlite3.connect('keiba.db')
+    _warn_conn.row_factory = sqlite3.Row
+    _warn_conn.execute("PRAGMA cache_size=-16384")
+    _warn_conn.execute("PRAGMA temp_store=MEMORY")
+except Exception:
+    _warn_conn = None
+
+# ペースシナリオ用DB接続 (モジュールロード時に一度だけ開く)
+try:
+    _pace_conn = sqlite3.connect('keiba.db')
+    _pace_conn.execute("PRAGMA cache_size=-16384")
+    _pace_conn.execute("PRAGMA temp_store=MEMORY")
+except Exception:
+    _pace_conn = None
+
+# ペースシナリオキャッシュ: race_id → {'pace_probs': {H,M,S}, 'pace_scenario_text': str}
+_pace_cache = {}
+
+
+def _get_pace_scenario(p):
+    """予測dictからペースシナリオを取得（キャッシュあり）。
+    weekend_predictions.json に pace_probs があればそちらを優先し、
+    なければリアルタイム計算する。
+    Returns: (pace_probs_dict, pace_scenario_text_str) or (None, None)
+    """
+    # JSON に既存データがある場合はそちらを優先
+    probs = p.get('pace_probs')
+    text = p.get('pace_scenario_text', '')
+    if probs and isinstance(probs, dict) and 'H' in probs:
+        return probs, text
+
+    # リアルタイム計算
+    if not _PACE_SCENARIO_AVAILABLE or _pace_conn is None:
+        return None, None
+
+    r = p.get('race', {})
+    race_id = r.get('race_id', '')
+    if race_id in _pace_cache:
+        cached = _pace_cache[race_id]
+        return cached['pace_probs'], cached['pace_scenario_text']
+
+    try:
+        venue = r.get('venue', '')
+        surface = r.get('surface', '')
+        distance = int(r.get('distance', 0))
+        horses = p.get('results', [])
+        probs = calc_race_pace_probability(_pace_conn, venue, surface, distance, horses)
+        text = describe_pace_scenario(probs)
+        _pace_cache[race_id] = {'pace_probs': probs, 'pace_scenario_text': text}
+        return probs, text
+    except Exception:
+        return None, None
 
 preds = json.load(open('weekend_predictions.json', encoding='utf-8'))
 
@@ -30,6 +96,24 @@ alerts = [f'<div class="alert-item {_alert_type_cls(a.get("type",""))}"><span cl
 # 月間結果（あれば読み込み）
 monthly_files = sorted(glob.glob('monthly_results_*.json'))
 monthly_data = json.load(open(monthly_files[-1], encoding='utf-8')) if monthly_files else None
+
+# v6.6集計用: 全月統合データ（当月 monthly_data とは別に全月合算）
+_all_monthly_days = []
+for _mf in monthly_files:
+    _md = json.load(open(_mf, encoding='utf-8'))
+    _all_monthly_days.extend(_md.get('days', []))
+_all_monthly_days.sort(key=lambda d: d['date'])
+_all_monthly_data = {'days': _all_monthly_days}
+
+# 発走済みレース結果ルックアップ (venue, race_num, MMDD) → buy_result
+_results_by_race = {}
+if monthly_data:
+    for _day in monthly_data.get('days', []):
+        _ds = _day['date']  # '2026-05-03'
+        _mmdd = _ds[5:7] + _ds[8:10]  # '0503'
+        for _br in _day.get('buy_results', []):
+            _key = (_br.get('venue', ''), int(_br.get('race_num', 0)), _mmdd)
+            _results_by_race[_key] = _br
 
 # ── なかのひとたち: メンバー定義 ──
 MEMBERS = {
@@ -227,9 +311,20 @@ def waku_class(waku):
     if waku == 0: return 'waku-0'
     return f'waku-{min(waku, 8)}'
 
-def get_date_info(race_id):
-    """race_idの日目から自動で日付を計算"""
-    from datetime import datetime, timedelta
+def get_date_info(race_id, explicit_date=''):
+    """race_idの日目から自動で日付を計算。explicit_date(YYYY-MM-DD)があればそちらを優先"""
+    from datetime import datetime, timedelta, date as _dt_date
+    weekdays = ['月', '火', '水', '木', '金', '土', '日']
+    if explicit_date and len(explicit_date) == 10:
+        try:
+            dt = datetime.strptime(explicit_date, '%Y-%m-%d')
+            wd_str = weekdays[dt.weekday()]
+            short = f"{dt.month}/{dt.day}({wd_str})"
+            key = dt.strftime('%m%d')
+            label = f"{dt.year}年{dt.month}月{dt.day}日（{wd_str}）"
+            return short, key, label
+        except ValueError:
+            pass
     day_num = int(race_id[8:10])
     today = datetime.now()
     wd = today.weekday()
@@ -241,7 +336,6 @@ def get_date_info(race_id):
         sat = today - timedelta(days=1)
     # 奇数日目=土曜、偶数日目=日曜
     dt = sat if day_num % 2 == 1 else sat + timedelta(days=1)
-    weekdays = ['月', '火', '水', '木', '金', '土', '日']
     wd_str = weekdays[dt.weekday()]
     short = f"{dt.month}/{dt.day}({wd_str})"
     key = dt.strftime('%m%d')
@@ -249,7 +343,8 @@ def get_date_info(race_id):
     return short, key, label
 
 for p in preds:
-    p['_date_short'], p['_date_key'], p['_date_label'] = get_date_info(p['race']['race_id'])
+    p['_date_short'], p['_date_key'], p['_date_label'] = get_date_info(
+        p['race']['race_id'], p['race'].get('date', ''))
 
 preds.sort(key=lambda p: (p['_date_key'], p['race'].get('venue',''), p['race'].get('race_num',0)))
 
@@ -335,6 +430,18 @@ def race_card_html(p, show_full=True):
     venue = r.get('venue', '')
     is_buy = bool(buy or sp)
 
+    # WARNフラグ計算 (買い馬のみ)
+    jra_warns = []
+    if is_buy and honmei and _warn_conn:
+        try:
+            race_date = r.get('date', '')
+            _dist = int(dist) if dist else 0
+            jra_warns = _get_jra_warnings(
+                _warn_conn, honmei['horse_name'], race_date, surf, _dist, venue
+            )
+        except Exception:
+            jra_warns = []
+
     if buy == 'v6_star3': stars='★★★'; conf='自信の一戦'; type_label='AI本命予想'
     elif buy == 'v6_star2': stars='★★'; conf='注目レース'; type_label='AI本命予想'
     elif buy == 'v6_challenge': stars='★'; conf='チャレンジ枠'; type_label='AI穴狙い'
@@ -359,7 +466,7 @@ def race_card_html(p, show_full=True):
         h += f'  <div class="type-label">{type_label}</div>\n'
 
     h += f'  <div class="race-header">\n'
-    h += f'    <div class="race-info"><span class="{num_cls}">{venue}{rnum}R</span><div>'
+    h += f'    <div class="race-info"><span class="{num_cls}">{venue}{rnum}R</span><div class="race-text">'
     h += f'<div class="race-name">{rname}</div>'
     # #5 馬場状態アイコン + #10 不良馬場赤枠
     _cond = r.get('track_cond', '良') or '良'
@@ -372,6 +479,24 @@ def race_card_html(p, show_full=True):
     if stars:
         h += f'    <div class="confidence"><div class="stars">{stars}</div><div class="conf-label">{conf}</div></div>\n'
     h += f'  </div>\n'
+    _nc = p.get('nige_candidates', 0)
+    if _nc == 1: _pace_str, _pace_col = 'スロー', '#FF8C00'
+    elif _nc == 2: _pace_str, _pace_col = 'ミドル', '#888888'
+    elif _nc >= 3: _pace_str, _pace_col = 'ハイ', '#1a6fc4'
+    else: _pace_str, _pace_col = '', ''
+    # ── ペース確率バー (Step D) — pace_probsがあれば3色バー優先、なければ旧バッジ ──
+    _pace_probs, _pace_text = _get_pace_scenario(p)
+    if _pace_probs:
+        _ph = int(_pace_probs.get('H', 0) * 100)
+        _pm = int(_pace_probs.get('M', 0) * 100)
+        _ps = int(_pace_probs.get('S', 0) * 100)
+        h += f'  <div class="pace-scenario-bar">'
+        h += f'<div class="pace-bar-h" style="width:{_ph}%">H{_ph}%</div>'
+        h += f'<div class="pace-bar-m" style="width:{_pm}%">M{_pm}%</div>'
+        h += f'<div class="pace-bar-s" style="width:{_ps}%">S{_ps}%</div>'
+        h += f'</div>\n'
+        if _pace_text:
+            h += f'  <div class="pace-desc">{_pace_text}</div>\n'
 
     if is_buy:
         h += '  <div class="picks-and-bet">\n'
@@ -396,6 +521,19 @@ def race_card_html(p, show_full=True):
                     if v != 0:
                         parts.append(f'{label}{v:+.1f}')
                 h += f'    <div class="score-breakdown">{" ".join(parts)}</div>\n'
+            # 調教本数バッジ (表示専用・scoring未組込)
+            tc = honmei.get('train_count_7d', 0)
+            if tc >= 2:
+                tc_color = '#2e7d32' if tc >= 3 else '#388e3c'
+                h += f'    <div style="font-size:10px;color:{tc_color};margin:2px 0 4px">🏋️ 直近7日調教 {tc}本 (2本以上)</div>\n'
+            elif tc == 1:
+                h += f'    <div style="font-size:10px;color:#888;margin:2px 0 4px">🏋️ 直近7日調教 1本</div>\n'
+            if jra_warns:
+                warn_badges = ' '.join(
+                    f'<span style="color:#f7b731;font-size:10px;border:1px solid #f7b731;border-radius:3px;padding:1px 5px">⚠ {w}</span>'
+                    for w in jra_warns
+                )
+                h += f'    <div style="margin:3px 0 4px">{warn_badges}</div>\n'
             if ni:
                 wc_n = waku_class(ni.get('waku',0))
                 hn_n = ni.get('horse_num','-')
@@ -484,6 +622,8 @@ def race_card_html(p, show_full=True):
             if tag == '楽逃げ候補': return ' raku-nige'
             if tag.startswith('逃げ候補'): return ' nige-count'
             if tag.startswith('初ダート') or tag.startswith('初芝'): return ' surface-switch'
+            if tag == '⚡前走逃げ': return ' prev-nige'
+            if tag == '⚡ 強敵撃破': return ' rl-badge'
             return ''
 
         h += '  <div class="reason-section">'
@@ -533,10 +673,20 @@ def race_card_html(p, show_full=True):
                 be_cls = 'be-warn'
                 be_text = f'分岐{be:.1f}倍 ⚠ 馬連込みで勝負'
             h += f'<span class="breakeven {be_cls}">{be_text}</span>'
-        # オッズ判定ステータス (3段階: 前日→確認済→買いGO)
+        # オッズ判定ステータス — 発走済みは結果を表示、未発走は3段階
         _mm = p.get('momentum')
-        _last_check = p.get('_last_odds_check', '')  # 発走前最終チェックのタイムスタンプ
-        if _last_check and is_buy:
+        _last_check = p.get('_last_odds_check', '')
+        _race_result = _results_by_race.get((venue, int(rnum), p['_date_key']))
+        if _race_result:
+            _profit  = _race_result.get('profit', 0)
+            _hfinish = _race_result.get('honmei_finish')
+            _winner  = _race_result.get('winner', '')
+            _fstr    = f'{_hfinish}着' if _hfinish else '?着'
+            if _profit > 0:
+                h += f'</div><span class="odds-status" style="background:#E8F5E9;color:#2E7D32;border-color:#66BB6A">✅ {_fstr} +{_profit:,}円</span></div>\n'
+            else:
+                h += f'</div><span class="odds-status" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">❌ {_fstr} 1着:{_winner}</span></div>\n'
+        elif _last_check and is_buy:
             h += '</div><span class="odds-status confirmed">✅ 買いGO（直前確認済み）</span></div>\n'
         elif _mm and is_buy:
             h += '</div><span class="odds-status checked">🔄 オッズ確認済み（発走前に最終判定）</span></div>\n'
@@ -544,6 +694,29 @@ def race_card_html(p, show_full=True):
             pass  # nobuyカードでグレーアウト済み
         else:
             h += '</div><span class="odds-status pending">📋 前日オッズ（当日朝に更新）</span></div>\n'
+
+        # コンボオッズ (馬連・ワイド・三連複・三連単)
+        _combo = p.get('combo_odds')
+        if _combo:
+            _circ = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯'
+            h += '  <div class="combo-odds-row">'
+            if _combo.get('umaren'):
+                h += f'<span class="combo-item"><span class="combo-label">馬連◎○</span><b class="combo-val">{_combo["umaren"]:.1f}倍</b></span>'
+            if _combo.get('wide_lo'):
+                _wlo = _combo['wide_lo']
+                _whi = _combo.get('wide_hi', _wlo)
+                _wstr = f'{_wlo:.1f}〜{_whi:.1f}倍' if abs(_whi - _wlo) > 0.05 else f'{_wlo:.1f}倍'
+                h += f'<span class="combo-item"><span class="combo-label">ワイド◎○</span><b class="combo-val">{_wstr}</b></span>'
+            if _combo.get('sanrenpuku'):
+                for _sr in _combo['sanrenpuku'][:1]:
+                    _ns = ''.join(_circ[n-1] for n in _sr['nums'] if 1 <= n <= 16)
+                    h += f'<span class="combo-item"><span class="combo-label">三連複{_ns}</span><b class="combo-val">{_sr["odds"]:.1f}倍</b></span>'
+            if _combo.get('sanrentan'):
+                for _st in _combo['sanrentan'][:2]:
+                    h += f'<span class="combo-item"><span class="combo-label">三連単{_st["key"]}</span><b class="combo-val">{_st["odds"]:.1f}倍</b></span>'
+            if _combo.get('updated_at'):
+                h += f'<span class="combo-time">{_combo["updated_at"]}</span>'
+            h += '</div>\n'
 
     # U2 パス理由表示（買い対象外レースに理由明記）
     pr = p.get('pass_reason', '')
@@ -574,7 +747,16 @@ def race_card_html(p, show_full=True):
             r += f'<span class="sb-mark {mc}">{mt}</span>'
             r += f'<span class="sb-umaban {wc}">{hn}</span>'
             r += f'<div class="sb-main">'
-            r += f'<div class="sb-name-row"><span class="sb-name">{horse["horse_name"]}</span>'
+            _style = horse.get('_running_style', '')
+            _nige_badge = '<span class="nige-badge">逃</span>' if _style == '逃げ' else ''
+            _rl_icon = '<span class="rl-icon" title="' + horse.get('_rl_detail','').replace('"',"'") + '">⚡</span>' if horse.get('_rl_badge') else ''
+            # ペースボーナス表示 (Step D: フェーズ1は常に0だが枠は表示)
+            _pb = horse.get('pace_bonus', None)
+            _pb_html = ''
+            if _pb is not None and abs(_pb) >= 0.05:
+                _pb_cls = 'pos' if _pb > 0 else 'neg'
+                _pb_html = f'<span class="sb-pace-bonus {_pb_cls}">{_pb:+.1f}</span>'
+            r += f'<div class="sb-name-row"><span class="sb-name">{horse["horse_name"]}</span>{_nige_badge}{_rl_icon}{_pb_html}'
             r += f'<span class="sb-jockey">{jk}</span>'
             if odds_str: r += f'<span class="sb-odds">{odds_str}</span>'
             r += f'</div>'
@@ -646,8 +828,9 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .day-picks{{font-size:16px;font-weight:700;color:var(--orange-pale)}}
 
 /* タブ（sticky） */
-.tab-bar{{display:flex;gap:6px;padding:10px 16px;overflow-x:auto;background:var(--cream);border-bottom:2px solid var(--card-border);position:sticky;z-index:90;-webkit-overflow-scrolling:touch}}
-.tab-bar.sub-tabs{{background:var(--bg);border-bottom:1px solid var(--card-border)}}
+.tab-bar{{display:flex;gap:6px;padding:10px 16px;overflow-x:auto;background:var(--cream);border-bottom:2px solid var(--card-border);position:sticky;top:58px;z-index:90;-webkit-overflow-scrolling:touch;scrollbar-width:none}}
+.tab-bar::-webkit-scrollbar{{display:none}}
+.tab-bar.sub-tabs{{background:var(--bg);border-bottom:1px solid var(--card-border);top:110px}}
 .tab{{padding:12px 20px;border-radius:24px;font-size:13px;font-weight:700;cursor:pointer;background:var(--card-bg);border:2px solid var(--card-border);color:var(--text-sub);transition:all 0.2s;white-space:nowrap;min-height:44px;display:flex;align-items:center}}
 .tab.active{{background:var(--orange);border-color:var(--orange);color:white}}
 .sub-tabs .tab{{font-size:12px;padding:10px 16px;min-height:40px}}
@@ -682,8 +865,6 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .race-card.star1 .race-header{{padding:10px 16px}}
 .race-card.star1 .horse-name{{font-size:14px}}
 .race-card.star1 .score-value{{font-size:16px}}
-/* 非買いカード */
-.race-card.nobuy{{opacity:0.85}}
 
 .race-header{{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,var(--cream),#FFF);border-bottom:1px solid var(--card-border)}}
 .race-info{{display:flex;align-items:center;gap:10px}}
@@ -702,12 +883,12 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .mark.honmei{{color:var(--orange)}}.mark.ni{{color:var(--green)}}.mark.special{{color:var(--orange)}}
 .umaban{{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:12px;font-weight:700;flex-shrink:0}}
 .horse-info{{flex:1;min-width:0}}
-.horse-name{{font-size:15px;font-weight:700}}
+.horse-name{{font-size:15px;font-weight:700;overflow-wrap:break-word}}
 .jockey-name{{font-size:11px;color:var(--text-sub);display:block;margin-top:1px}}
 .pick-right{{text-align:right;flex-shrink:0}}
 .score-value{{font-size:18px;font-weight:700;color:var(--orange)}}
 .score-sub{{font-size:10px;color:var(--text-sub)}}
-.score-breakdown{{font-size:13px;color:var(--text-sub);padding:3px 0 5px 28px;letter-spacing:0.3px}}
+.score-breakdown{{font-size:11px;color:var(--text-sub);padding:3px 0 5px 28px;line-height:1.7;overflow-wrap:break-word}}
 .pass-reason{{margin:8px 16px;padding:8px 12px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:8px;font-size:12px;color:#E65100;font-weight:500}}
 .legend-section{{margin:0 16px 12px;background:var(--card-bg);border-radius:12px;border:1px solid var(--card-border);overflow:hidden}}
 .legend-toggle{{padding:10px 14px;font-size:13px;font-weight:600;color:var(--text-main);cursor:pointer;display:flex;align-items:center;gap:6px}}
@@ -723,7 +904,7 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .san-row{{display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0}}
 .san-pos{{font-weight:700;color:#E65100;min-width:28px}}
 .san-arrow{{color:#FFB74D}}
-.san-horses{{color:var(--text)}}
+.san-horses{{color:var(--text);overflow-wrap:break-word}}
 .san-nums{{font-size:10px;color:var(--text-sub);margin-top:6px;padding-top:6px;border-top:1px dashed #FFB74D}}
 .bet-chips{{display:flex;flex-wrap:wrap;gap:6px;align-items:center}}
 .bet-chip{{background:white;border:1px solid var(--card-border);padding:4px 12px;border-radius:8px;font-size:12px}}
@@ -738,14 +919,16 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .reason-tag.momentum-down{{background:linear-gradient(135deg,#607D8B,#455A64);color:white;border:none;font-weight:700}}
 .reason-tag.momentum-flat{{background:#E0E0E0;color:#666;border:none}}
 .reason-tag.nige-count{{background:#E3F2FD;color:#1565C0;border:1px solid #BBDEFB}}
+.reason-tag.prev-nige{{background:#FFF8E1;color:#F57F17;border:1px solid #FFE082;font-weight:600}}
 .reason-more{{background:var(--cream);border:1px dashed var(--card-border);padding:4px 10px;border-radius:12px;font-size:11px;color:var(--text-sub);cursor:pointer}}
 .breakeven{{font-size:10px;padding:2px 8px;border-radius:8px;margin-left:8px;font-weight:600}}
 .be-good{{background:#E8F5E9;color:#2E7D32}}
 .be-ok{{background:#E8F5E9;color:#558B2F}}
 .be-warn{{background:#FFF3E0;color:#E65100}}
-.reason-extra{{display:inline;gap:6px}}
-.odds-section{{padding:12px 16px;border-top:1px solid var(--card-border);display:flex;justify-content:space-between;align-items:center}}
-.odds-display{{display:flex;gap:20px}}
+.reason-extra{{display:inline-flex;flex-wrap:wrap;gap:6px}}
+.odds-section{{padding:12px 16px;border-top:1px solid var(--card-border);display:flex;flex-direction:column;gap:8px}}
+.race-text{{flex:1;min-width:0;overflow:hidden}}
+.odds-display{{display:flex;flex-wrap:wrap;gap:10px}}
 .odds-val.odds-honmei{{color:#D32F2F;font-weight:700}}
 .odds-val.odds-middle{{color:#E65100;font-weight:700}}
 .odds-val.odds-ana{{color:#1565C0;font-weight:700}}
@@ -753,10 +936,15 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .odds-item{{font-size:13px;color:var(--text-sub)}}
 .odds-item .mark-sm{{font-weight:700;color:var(--text)}}
 .odds-item .odds-val{{font-size:18px;font-weight:700;color:var(--orange)}}
-.odds-status{{font-size:12px;padding:5px 14px;border-radius:12px;font-weight:700;border:1px solid var(--card-border)}}
+.odds-status{{font-size:12px;padding:5px 14px;border-radius:12px;font-weight:700;border:1px solid var(--card-border);align-self:flex-start}}
 .odds-status.pending{{background:#FFF3E0;color:var(--orange)}}
 .odds-status.checked{{background:#E3F2FD;color:#1565C0;border-color:#42A5F5}}
 .odds-status.confirmed{{background:#E8F5E9;color:#2E7D32;border-color:#66BB6A}}
+.combo-odds-row{{padding:6px 16px 8px;background:#F0F4FF;border-top:1px solid #D0D8F0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}}
+.combo-item{{display:inline-flex;gap:4px;align-items:center;font-size:11px;background:#fff;border:1px solid #C0C8E0;border-radius:8px;padding:2px 9px;white-space:nowrap}}
+.combo-label{{color:#666;font-weight:500}}
+.combo-val{{color:#1565C0;font-size:12px;font-weight:700}}
+.combo-time{{font-size:10px;color:#aaa;margin-left:auto}}
 
 /* スコアバー: 上位3頭表示+展開 */
 .sb-preview{{padding:8px 16px;border-top:1px solid var(--card-border)}}
@@ -802,6 +990,24 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .jiku-score{{font-weight:700;color:var(--orange);font-size:13px;flex-shrink:0;width:32px;text-align:right}}
 .jiku-row.bought{{background:var(--cream-light)}}
 .jiku-tag{{font-size:9px;background:var(--orange);color:white;padding:1px 6px;border-radius:4px;font-weight:700;margin-left:2px}}
+.jiku-pace{{font-size:9px;padding:1px 6px;border-radius:4px;font-weight:700;flex-shrink:0}}
+.jiku-pace.slow{{background:#FF8C00;color:white}}
+.jiku-pace.mid{{background:#888888;color:white}}
+.jiku-pace.high{{background:#1a6fc4;color:white}}
+.nige-badge{{font-size:9px;background:#e53935;color:white;padding:1px 4px;border-radius:3px;font-weight:700;margin-left:3px;flex-shrink:0}}
+.rl-icon{{font-size:11px;margin-left:3px;cursor:help;flex-shrink:0}}
+.reason-tag.rl-badge{{background:linear-gradient(135deg,#FFF8E1,#FFF3CD);color:#B8860B;border:1px solid #FFD700;font-weight:700}}
+.race-pace{{padding:2px 12px 4px;font-size:11px}}
+
+/* ペースシナリオバー (Step D) */
+.pace-scenario-bar{{display:flex;height:16px;border-radius:6px;overflow:hidden;margin:4px 12px 2px;gap:1px}}
+.pace-bar-h{{background:#1a6fc4;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;min-width:24px;transition:width 0.3s}}
+.pace-bar-m{{background:#888888;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;min-width:24px;transition:width 0.3s}}
+.pace-bar-s{{background:#FF8C00;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;min-width:24px;transition:width 0.3s}}
+.pace-desc{{padding:0 12px 4px;font-size:10px;color:var(--text-sub);line-height:1.4}}
+.sb-pace-bonus{{font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:3px;flex-shrink:0}}
+.sb-pace-bonus.pos{{color:#2E7D32;background:#E8F5E9}}
+.sb-pace-bonus.neg{{color:#C62828;background:#FFEBEE}}
 
 /* アラート */
 .alert-banner{{margin:12px 16px;padding:10px 14px;background:#FFF3E0;border:2px solid var(--orange-light);border-radius:10px;font-size:12px;line-height:1.8;color:var(--text)}}
@@ -818,9 +1024,9 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
 .result-summary .rs-title{{font-size:11px;color:var(--orange-pale);font-weight:700;letter-spacing:2px;margin-bottom:10px}}
 .result-summary .rs-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}}
 .result-summary .rs-item{{text-align:center;padding:10px 8px;background:rgba(255,255,255,0.1);border-radius:10px}}
-.result-summary .rs-label{{font-size:10px;color:var(--green-pale)}}
+.result-summary .rs-label{{font-size:10px;color:rgba(255,255,255,0.75)}}
 .result-summary .rs-value{{font-size:20px;font-weight:700;margin-top:2px;color:#fff}}
-.result-summary .rs-plus{{color:var(--orange-pale)}}.result-summary .rs-minus{{color:#F0A0A0}}.result-summary .rs-zero{{color:var(--green-pale)}}
+.result-summary .rs-plus{{color:var(--orange-pale)}}.result-summary .rs-minus{{color:#F0A0A0}}.result-summary .rs-zero{{color:rgba(255,255,255,0.6)}}
 .result-day{{margin:16px;background:var(--card-bg);border:2px solid var(--card-border);border-radius:12px;overflow:hidden}}
 .result-day-header{{padding:10px 16px;background:linear-gradient(135deg,var(--cream),#FFF);border-bottom:1px solid var(--card-border);display:flex;justify-content:space-between;align-items:center}}
 .result-day-header .day-label{{font-weight:700;font-size:13px}}
@@ -898,8 +1104,6 @@ body{{font-family:'Zen Maru Gothic','Hiragino Kaku Gothic ProN',sans-serif;backg
   </div>
 </div>
 
-{_summary_html}
-
 """
 
 # 当日の曜日に応じてデフォルトタブを決定（日曜=6→日曜タブ、それ以外→土曜タブ）
@@ -907,13 +1111,71 @@ from datetime import date as _date
 _today_wd = _date.today().weekday()  # 0=Mon ... 6=Sun
 _default_dk = all_dates[-1] if _today_wd == 6 and len(all_dates) > 1 else all_dates[0]
 
-# アイコン凡例セクション
+# 日付タブ + 結果タブ
 html += """
-<div class="legend-section" id="legendSection">
-  <div class="legend-toggle" onclick="var b=document.getElementById('legendBody');b.style.display=b.style.display==='none'?'block':'none';this.querySelector('.arrow').textContent=b.style.display==='none'?'▶':'▼'">
-    <span class="arrow">▶</span> アイコン・バッジの見方
+<div class="tab-bar date-tabs" id="dateTabs">
+"""
+if stale_mode:
+    # 次週末準備中モード: 日付タブの代わりに「準備中」タブを表示
+    html += '  <div class="tab active" onclick="switchDateTab(\'waiting\',this)">⏳ 次週末準備中</div>\n'
+else:
+    for i, dk in enumerate(all_dates):
+        act = ' active' if dk == _default_dk else ''
+        html += f'  <div class="tab{act}" onclick="switchDateTab(\'{dk}\',this)">{date_shorts[dk]}</div>\n'
+if monthly_data and monthly_data.get('days'):
+    html += f'  <div class="tab" onclick="switchDateTab(\'results\',this)">結果</div>\n'
+html += f'  <div class="tab" onclick="switchDateTab(\'rules\',this)">AIの判断基準</div>\n'
+html += '</div>\n'
+
+# stale_mode: 待機中コンテンツを表示して各日付タブはスキップ
+if stale_mode:
+    html += '<div class="tab-content active" id="daytab-waiting">\n'
+    html += '<div style="padding:60px 20px;text-align:center;color:var(--text-sub)">\n'
+    html += '<div style="font-size:60px;margin-bottom:16px">⏳</div>\n'
+    html += '<div style="font-size:18px;font-weight:700;color:var(--orange-pale);margin-bottom:12px">次週末の予想準備中</div>\n'
+    html += '<div style="font-size:13px;line-height:1.8;max-width:400px;margin:0 auto">\n'
+    html += '先週末のレースは終了しました。<br>\n'
+    html += '次週末の出馬表が公開され次第、<br>新しい予想を生成します。\n'
+    html += '</div>\n'
+    html += '<div style="margin-top:24px;font-size:11px;color:var(--text-sub);opacity:0.7">\n'
+    html += '※ 通常は木曜〜金曜に更新されます<br>\n'
+    html += '※ 結果タブで先週までの実績を確認できます\n'
+    html += '</div>\n'
+    html += '</div>\n'
+    html += '</div>\n'
+
+# ===== 各日付の中身 =====
+# stale_mode の場合はループ全体をスキップ
+for i, dk in enumerate(all_dates if not stale_mode else []):
+    act = ' active' if dk == _default_dk else ''
+    html += f'<div class="tab-content{act}" id="daytab-{dk}">\n'
+
+    day_venues = sorted(set(p['race'].get('venue','') for p in preds if p['_date_key']==dk))
+    day_graded = [p for p in preds if p['_date_key']==dk and p['grade'] in ('G1','G2','G3')]
+
+    # サブタブ
+    html += f'<div class="tab-bar sub-tabs" id="subTabs-{dk}">\n'
+    html += f'  <div class="tab active" onclick="switchSubTab(\'{dk}\',\'picks\',this)">期待値あり</div>\n'
+    if day_graded:
+        graded_tab_label = f'{date_shorts[dk]}の重賞'
+        html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'graded\',this)">{graded_tab_label}</div>\n'
+    for v in day_venues:
+        html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'{v}\',this)">{v}</div>\n'
+    html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'hotspot\',this)">注目データ</div>\n'
+    html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'nakanohito\',this)">なかのひとたち</div>\n'
+    html += '</div>\n'
+
+    # ── 期待値あり ──
+    day_buys = sorted([p for p in buy_preds if p['_date_key']==dk],
+                      key=lambda p: p['race'].get('start_time', '99:99'))
+    html += f'<div class="sub-content active" id="sub-{dk}-picks">\n'
+    if _summary_html:
+        html += _summary_html
+    html += """<div class="legend-section">
+  <div class="legend-toggle" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none';this.querySelector('.arrow').textContent=b.style.display==='none'?'▶':'▼'">
+    <span class="arrow">&#9658;</span> アイコン・バッジの見方
   </div>
-  <div class="legend-body" id="legendBody" style="display:none">
+  <div class="legend-body" style="display:none">
     <div class="legend-group">
       <div class="legend-title">信頼度</div>
       <div class="legend-item"><span class="legend-badge" style="color:#E65100">★★★</span> 自信の一戦（スコア突出+好調教+血統ボーナス）</div>
@@ -952,70 +1214,14 @@ html += """
     <div class="legend-group">
       <div class="legend-title">その他バッジ</div>
       <div class="legend-item"><span class="reason-tag raku-nige">楽逃げ候補</span> 逃げ馬が1頭だけ = ペース有利</div>
+      <div class="legend-item"><span class="reason-tag prev-nige">⚡前走逃げ</span> 前走で最終コーナー先頭（参考情報・スコア非反映）</div>
+      <div class="legend-item"><span class="reason-tag rl-badge">⚡ 強敵撃破</span> 前走でレベル上位3%レース(バイアス補正済)に1-3着入線。勝率17.9%/複勝40.9%のシグナル（参考情報・スコア非反映）</div>
       <div class="legend-item"><span class="reason-tag bias-overcome">前走不利克服</span> 前走で不利な展開を跳ね返した実績</div>
       <div class="legend-item"><span class="reason-tag surface-switch">初ダート転向</span> 芝→ダートまたはダート→芝の初転向</div>
     </div>
   </div>
 </div>
 """
-
-# 日付タブ + 結果タブ
-html += """
-<div class="tab-bar date-tabs" id="dateTabs">
-"""
-if stale_mode:
-    # 次週末準備中モード: 日付タブの代わりに「準備中」タブを表示
-    html += '  <div class="tab active" onclick="switchDateTab(\'waiting\')">⏳ 次週末準備中</div>\n'
-else:
-    for i, dk in enumerate(all_dates):
-        act = ' active' if dk == _default_dk else ''
-        html += f'  <div class="tab{act}" onclick="switchDateTab(\'{dk}\')">{date_shorts[dk]}</div>\n'
-if monthly_data and monthly_data.get('days'):
-    html += f'  <div class="tab" onclick="switchDateTab(\'results\')">結果</div>\n'
-html += f'  <div class="tab" onclick="switchDateTab(\'rules\')">AIの判断基準</div>\n'
-html += '</div>\n'
-
-# stale_mode: 待機中コンテンツを表示して各日付タブはスキップ
-if stale_mode:
-    html += '<div class="tab-content active" id="daytab-waiting">\n'
-    html += '<div style="padding:60px 20px;text-align:center;color:var(--text-sub)">\n'
-    html += '<div style="font-size:60px;margin-bottom:16px">⏳</div>\n'
-    html += '<div style="font-size:18px;font-weight:700;color:var(--orange-pale);margin-bottom:12px">次週末の予想準備中</div>\n'
-    html += '<div style="font-size:13px;line-height:1.8;max-width:400px;margin:0 auto">\n'
-    html += '先週末のレースは終了しました。<br>\n'
-    html += '次週末の出馬表が公開され次第、<br>新しい予想を生成します。\n'
-    html += '</div>\n'
-    html += '<div style="margin-top:24px;font-size:11px;color:var(--text-sub);opacity:0.7">\n'
-    html += '※ 通常は木曜〜金曜に更新されます<br>\n'
-    html += '※ 結果タブで先週までの実績を確認できます\n'
-    html += '</div>\n'
-    html += '</div>\n'
-    html += '</div>\n'
-
-# ===== 各日付の中身 =====
-# stale_mode の場合はループ全体をスキップ
-for i, dk in enumerate(all_dates if not stale_mode else []):
-    act = ' active' if dk == _default_dk else ''
-    html += f'<div class="tab-content{act}" id="daytab-{dk}">\n'
-
-    day_venues = sorted(set(p['race'].get('venue','') for p in preds if p['_date_key']==dk))
-    day_graded = [p for p in preds if p['_date_key']==dk and p['grade'] in ('G1','G2','G3')]
-
-    # サブタブ
-    html += f'<div class="tab-bar sub-tabs" id="subTabs-{dk}">\n'
-    html += f'  <div class="tab active" onclick="switchSubTab(\'{dk}\',\'picks\')">期待値あり</div>\n'
-    if day_graded:
-        html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'graded\')">今日の重賞</div>\n'
-    for v in day_venues:
-        html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'{v}\')">{v}</div>\n'
-    html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'hotspot\')">注目データ</div>\n'
-    html += f'  <div class="tab" onclick="switchSubTab(\'{dk}\',\'nakanohito\')">なかのひとたち</div>\n'
-    html += '</div>\n'
-
-    # ── 期待値あり ──
-    day_buys = sorted([p for p in buy_preds if p['_date_key']==dk],
-                      key=lambda p: p['race'].get('start_time', '99:99'))
-    html += f'<div class="sub-content active" id="sub-{dk}-picks">\n'
     # この日のレースに該当するアラートだけ表示
     day_race_ids = set(p['race'].get('race_id','') for p in preds if p['_date_key']==dk)
     day_alerts = []
@@ -1055,19 +1261,28 @@ for i, dk in enumerate(all_dates if not stale_mode else []):
             elif p['special_horse']:
                 rule = p['special_horse'].get('rule','')
                 tag = '<span class="jiku-tag">スカウト</span>' if 'C2' in rule else '<span class="jiku-tag">覚醒</span>'
+            nc = p.get('nige_candidates', 0)
+            if nc == 1:
+                pace_label, pace_cls = '\u30b9\u30ed\u30fc', 'slow'
+            elif nc == 2:
+                pace_label, pace_cls = '\u30df\u30c9\u30eb', 'mid'
+            elif nc >= 3:
+                pace_label, pace_cls = '\u30cf\u30a4', 'high'
+            else:
+                pace_label, pace_cls = '', ''
             html += f'<div class="{rowc}"><span class="{rc}">{rnum}R</span>'
             html += f'<span class="jiku-course">{r.get("surface","")}{r.get("distance","")}m</span>'
+            if pace_label:
+                html += f'<span class="jiku-pace {pace_cls}">{pace_label}</span>'
             html += f'<span class="jiku-mark">\u25ce</span>'
-            html += f'<span class="jiku-horse">{h["horse_name"]}</span>{tag}'
-            html += f'<span class="jiku-jockey">{h.get("jockey","")}</span>'
-            html += f'<span class="jiku-score">{h["total_score"]:.1f}</span></div>\n'
+            html += f'<span class="jiku-horse">{h["horse_name"]}</span>{tag}</div>\n'
         html += '</div></div>\n'
     html += '</div>\n'
 
     # ── 今週の重賞 ──
     if day_graded:
         html += f'<div class="sub-content" id="sub-{dk}-graded">\n'
-        html += '<div class="section-title">今日の重賞</div>\n'
+        html += f'<div class="section-title">{date_labels[dk]}の重賞</div>\n'
         for p in sorted(day_graded, key=lambda x: x['race'].get('race_num', 0)):
             html += race_card_html(p, show_full=True)
             g_comments = generate_graded_comments(p)
@@ -1205,6 +1420,8 @@ def _aggregate_v66_results(monthly):
         if day['date'] < V66_START_DATE: continue
         day_total = {'n':0, 'cost':0, 'ret':0}
         for br in day.get('buy_results', []):
+            if br.get('miss_type') == 'scratched':
+                continue  # 出走取り消しはROI計算から除外（cost/return両方）
             g = br.get('grade', '?')
             c = br.get('cost', 0)
             r = br.get('return', 0)
@@ -1239,11 +1456,11 @@ def _aggregate_v66_results(monthly):
 if monthly_data and monthly_data.get('days'):
     html += '<div class="tab-content" id="daytab-results">\n'
 
-    # ── v6.6 運用実績セクション ──
-    v66_total, v66_by_class, v66_weekly, v66_days = _aggregate_v66_results(monthly_data)
+    # ── v6.6 運用実績セクション ──（全月統合データで集計）
+    v66_total, v66_by_class, v66_weekly, v66_days = _aggregate_v66_results(_all_monthly_data)
 
-    html += '<div class="result-summary" style="border:2px solid var(--green);background:rgba(46,160,67,0.08)">\n'
-    html += '<div class="rs-title" style="color:var(--green-pale)">📊 v6.6 運用実績（2026-04-14〜）</div>\n'
+    html += '<div class="result-summary" style="border:3px solid var(--orange)">\n'
+    html += '<div class="rs-title">📊 v6.6 運用実績（2026-04-14〜）</div>\n'
     if v66_total['n'] == 0:
         html += '<div style="padding:12px 16px;font-size:12px;color:var(--text-sub);text-align:center">\n'
         html += '<div style="font-size:20px;margin-bottom:6px">⏳</div>\n'
@@ -1271,13 +1488,13 @@ if monthly_data and monthly_data.get('days'):
         html += f'<div class="rs-item"><div class="rs-label">レース数</div><div class="rs-value">{v66_total["n"]}R</div></div>\n'
         html += f'<div class="rs-item"><div class="rs-label">BT乖離</div><div class="rs-value {gap_cls}">{gap_pt:+.1f}pt</div></div>\n'
         html += '</div>\n'
-        html += f'<div style="padding:6px 16px 0;font-size:10px;color:var(--text-sub);text-align:center">{gap_label} / BT直近2年基準 105.0%</div>\n'
+        html += f'<div style="padding:6px 16px 0;font-size:10px;color:rgba(255,255,255,0.7);text-align:center">{gap_label} / BT直近2年基準 105.0%</div>\n'
 
         # クラス別 (BT期待値との比較付き)
         if v66_by_class:
-            html += '<div style="padding:10px 16px 4px;font-size:11px;color:var(--green-pale);font-weight:700">クラス別 (実績 vs BT期待値)</div>\n'
+            html += '<div style="padding:10px 16px 4px;font-size:11px;color:rgba(255,255,255,0.85);font-weight:700">クラス別 (実績 vs BT期待値)</div>\n'
             html += '<table style="width:calc(100% - 32px);margin:0 16px 8px;font-size:10px;border-collapse:collapse">\n'
-            html += '<tr style="border-bottom:1px solid var(--card-border)"><th style="text-align:left;padding:4px 6px">クラス</th><th style="text-align:right;padding:4px 6px">件数</th><th style="text-align:right;padding:4px 6px">実ROI</th><th style="text-align:right;padding:4px 6px">BT期待</th><th style="text-align:right;padding:4px 6px">乖離</th><th style="text-align:right;padding:4px 6px">損益</th></tr>\n'
+            html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.75)"><th style="text-align:left;padding:4px 6px">クラス</th><th style="text-align:right;padding:4px 6px">件数</th><th style="text-align:right;padding:4px 6px">実ROI</th><th style="text-align:right;padding:4px 6px">BT期待</th><th style="text-align:right;padding:4px 6px">乖離</th><th style="text-align:right;padding:4px 6px">損益</th></tr>\n'
             for g in ['新馬','未勝利','3勝','G1','G2']:
                 if g not in v66_by_class: continue
                 v = v66_by_class[g]
@@ -1287,21 +1504,21 @@ if monthly_data and monthly_data.get('days'):
                 class_gap = roi - bt_roi
                 pc = 'rs-plus' if prof>0 else ('rs-minus' if prof<0 else 'rs-zero')
                 gc = 'rs-plus' if class_gap >= -5 else ('rs-minus' if class_gap < -10 else 'rs-zero')
-                html += f'<tr><td style="padding:3px 6px">{g}</td><td style="text-align:right;padding:3px 6px">{v["n"]}R</td><td style="text-align:right;padding:3px 6px">{roi:.0f}%</td><td style="text-align:right;padding:3px 6px;color:var(--text-sub)">{bt_roi:.0f}%</td><td class="{gc}" style="text-align:right;padding:3px 6px">{class_gap:+.0f}pt</td><td class="{pc}" style="text-align:right;padding:3px 6px">{prof:+,}</td></tr>\n'
+                html += f'<tr style="color:rgba(255,255,255,0.9)"><td style="padding:3px 6px">{g}</td><td style="text-align:right;padding:3px 6px">{v["n"]}R</td><td style="text-align:right;padding:3px 6px">{roi:.0f}%</td><td style="text-align:right;padding:3px 6px;color:rgba(255,255,255,0.5)">{bt_roi:.0f}%</td><td class="{gc}" style="text-align:right;padding:3px 6px">{class_gap:+.0f}pt</td><td class="{pc}" style="text-align:right;padding:3px 6px">{prof:+,}</td></tr>\n'
             html += '</table>\n'
 
         # 週次推移
         if v66_weekly and len(v66_weekly) >= 1:
-            html += '<div style="padding:10px 16px 4px;font-size:11px;color:var(--green-pale);font-weight:700">週次推移</div>\n'
+            html += '<div style="padding:10px 16px 4px;font-size:11px;color:rgba(255,255,255,0.85);font-weight:700">週次推移</div>\n'
             html += '<table style="width:calc(100% - 32px);margin:0 16px 8px;font-size:10px;border-collapse:collapse">\n'
-            html += '<tr style="border-bottom:1px solid var(--card-border)"><th style="text-align:left;padding:4px 6px">週</th><th style="text-align:right;padding:4px 6px">件数</th><th style="text-align:right;padding:4px 6px">ROI</th><th style="text-align:right;padding:4px 6px">損益</th></tr>\n'
+            html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.2)"><th style="text-align:left;padding:4px 6px;color:rgba(255,255,255,0.75)">週</th><th style="text-align:right;padding:4px 6px;color:rgba(255,255,255,0.75)">件数</th><th style="text-align:right;padding:4px 6px;color:rgba(255,255,255,0.75)">ROI</th><th style="text-align:right;padding:4px 6px;color:rgba(255,255,255,0.75)">損益</th></tr>\n'
             # 最新4週だけ表示
             sorted_weeks = sorted(v66_weekly.items())
             for wk, wv in sorted_weeks[-4:]:
                 w_roi = wv['ret']/wv['cost']*100 if wv['cost'] else 0
                 w_prof = wv['ret']-wv['cost']
                 pc = 'rs-plus' if w_prof>0 else ('rs-minus' if w_prof<0 else 'rs-zero')
-                html += f'<tr><td style="padding:3px 6px">{wk}</td><td style="text-align:right;padding:3px 6px">{wv["n"]}R</td><td style="text-align:right;padding:3px 6px">{w_roi:.0f}%</td><td class="{pc}" style="text-align:right;padding:3px 6px">{w_prof:+,}</td></tr>\n'
+                html += f'<tr style="color:rgba(255,255,255,0.9)"><td style="padding:3px 6px">{wk}</td><td style="text-align:right;padding:3px 6px">{wv["n"]}R</td><td style="text-align:right;padding:3px 6px">{w_roi:.0f}%</td><td class="{pc}" style="text-align:right;padding:3px 6px">{w_prof:+,}</td></tr>\n'
             html += '</table>\n'
 
         # アラート状態インジケーター
@@ -1324,30 +1541,35 @@ if monthly_data and monthly_data.get('days'):
                 html += f'<div style="padding:2px 0">{msg}</div>\n'
             html += '</div>\n'
         elif v66_total['n'] >= 20:
-            html += '<div style="padding:8px 16px;margin:8px 16px;background:rgba(46,160,67,0.08);border-left:3px solid var(--green);border-radius:4px;font-size:10px">\n'
-            html += '<div style="font-weight:700;color:var(--green-pale)">🟢 全クラスで想定範囲内</div>\n'
+            html += '<div style="padding:8px 16px;margin:8px 16px;background:rgba(255,255,255,0.12);border-left:3px solid var(--orange-pale);border-radius:4px;font-size:10px">\n'
+            html += '<div style="font-weight:700;color:rgba(255,255,255,0.9)">🟢 全クラスで想定範囲内</div>\n'
             html += '</div>\n'
     html += '</div>\n'
 
-    # ── 参考: 月間全体 (v6.6前後混在) ──
-    mt = monthly_data.get('total', {})
-    m_profit = mt.get('profit', 0)
-    m_roi = mt.get('roi', 0)
-    p_cls = 'rs-plus' if m_profit > 0 else ('rs-minus' if m_profit < 0 else 'rs-zero')
-    r_cls = 'rs-plus' if m_roi > 100 else ('rs-minus' if m_roi < 100 else 'rs-zero')
+    # ── 参考: 通算実績 (全月・旧ルール混在) ──
+    _all_cost  = sum(br['cost']   for d in _all_monthly_days for br in d.get('buy_results',[]) if br.get('miss_type') != 'scratched')
+    _all_ret   = sum(br['return'] for d in _all_monthly_days for br in d.get('buy_results',[]) if br.get('miss_type') != 'scratched')
+    _all_prof  = _all_ret - _all_cost
+    _all_roi   = _all_ret / _all_cost * 100 if _all_cost else 0
+    _all_races = sum(1 for d in _all_monthly_days for br in d.get('buy_results',[]) if br.get('miss_type') != 'scratched')
+    _all_days_n = len(_all_monthly_days)
+    _months_label = '〜'.join(sorted({d['date'][:7].replace('-','/') for d in _all_monthly_days})[:1] +
+                               sorted({d['date'][:7].replace('-','/') for d in _all_monthly_days})[-1:])
+    p_cls = 'rs-plus' if _all_prof > 0 else ('rs-minus' if _all_prof < 0 else 'rs-zero')
+    r_cls = 'rs-plus' if _all_roi > 100 else ('rs-minus' if _all_roi < 100 else 'rs-zero')
     html += '<div class="result-summary" style="opacity:0.85">\n'
-    html += f'<div class="rs-title" style="font-size:11px">参考: {monthly_data["month"].replace("_","/")} MONTHLY (旧ルール混在)</div>\n'
+    html += f'<div class="rs-title" style="font-size:11px">参考: 通算実績 {_months_label} (旧ルール混在)</div>\n'
     html += '<div class="rs-grid">\n'
-    html += f'<div class="rs-item"><div class="rs-label">投資</div><div class="rs-value">{mt.get("cost",0):,}円</div></div>\n'
-    html += f'<div class="rs-item"><div class="rs-label">回収</div><div class="rs-value">{mt.get("return",0):,}円</div></div>\n'
-    html += f'<div class="rs-item"><div class="rs-label">収支</div><div class="rs-value {p_cls}">{m_profit:+,}円</div></div>\n'
+    html += f'<div class="rs-item"><div class="rs-label">投資</div><div class="rs-value">{_all_cost:,}円</div></div>\n'
+    html += f'<div class="rs-item"><div class="rs-label">回収</div><div class="rs-value">{_all_ret:,}円</div></div>\n'
+    html += f'<div class="rs-item"><div class="rs-label">収支</div><div class="rs-value {p_cls}">{_all_prof:+,}円</div></div>\n'
     html += '</div>\n'
     html += '<div class="rs-grid" style="margin-top:8px">\n'
-    html += f'<div class="rs-item"><div class="rs-label">ROI</div><div class="rs-value {r_cls}">{m_roi:.0f}%</div></div>\n'
-    html += f'<div class="rs-item"><div class="rs-label">レース数</div><div class="rs-value">{mt.get("races",0)}R</div></div>\n'
-    html += f'<div class="rs-item"><div class="rs-label">開催日数</div><div class="rs-value">{mt.get("days",0)}日</div></div>\n'
+    html += f'<div class="rs-item"><div class="rs-label">ROI</div><div class="rs-value {r_cls}">{_all_roi:.0f}%</div></div>\n'
+    html += f'<div class="rs-item"><div class="rs-label">レース数</div><div class="rs-value">{_all_races}R</div></div>\n'
+    html += f'<div class="rs-item"><div class="rs-label">開催日数</div><div class="rs-value">{_all_days_n}日</div></div>\n'
     html += '</div></div>\n'
-    for day in reversed(monthly_data.get('days', [])):
+    for day in reversed(_all_monthly_days):
         conds = day.get('track_conditions', {})
         html += '<div class="result-day">\n'
         html += '<div class="result-day-header">\n'
@@ -1492,7 +1714,8 @@ html += f"""
   <p>生成: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
   <div class="disclaimer">
     想定オッズは確定前です。発走5分前にオッズ確定後、最終買い判定を行います。<br>
-    本予想はAIによる自動判定です。馬券の購入は自己責任でお願いいたします。
+    本予想はAIによる自動判定です。馬券の購入は自己責任でお願いいたします。<br>
+    ※障害レースはスコアリング対象外のため表示していません。
   </div>
 </div>
 
@@ -1511,20 +1734,21 @@ function fixStickyPositions() {{
 window.addEventListener('load', fixStickyPositions);
 window.addEventListener('resize', fixStickyPositions);
 
-function switchDateTab(dk) {{
-  document.querySelectorAll('#dateTabs .tab').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-  event.target.classList.add('active');
+function switchDateTab(dk, el) {{
+  document.querySelectorAll('#dateTabs .tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
   document.getElementById('daytab-' + dk).classList.add('active');
   fixStickyPositions();
   window.scrollTo(0, 0);
 }}
-function switchSubTab(dk, key) {{
+function switchSubTab(dk, key, el) {{
   var parent = document.getElementById('daytab-' + dk);
-  parent.querySelectorAll('.sub-tabs .tab').forEach(el => el.classList.remove('active'));
-  parent.querySelectorAll('.sub-content').forEach(el => el.classList.remove('active'));
-  event.target.classList.add('active');
+  parent.querySelectorAll('.sub-tabs .tab').forEach(t => t.classList.remove('active'));
+  parent.querySelectorAll('.sub-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
   document.getElementById('sub-' + dk + '-' + key).classList.add('active');
+  fixStickyPositions();
 }}
 </script>
 </body></html>"""

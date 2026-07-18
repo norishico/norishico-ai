@@ -38,6 +38,8 @@ DIST_CHANGE_FILTER = False  # --dist-filter: 差し追(avg_pos4≥6)×600m超距
 FAMILY_NICKS_BONUS = False  # --family-nicks: SS×KK/ND 系統レベルニックスボーナス(0.3-0.5pt)
 RACE_LEVEL_BONUS   = False  # --race-level: 前走レースレベルボーナス (race_level_index テーブル必要)
 G2_NORMAL          = False  # --g2-normal: G2を challenge→normal化 (単勝1000→単勝+馬連2000)
+EV_LO              = 2.0    # --ev-lo=X: EV下限緩和検証用 (2026-07-11 Phase C候補、既定2.0)
+TRAIN_GATE_MIN     = 2      # --no-train-gate: train_count_7dゲート撤廃検証用 (0にすると無効化)
 
 # 調教フィルタ用: サンデーサイレンス系種牡馬リスト
 SUNDAY_SIRES = frozenset({
@@ -103,9 +105,9 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
              (None, False) for 見送り
     """
     if track_cond in ('不', '不良'): return None, False  # 不良馬場は買わない
-    if train_count_7d < 2: return None, False           # 直近7日調教2本未満は見送り
+    if train_count_7d < TRAIN_GATE_MIN: return None, False  # 直近7日調教本数ゲート
     if odds is None or odds == 0: return None, False
-    if not (2.0 <= ev7 <= 20.0): return None, False
+    if not (EV_LO <= ev7 <= 20.0): return None, False
 
     if grade == '新馬': return None, False
     if grade == '未勝利': return None, False
@@ -504,6 +506,11 @@ if __name__ == '__main__':
         DIST_CHANGE_FILTER = True  # noqa: F841  (module-level global)
     if '--g2-normal' in sys.argv:
         G2_NORMAL = True  # noqa: F841  (module-level global)
+    ev_lo_flags = [a for a in sys.argv if a.startswith('--ev-lo=')]
+    if ev_lo_flags:
+        EV_LO = float(ev_lo_flags[-1].split('=')[1])  # noqa: F841  (module-level global)
+    if '--no-train-gate' in sys.argv:
+        TRAIN_GATE_MIN = 0  # noqa: F841  (module-level global)
     if '--family-nicks' in sys.argv:
         FAMILY_NICKS_BONUS = True  # noqa: F841  (module-level global)
         os.environ['NORISHIKO_FAMILY_NICKS'] = '1'
@@ -567,6 +574,10 @@ if __name__ == '__main__':
     s['elapsed_sec'] = round(elapsed, 1)
 
     suffix = '_tansho' if TANSHO_ONLY else ('_s10' if SANGACHI_ODDS_LO == 10 else ('_distf' if DIST_CHANGE_FILTER else ('_fnicks' if FAMILY_NICKS_BONUS else ('_g2n' if G2_NORMAL else ''))))
+    if EV_LO != 2.0:
+        suffix += f'_evlo{EV_LO}'
+    if TRAIN_GATE_MIN == 0:
+        suffix += '_notraingate'
     fname = f'btv6_{year}{suffix}.json'
     with open(fname, 'w', encoding='utf-8') as f:
         json.dump({'summary': s, 'bet_records': bet_records, 'all_races': all_races}, f,

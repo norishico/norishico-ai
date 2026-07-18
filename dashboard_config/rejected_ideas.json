@@ -64,5 +64,17 @@
     "category": "scoring",
     "result": "-8.9pt/4年(123.1%→114.2%)",
     "reason": "S1簡易ゲート実験は+11.1pt改善だったが本番相当ゲートの真のWF CVでは逆に悪化。2023年に本命馬入れ替えでメガヒットレースを取りこぼし"
+  },
+  {
+    "name": "EV下限緩和(2.0→1.5)",
+    "category": "buy_condition",
+    "result": "N+2.6%(1174→1204) ROI123.1%→121.7%(-1.4pt)",
+    "reason": "07-11のPhase C分析は+20%件数増を示唆したが本番ゲート通した真のWF CVでは件数ほぼ横ばい・ROI微悪化。volume問題の解決にならず不採用"
+  },
+  {
+    "name": "train_count_7dゲート撤廃",
+    "category": "buy_condition",
+    "result": "N+0.3%(1174→1177) ROI123.1%→122.7%(-0.4pt)",
+    "reason": "07-11のPhase C分析は+9.3%件数増を示唆したが真のWF CVでは2024/2025年で1件も結果不変。ゲート自体が現在形骸化している疑いがあり別途調査(project_norishiko参照)"
   }
 ]

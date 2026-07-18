@@ -32,7 +32,12 @@ def _get_webhook_url():
     return os.environ.get('DISCORD_WEBHOOK_URL', '')
 
 
+NOTIFY_PAUSED_FLAG = PROJ / 'notify_paused.flag'
+
 def _send(content='', embeds=None):
+    if NOTIFY_PAUSED_FLAG.exists():
+        print('[notify] paused (notify_paused.flag exists), skip')
+        return False
     url = _get_webhook_url()
     if not url:
         print('[notify] DISCORD_WEBHOOK_URL not set, skip')

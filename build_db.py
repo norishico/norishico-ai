@@ -22,6 +22,9 @@ import sys
 import re
 from pathlib import Path
 
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 DB_PATH = "keiba.db"
 
 # ══════════════════════════════════════════════════════════════
@@ -169,9 +172,8 @@ def parse_time_to_sec(val) -> float:
     """走破タイム MSSTT → 秒 (例: 1483 → 108.3秒)"""
     if pd.isna(val):
         return np.nan
-    s = str(val).strip().replace('.', '')
     try:
-        n = int(s)
+        n = int(float(str(val).strip()))
         if n <= 0:
             return np.nan
         tenths = n % 10
@@ -587,9 +589,9 @@ def upsert_df(conn: sqlite3.Connection, df: pd.DataFrame, table: str) -> int:
 # ══════════════════════════════════════════════════════════════
 
 def build_db(csv_files: list, db_path: str = DB_PATH):
-    print(f"\n{'═'*60}")
+    print(f"\n{'='*60}")
     print(f"  ノリシコ競馬AI — DB構築・更新")
-    print(f"{'═'*60}")
+    print(f"{'='*60}")
 
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode=WAL")
@@ -654,7 +656,7 @@ def build_db(csv_files: list, db_path: str = DB_PATH):
             traceback.print_exc()
 
     # ── 集計 ──────────────────────────────────────────────────
-    print(f"\n{'─'*60}")
+    print(f"\n{'-'*60}")
     try:
         r = conn.execute("SELECT COUNT(*), COUNT(DISTINCT race_id), COUNT(DISTINCT horse_name), MIN(date), MAX(date) FROM results").fetchone()
         print(f"  📊 results:   {r[0]:>8,}件  {r[1]:,}R  {r[2]:,}頭  {r[3]}〜{r[4]}")
@@ -670,16 +672,16 @@ def build_db(csv_files: list, db_path: str = DB_PATH):
 
     print(f"\n  今回の取込み: results+{totals['results']:,} / dividends+{totals['dividends']:,} / training+{totals['training']:,}")
     print(f"  保存先: {Path(db_path).absolute()}")
-    print(f"{'═'*60}\n")
+    print(f"{'='*60}\n")
 
     conn.close()
 
 
 def inspect_csv(filepath: str):
     """CSVのカラム構造を表示する診断ツール"""
-    print(f"\n{'═'*60}")
+    print(f"\n{'='*60}")
     print(f"  CSV構造確認: {Path(filepath).name}")
-    print(f"{'═'*60}")
+    print(f"{'='*60}")
     for enc in ['cp932', 'utf-8', 'utf-8-sig']:
         try:
             df = pd.read_csv(filepath, encoding=enc, header=None, nrows=5)

@@ -29,4 +29,8 @@ if "%RC%"=="0" (
   )
 )
 
+REM -- ?????????? --
+"%PYEXE%" -X utf8 "%PROJ%\build_launcher.py" >> "%LOGFILE%" 2>&1
+echo [%date% %time%] build_launcher rc=%ERRORLEVEL% >> "%LOGFILE%"
+
 endlocal & exit /b %RC%

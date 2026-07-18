@@ -178,7 +178,7 @@ def notify_buy_go(pred):
             now = datetime.now()
             race_dt = datetime.strptime(f"{now.strftime('%Y-%m-%d')} {stime}", '%Y-%m-%d %H:%M')
             mins = int((race_dt - now).total_seconds() / 60)
-            if mins > 0:
+            if 0 < mins <= 60:
                 remaining = f'（あと{mins}分）'
         except Exception:
             pass
@@ -265,6 +265,51 @@ def notify_daily_result(buy_results, total_cost=0, total_return=0):
 
     emoji = '🎉' if profit > 0 else '😤'
     lines.append(f"\n{emoji} **本日損益: {profit:+,}円 (ROI {roi:.0f}%)**")
+    _send('\n'.join(lines))
+
+
+def notify_sanrenpuku_jiku(candidates, week_label='今週'):
+    """三連複軸馬候補通知（金曜夜）
+
+    Args:
+        candidates: calc_sanrenpuku_jiku.calc_jiku_candidates() の戻り値
+        week_label: '今週' など
+    """
+    if not candidates:
+        _send(f'🎴 **{week_label}の三連複軸馬候補: 見送り**\n（差し・中団でMC50%超のOP馬なし）')
+        return
+
+    lines = [f'🎴 **{week_label}の三連複軸馬候補** ({len(candidates)}件)\n']
+    for c in candidates:
+        j = c['jiku']
+        mc_pct = int(j['mc_rate'] * 100)
+        star = '🔴' if mc_pct >= 70 else ('🟡' if mc_pct >= 60 else '🟢')
+        day = '土' if c['date'].endswith('-20') or c['date'][-2:] in ('06','13','20','27') else '日'
+        # 実際は曜日をdateから判定
+        from datetime import datetime
+        try:
+            wd = datetime.strptime(c['date'], '%Y-%m-%d').weekday()
+            day = '土' if wd == 5 else ('日' if wd == 6 else c['date'][-5:])
+        except Exception:
+            pass
+
+        lines.append(
+            f'{star} [{day}] **{c["venue"]} {c["race_name"]}** '
+            f'({c["grade"]} 芝{c["distance"]}m)'
+        )
+        lines.append(
+            f'　🎯 軸: **{j["name"]}** ({j["style"]}) '
+            f'MC **{mc_pct}%** / {j["odds"]}倍'
+        )
+        aite_str = '　相手: ' + ' / '.join(
+            f'{a["name"]}({a["odds"]}倍)' for a in c['aite']
+        )
+        lines.append(aite_str)
+        pts = len(c['aite']) * (len(c['aite']) - 1) // 2
+        lines.append(f'　💴 三連複 {pts}点 × 100円 = {pts*100}円')
+        lines.append('')
+
+    lines.append('※ 条件: 差し+中団 × MC≥50% × 阪神函館除外 × OPクラス')
     _send('\n'.join(lines))
 
 

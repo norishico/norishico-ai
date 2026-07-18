@@ -7,7 +7,7 @@ REM  - Sun adds --sunday, Mon adds --monday
 REM  - 09:00 start: first --once forced check (morning snapshot+publish)
 REM    then enter auto_refresh.py normal loop (trigger 10min before post)
 REM ======================================================================
-setlocal EnableDelayedExpansion
+setlocal
 set PROJ=C:\Users\westr\norishiko_ai
 set PYEXE=py
 set PYTHONIOENCODING=utf-8
@@ -22,6 +22,7 @@ set LOGFILE=%LOGDIR%\race_day_auto_refresh_%STAMP%.log
 
 cd /d "%PROJ%"
 echo [%date% %time%] race-day auto_refresh check >> "%LOGFILE%"
+echo LOGFILE=%LOGFILE% >> "%LOGFILE%"
 
 REM Day-of-week via PowerShell (0=Sun 1=Mon ... 6=Sat)
 for /f %%i in ('powershell -NoProfile -Command "(Get-Date).DayOfWeek.value__"') do set DOW=%%i
@@ -51,7 +52,7 @@ echo [%date% %time%] initial once-check start flag=%DAYFLAG% >> "%LOGFILE%"
 "%PYEXE%" -X utf8 auto_refresh.py %DAYFLAG% --once >> "%LOGFILE%" 2>&1
 echo [%date% %time%] initial once-check done rc=%ERRORLEVEL% >> "%LOGFILE%"
 
-REM Dashboard build (once直後にも最新化)
+REM Dashboard build (once???????)
 echo [%date% %time%] build_dashboard after once >> "%LOGFILE%"
 "%PYEXE%" -X utf8 build_dashboard.py >> "%LOGFILE%" 2>&1
 

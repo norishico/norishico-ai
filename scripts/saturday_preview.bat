@@ -29,12 +29,17 @@ echo [%date% %time%] publish_weekend --saturday >> "%LOGFILE%"
 set RC=%ERRORLEVEL%
 echo [%date% %time%] publish_weekend rc=%RC% >> "%LOGFILE%"
 
-REM 前日予想公開通知は廃止(2026-04-18 方針変更)
-REM 当日の行動トリガー(morning_summary / added / cancelled / buy_go / daily_result)のみ通知
+REM ???????????(2026-04-18 ????)
+REM ?????????(morning_summary / added / cancelled / buy_go / daily_result)????
 
-REM Dashboard 最新化(のりお専用・リアルタイム更新方針 2026-04-19)
+REM Dashboard ???(???????????????? 2026-04-19)
 echo [%date% %time%] build_dashboard start >> "%LOGFILE%"
 "%PYEXE%" -X utf8 build_dashboard.py >> "%LOGFILE%" 2>&1
 echo [%date% %time%] build_dashboard rc=%ERRORLEVEL% >> "%LOGFILE%"
 
+
+REM Step 3: Sanrenpuku jiku notification
+echo [%date% %time%] sanrenpuku jiku notify >> "%LOGFILE%"
+"%PYEXE%" -X utf8 notify_sanrenpuku_weekly.py --day sat >> "%LOGFILE%" 2>&1
+echo [%date% %time%] sanrenpuku rc=%ERRORLEVEL% >> "%LOGFILE%"
 endlocal & exit /b %RC%

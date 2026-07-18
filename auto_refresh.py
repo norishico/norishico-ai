@@ -10,7 +10,7 @@ Usage:
   python auto_refresh.py --full       # フル更新モード（従来動作）
 """
 
-import json, time, subprocess, sys, argparse, re, shutil
+import json, time, subprocess, sys, argparse, re, shutil, tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -23,26 +23,13 @@ def load_all_race_schedule(minutes_before=10):
     data = json.load(open(PROJ_DIR / 'weekend_predictions.json', encoding='utf-8'))
     today = datetime.now().strftime('%Y-%m-%d')
 
-    # 今日のレース判定(race_id day_code 偶奇 × 曜日)
-    today_wd = datetime.now().weekday()
-    def _is_today(rid):
-        try:
-            day_code = int(rid[8:10])
-        except Exception:
-            return False
-        is_sat_race = (day_code % 2 == 1)
-        is_sun_race = (day_code % 2 == 0)
-        if today_wd == 5: return is_sat_race
-        if today_wd == 6: return is_sun_race
-        if today_wd == 0: return True  # 祝日月曜(--monday運用)
-        return False
-
     triggers = []
     for p in data:
         r = p['race']
         rid = r.get('race_id', '')
-        # 今日のレースのみスケジュール対象
-        if not _is_today(rid):
+        # date フィールドが一致するレースのみ対象（複数週kaisai対応）
+        race_date = r.get('date', '')
+        if race_date != today:
             continue
         stime = r.get('start_time', '')
         if not stime:
@@ -83,6 +70,124 @@ def load_all_race_schedule(minutes_before=10):
     return merged
 
 
+def fetch_combo_odds(race_id, honmei_num, ni_num, san_nums=None):
+    """netkeiba AJAX APIで馬連・ワイド・三連複・三連単オッズを取得 (requests使用)
+
+    race_id: JVLink 12桁 (例: 202605021112)
+    honmei_num: ◎の実馬番 (int)
+    ni_num: ○の実馬番 (int)
+    san_nums: ▲以下の実馬番リスト (list[int], optional)
+    Returns dict or None
+    """
+    try:
+        import requests as _req
+    except ImportError:
+        return None
+
+    if not honmei_num or not ni_num:
+        return None
+
+    def _key2(a, b):
+        a, b = sorted([int(a), int(b)])
+        return f'{a:02d}{b:02d}'
+
+    def _key3(a, b, c):
+        nums = sorted([int(a), int(b), int(c)])
+        return f'{nums[0]:02d}{nums[1]:02d}{nums[2]:02d}'
+
+    def _to_float(v):
+        if isinstance(v, list):
+            vals = []
+            for x in v:
+                try: vals.append(float(x))
+                except: pass
+            return vals
+        try: return float(v)
+        except: return None
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': f'https://race.netkeiba.com/race/odds.html?race_id={race_id}',
+    }
+    base = f'https://race.netkeiba.com/api/api_get_jra_odds.html?race_id={race_id}&action=update&type='
+    result = {}
+
+    # 馬連 type=5
+    try:
+        resp = _req.get(base + '5', headers=headers, timeout=10)
+        if resp.status_code == 200:
+            om = resp.json().get('data', {}).get('odds', {}).get('5', {})
+            v = _to_float(om.get(_key2(honmei_num, ni_num)))
+            if isinstance(v, list) and v:
+                result['umaren'] = v[0]
+            elif isinstance(v, float) and v > 0:
+                result['umaren'] = v
+    except Exception:
+        pass
+    time.sleep(0.3)
+
+    # ワイド type=4
+    try:
+        resp = _req.get(base + '4', headers=headers, timeout=10)
+        if resp.status_code == 200:
+            om = resp.json().get('data', {}).get('odds', {}).get('4', {})
+            v = _to_float(om.get(_key2(honmei_num, ni_num)))
+            if isinstance(v, list) and v:
+                result['wide_lo'] = min(v)
+                result['wide_hi'] = max(v)
+            elif isinstance(v, float) and v > 0:
+                result['wide_lo'] = v
+                result['wide_hi'] = v
+    except Exception:
+        pass
+    time.sleep(0.3)
+
+    # 三連複 type=7
+    if san_nums:
+        try:
+            resp = _req.get(base + '7', headers=headers, timeout=10)
+            if resp.status_code == 200:
+                om = resp.json().get('data', {}).get('odds', {}).get('7', {})
+                combos = []
+                for sn in san_nums[:4]:
+                    key = _key3(honmei_num, ni_num, sn)
+                    v = _to_float(om.get(key))
+                    ov = v[0] if isinstance(v, list) and v else (v if isinstance(v, float) else None)
+                    if ov and ov > 0:
+                        combos.append({'nums': sorted([honmei_num, ni_num, sn]), 'odds': ov})
+                if combos:
+                    result['sanrenpuku'] = combos
+        except Exception:
+            pass
+        time.sleep(0.3)
+
+        # 三連単 type=8
+        try:
+            resp = _req.get(base + '8', headers=headers, timeout=10)
+            if resp.status_code == 200:
+                om = resp.json().get('data', {}).get('odds', {}).get('8', {})
+                _circ = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯'
+                def _c(n): return _circ[n-1] if 1 <= n <= 16 else str(n)
+                st_list = []
+                for sn in san_nums[:3]:
+                    for a, b, c in [(honmei_num, ni_num, sn), (honmei_num, sn, ni_num)]:
+                        key = f'{a:02d}{b:02d}{c:02d}'
+                        v = _to_float(om.get(key))
+                        ov = v[0] if isinstance(v, list) and v else (v if isinstance(v, float) else None)
+                        if ov and ov > 0:
+                            st_list.append({'key': f'{_c(a)}→{_c(b)}→{_c(c)}', 'odds': ov})
+                st_list.sort(key=lambda x: x['odds'])
+                if st_list:
+                    result['sanrentan'] = st_list[:4]
+        except Exception:
+            pass
+
+    if result:
+        result['updated_at'] = datetime.now().strftime('%H:%M')
+
+    return result if result else None
+
+
 def calc_market_momentum():
     """予想時の◎オッズ vs 現在オッズを比較し、市場動向(momentum)を計算
 
@@ -111,13 +216,16 @@ def calc_market_momentum():
     today = datetime.now().strftime('%Y-%m-%d')
 
     # Selenium で当日レースのオッズだけ取得
+    _tmpdir_momentum = tempfile.mkdtemp(prefix='chrome_momentum_')
     opts = Options()
     opts.add_argument('--headless=new')
     opts.add_argument('--no-sandbox')
     opts.add_argument('--disable-dev-shm-usage')
     opts.add_argument('--lang=ja')
+    opts.add_argument(f'--user-data-dir={_tmpdir_momentum}')
     opts.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
     d = webdriver.Chrome(options=opts)
+    d.set_page_load_timeout(30)
 
     momentum_count = 0
     for p in preds:
@@ -188,6 +296,7 @@ def calc_market_momentum():
             pass
 
     d.quit()
+    shutil.rmtree(_tmpdir_momentum, ignore_errors=True)
 
     # 保存
     with open(pred_path, 'w', encoding='utf-8') as f:
@@ -227,13 +336,16 @@ def quick_odds_refresh(morning_mode=False):
         old_cond[rid] = p['race'].get('track_cond', '良') or '良'
 
     # Seleniumでオッズだけ取得
+    _tmpdir_refresh = tempfile.mkdtemp(prefix='chrome_refresh_')
     opts = Options()
     opts.add_argument('--headless=new')
     opts.add_argument('--no-sandbox')
     opts.add_argument('--disable-dev-shm-usage')
     opts.add_argument('--lang=ja')
+    opts.add_argument(f'--user-data-dir={_tmpdir_refresh}')
     opts.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
     d = webdriver.Chrome(options=opts)
+    d.set_page_load_timeout(30)
 
     updated = 0
     skipped = 0
@@ -252,7 +364,12 @@ def quick_odds_refresh(morning_mode=False):
             except:
                 pass
         url = f"https://race.netkeiba.com/race/shutuba.html?race_id={rid}"
-        d.get(url)
+        try:
+            d.get(url)
+        except Exception as _te:
+            print(f"  ⚠️ ページ取得タイムアウト/エラー {rid}: {_te}")
+            skipped += 1
+            continue
         time.sleep(2)
 
         try:
@@ -284,6 +401,7 @@ def quick_odds_refresh(morning_mode=False):
             pass
 
     d.quit()
+    shutil.rmtree(_tmpdir_refresh, ignore_errors=True)
     print(f"  📊 {updated}R のオッズ更新完了（発走済み{skipped}Rスキップ）")
 
     # JSON保存（prevも保存）
@@ -380,6 +498,26 @@ def quick_odds_refresh(morning_mode=False):
         if bt or sp:
             p['_last_odds_check'] = _now_str
 
+    # コンボオッズ取得 (買い/special レースのみ、Seleniumなしで高速)
+    _combo_count = 0
+    for _cp in new_preds:
+        if _cp.get('buy_type') or _cp.get('special_horse'):
+            _crid = _cp['race']['race_id']
+            _ch = _cp.get('honmei') or {}
+            _cn = _cp.get('ni') or {}
+            _ch_num = int(_ch.get('horse_num', 0) or 0)
+            _cn_num = int(_cn.get('horse_num', 0) or 0)
+            _cst = _cp.get('sanrentan_targets') or []
+            _cs_nums = [int(t.get('horse_num', 0)) for t in _cst if t.get('horse_num')]
+            if not _cs_nums:
+                _cs_nums = [int(r.get('horse_num', 0)) for r in (_cp.get('results') or [])[2:5] if r.get('horse_num')]
+            _combo = fetch_combo_odds(_crid, _ch_num, _cn_num, _cs_nums)
+            if _combo:
+                _cp['combo_odds'] = _combo
+                _combo_count += 1
+    if _combo_count:
+        print(f'  🎯 コンボオッズ取得: {_combo_count}R')
+
     # 更新を保存 (ロック有無に関わらず最終チェック記録)
     with open(PROJ_DIR / 'weekend_predictions.json', 'w', encoding='utf-8') as f:
         json.dump(new_preds, f, ensure_ascii=False, indent=2)
@@ -404,18 +542,12 @@ def quick_odds_refresh(morning_mode=False):
             except Exception:
                 pass
 
-        # 「今日のレース」フィルタ(race_id day_code 偶奇+曜日)
-        _today_wd = datetime.now().weekday()  # 5=Sat, 6=Sun, 0=Mon
+        # 「今日のレース」フィルタ(date フィールド優先、複数週kaisai対応)
+        _today_str = datetime.now().strftime('%Y-%m-%d')
         def _is_today_race(rid):
-            try:
-                day_code = int(rid[8:10])
-            except Exception:
-                return False  # 判定失敗は安全側で除外
-            is_sat_race = (day_code % 2 == 1)
-            is_sun_race = (day_code % 2 == 0)
-            if _today_wd == 5: return is_sat_race
-            if _today_wd == 6: return is_sun_race
-            if _today_wd == 0: return True  # 祝日月曜(--monday運用時)
+            for _p in new_preds:
+                if _p['race'].get('race_id') == rid:
+                    return _p['race'].get('date', '') == _today_str
             return False
 
         now_dt = datetime.now()
@@ -528,17 +660,8 @@ def main():
             # 朝スナップショット保存 + 朝サマリ通知(今日のレースのみ)
             try:
                 preds = json.load(open(PROJ_DIR / 'weekend_predictions.json', encoding='utf-8'))
-                _wd = datetime.now().weekday()
-                def _today_rid(rid):
-                    try:
-                        dc = int(rid[8:10])
-                    except Exception:
-                        return False
-                    if _wd == 5: return dc % 2 == 1
-                    if _wd == 6: return dc % 2 == 0
-                    if _wd == 0: return True
-                    return False
-                preds_today = [p for p in preds if _today_rid(p['race']['race_id'])]
+                _today_date = datetime.now().strftime('%Y-%m-%d')
+                preds_today = [p for p in preds if p['race'].get('date', '') == _today_date]
                 morning_targets = {
                     p['race']['race_id']: {
                         'venue': p['race'].get('venue', ''),

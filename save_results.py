@@ -106,6 +106,18 @@ def update_committee_competition(results_list, today, db_conn):
                 entry['winner'] = h.get('name', '').strip()
                 break
 
+        # 結果データから実際のオッズを取得（宣言時プレースホルダー対策）
+        actual_odds = None
+        for h in rdata['horses_list']:
+            if h.get('name', '').strip() == pick:
+                try:
+                    actual_odds = float(h.get('odds') or 0) or None
+                except (TypeError, ValueError):
+                    pass
+                break
+        if actual_odds:
+            entry['pick_odds'] = actual_odds  # 実際のオッズで上書き
+
         finish = rdata['horses'].get(pick)
         entry['pick_finish'] = finish  # 何着かを記録
         bet = int(entry.get('bet', 2000))
@@ -122,8 +134,17 @@ def update_committee_competition(results_list, today, db_conn):
                 entry['result_ret'] = tansho * (bet // 100)
             else:
                 try:
-                    odds = float(entry.get('pick_odds') or 0)
-                    entry['result_ret'] = int(odds * bet) if odds else 0
+                    # actual_oddsを優先、なければpick_odds(ただし≥90はプレースホルダーとして除外)
+                    odds_src = actual_odds
+                    if not odds_src:
+                        raw = float(entry.get('pick_odds') or 0)
+                        odds_src = raw if raw < 90 else None
+                    if odds_src:
+                        entry['result_ret'] = int(odds_src * bet)
+                    else:
+                        entry['result_ret'] = 0
+                        entry['result_ret_note'] = 'odds_unknown_recheck'
+                        print(f"  ⚠️ 委員会対決: {entry.get('member')} {venue}{race_num}R pick_odds不明→要再確認")
                 except Exception:
                     entry['result_ret'] = 0
         else:

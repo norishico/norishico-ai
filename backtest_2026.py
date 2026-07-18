@@ -336,8 +336,9 @@ def score_one_race(race_rows, sc_conn):
         ym = date[:7]
         prev_runs = _past_runs_cache.get((h, ym), [])
         wc = None
-        if hw > 0 and prev_runs and prev_runs[0].get('horse_weight', 0) > 0:
-            wc = hw - prev_runs[0]['horse_weight']
+        prev_hw = (prev_runs[0].get('horse_weight') or 0) if prev_runs else 0
+        if hw > 0 and prev_hw > 0:
+            wc = hw - prev_hw
 
         interval_weeks = None
         if prev_runs:

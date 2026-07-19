@@ -215,17 +215,18 @@ def prefetch_month(conn, year, month):
     for r in t_rows:
         t_map[(r['horse_name'] or '').strip()].append(r)
 
-    # レース日マップを一括取得（馬ごとの個別SQLを排除）
+    # レース日マップを一括取得（馬ごとの個別SQLを排除）。venueも取得
+    # (低カバー率会場=函館・札幌の中立化フォールバック判定に必要)
     rd_rows = conn.execute(f"""
-        SELECT DISTINCT horse_name, date FROM results
+        SELECT DISTINCT horse_name, date, venue FROM results
         WHERE horse_name IN ({ph}) AND date BETWEEN ? AND ? AND finish<90
     """, horse_list + [d_from, d_to]).fetchall()
     horse_race_dates = defaultdict(list)
     for r in rd_rows:
-        horse_race_dates[r['horse_name']].append(r['date'])
+        horse_race_dates[r['horse_name']].append((r['date'], r['venue']))
 
     for horse in horse_list:
-        for race_date in horse_race_dates.get(horse, []):
+        for race_date, race_venue in horse_race_dates.get(horse, []):
             key = (horse, race_date)
             if key not in _training_actual_cache:
                 candidates = [r for r in t_map[(horse or '').strip()] if r['date'] < race_date]
@@ -257,6 +258,15 @@ def prefetch_month(conn, year, month):
                         'score': score,
                         'has_good_train': good,
                         'accel_lap': accel,
+                    }
+                elif (race_venue in sc.LOW_TRAINING_COVERAGE_VENUES
+                      and os.environ.get('NORISHIKO_TRAIN_COVERAGE_NEUTRAL') == '1'):
+                    # score_training_actual()と同一の中立化フォールバック
+                    # (2026-07-19 /committee検証用、同期を保つこと)
+                    _training_actual_cache[key] = {
+                        'score': 50.0,
+                        'has_good_train': None,
+                        'accel_lap': None,
                     }
                 else:
                     _training_actual_cache[key] = {
@@ -357,7 +367,7 @@ def score_one_race(race_rows, sc_conn):
         sr  = score_rotation(interval_weeks, row.get('prev_finish'), row.get('prev_distance'),
                              dist, gr, horse_weight=hw, surface=surf, weight_change=wc)
         sb  = score_bloodline(si, ds, date, surf, dist, sc_conn)
-        st  = score_training_actual(h, date, sc_conn)
+        st  = score_training_actual(h, date, sc_conn, venue=venue)
         sg  = score_gate_style(h, hn, date, venue, surf, dist, sc_conn, pace_mult)
 
         # 初ダート/初芝 転向補正

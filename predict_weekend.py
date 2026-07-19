@@ -221,7 +221,7 @@ def score_weekend_race(race, conn, sc_conn):
         sr  = score_rotation(interval_weeks, prev_fin, prev_dist, dist, gr,
                              horse_weight=hw, surface=surface, weight_change=wc)
         sb  = score_bloodline(sire, dam_sire, date, surface, dist, sc_conn)
-        st  = score_training_actual(name, date, sc_conn)
+        st  = score_training_actual(name, date, sc_conn, venue=venue)
         sg  = score_gate_style(name, hn, date, venue, surface, dist, sc_conn, pace_mult)
 
         # 初ダート/初芝 転向補正

@@ -134,9 +134,13 @@ def is_buy_v6(grade, heads, gap, odds, ev7, good_train=True, sire='', track_cond
         # - normal帯: 8-11倍 (細帯分析で他帯は赤字)
         # - accel(加速ラップ)必須: accel=True 113R/+90,900 vs accel=False 80R/-80,300
         # - 効果: ROI 121.4→127.0% (+68,990円)
-        if not accel:
+        # accel is None = 調教データ欠損会場での判断保留(2026-07-19 /committee)。
+        # 確定的にaccel=Falseの場合のみ見送り、Noneは通過させる。
+        if accel is False:
             return None, False
-        if sire in SUNDAY_SIRES and not good_train:
+        # good_train is None = 調教データ欠損会場での判断保留(2026-07-19 /committee)。
+        # 確定的にgood_train=Falseの場合のみ見送り、Noneは通過させる。
+        if sire in SUNDAY_SIRES and good_train is False:
             return None, False
         cond_a = (heads >= 12)
         cond_b = (gap >= 8)
@@ -194,7 +198,9 @@ def is_special_buy(grade, odds, popularity, heads, accel, good_train, sire, surf
 
     Returns: (buy, rule_name) or (False, '')
     """
-    if not accel:
+    # accel is None = 調教データ欠損会場(函館・札幌)での判断保留(2026-07-19 /committee)。
+    # 確定的にaccel=Falseの場合のみ見送り、Noneは通過させる(F1はgood_train要件で別途絞られる)。
+    if accel is False:
         return False, ''
     sire_s = (sire or '').strip()
     is_mainstream = sire_s in SUNDAY_SIRES or sire_s in KINGKAME_SIRES
@@ -259,6 +265,11 @@ def run_month_v6(conn, sc_conn, year, month):
             (honmei['horse_name'], race['date'], race['date'])
         ).fetchone()
         honmei_train_count = tc_row[0] if tc_row else 0
+        # 函館・札幌は0件が構造的に発生するため、train_count_7dゲートも判断保留(99=未チェック)
+        # にする(2026-07-19 /committee: accel/good_trainと同一の中立化)
+        if (honmei_train_count == 0 and race['venue'] in scoring.LOW_TRAINING_COVERAGE_VENUES
+                and os.environ.get('NORISHIKO_TRAIN_COVERAGE_NEUTRAL') == '1'):
+            honmei_train_count = 99
         buy_zone, ev_ok = is_buy_v6(gr, len(result), gap, honmei_odds or 0, ev7,
                                     good_train=honmei_good, sire=honmei_sire,
                                     accel=honmei_accel, train_count_7d=honmei_train_count)
@@ -514,6 +525,8 @@ if __name__ == '__main__':
     if '--family-nicks' in sys.argv:
         FAMILY_NICKS_BONUS = True  # noqa: F841  (module-level global)
         os.environ['NORISHIKO_FAMILY_NICKS'] = '1'
+    if '--train-coverage-neutral' in sys.argv:
+        os.environ['NORISHIKO_TRAIN_COVERAGE_NEUTRAL'] = '1'
     if '--race-level' in sys.argv:
         RACE_LEVEL_BONUS = True  # noqa: F841  (module-level global)
         import scoring as _sc
@@ -578,6 +591,8 @@ if __name__ == '__main__':
         suffix += f'_evlo{EV_LO}'
     if TRAIN_GATE_MIN == 0:
         suffix += '_notraingate'
+    if os.environ.get('NORISHIKO_TRAIN_COVERAGE_NEUTRAL') == '1':
+        suffix += '_trainneutral'
     fname = f'btv6_{year}{suffix}.json'
     with open(fname, 'w', encoding='utf-8') as f:
         json.dump({'summary': s, 'bet_records': bet_records, 'all_races': all_races}, f,

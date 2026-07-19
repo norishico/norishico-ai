@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 import sqlite3
 import json
+import os
 from pathlib import Path
 
 # ── ペースシナリオモジュール (Step C, フェーズ1: 表示専用) ──────────
@@ -1082,7 +1083,14 @@ def _hensachi_to_score(hensachi: float) -> float:
     else:                return 42.0
 
 
-def score_training_actual(horse_name: str, race_date: str, sc) -> dict:
+# training テーブルは美浦・栗東(JV-Link SLOP/WOOD dataspec専用施設)のデータしか
+# 存在せず、現地滞在調教が構造的に取得不可能な会場(2023-2025実測: 函館29.8%・
+# 札幌13.2% vs 他8場88.6-99.4%)。NORISHIKO_TRAIN_COVERAGE_NEUTRAL=1で
+# これらの会場のみ「データなし」を中立扱いに切替可能(既定OFF、2026-07-19 /committee検証用)
+LOW_TRAINING_COVERAGE_VENUES = frozenset({'函館', '札幌'})
+
+
+def score_training_actual(horse_name: str, race_date: str, sc, venue: str = None) -> dict:
     """
     レース前14日以内の最速lap1（最終1F）で調教スコアを判定。
     v2: 旧閾値ベース + 加速ラップボーナス（+5pt）
@@ -1094,6 +1102,15 @@ def score_training_actual(horse_name: str, race_date: str, sc) -> dict:
     加速ラップ（lap1 < lap2）ボーナス: +5pt
       坂路: 3着内率+3.0pt（26.1% vs 23.1%）
       WC:   3着内率+3.6pt（21.7% vs 18.1%）
+
+    Args:
+        venue: 開催場所。LOW_TRAINING_COVERAGE_VENUES所属かつ
+               NORISHIKO_TRAIN_COVERAGE_NEUTRAL=1のときのみデータ欠損の扱いに使う。
+               注意: cache_keyには含めない。backtest_2026.py: prefetch_month()が
+               同じ_training_actual_cacheに(horse_name, race_date)キーで直接
+               書き込む並行実装を持っており、venue付きキーにすると同期が壊れて
+               キャッシュヒット率が崩壊する(2026-07-19発見、prefetch_month側にも
+               同一の中立化ロジックを実装して同期を保つこと)。
     """
     cache_key = (horse_name, race_date)
     if cache_key in _training_actual_cache:
@@ -1134,6 +1151,14 @@ def score_training_actual(horse_name: str, race_date: str, sc) -> dict:
         accel = False
         if lap2 is not None and lap2 > 0 and lap1 < lap2:
             accel = True
+    elif venue in LOW_TRAINING_COVERAGE_VENUES and os.environ.get('NORISHIKO_TRAIN_COVERAGE_NEUTRAL') == '1':
+        # 函館・札幌はtrainingテーブルが構造的に薄い(現地滞在調教の取得経路が無い)。
+        # 「データなし」を「調教が悪かった」と同一視せず判断保留として中立扱いにする。
+        # has_good_trainもaccelと同様にNone(判断保留)にする(2026-07-19 /committee: accelのみ
+        # 中立化した初版はsire×good_trainゲートで依然ブロックされ効果が出なかったため拡張)。
+        score = 50.0
+        has_good_train = None
+        accel = None
     else:
         score = 48.0
         has_good_train = False

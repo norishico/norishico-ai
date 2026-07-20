@@ -1,7 +1,13 @@
 """今週末のレースにスコアリングを実行して予想HTML生成"""
-import sqlite3, json, sys, time
+import os, sqlite3, json, sys, time
 from collections import defaultdict
 from datetime import datetime
+
+# 函館・札幌はtrainingデータが構造的に薄い(2023-2025実測: 函館29.8%・札幌13.2%)。
+# 欠損を「調教が悪かった」と誤判定しないよう中立化する。2026-07-19 /committee承認・
+# WF-CV検証済み(小規模プラス効果)。backtest_v6.pyでは--train-coverage-neutralフラグ
+# 経由だったが、本番予想では常時有効化する(2026-07-20)。
+os.environ['NORISHIKO_TRAIN_COVERAGE_NEUTRAL'] = '1'
 
 sys.path.insert(0, '.')
 import importlib, scoring

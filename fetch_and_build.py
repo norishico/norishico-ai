@@ -321,6 +321,11 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--parallel", action="store_true",
                     help="Phase 2 並行運用モード: swapせずstagingを保持、last_fetch_parallel.txtで独立管理")
+    ap.add_argument("--lookback-days", type=int, default=None,
+                    help="過去N日分を広域re-fetchし、確定が遅いフィールド(odds/prize_won等)の"
+                         "取りこぼしを回収する。--fromと併用不可。last_fetch.txtは更新するが"
+                         "通常の差分フェッチには影響しない(次回はload_last_fetchが今回時刻から"
+                         "前進するだけで、look-back分は今回限りの一回性の広域取得)")
     args = ap.parse_args()
 
     LOG_DIR.mkdir(exist_ok=True)
@@ -329,7 +334,13 @@ def main():
         log(f"=== fetch_and_build start ===", fh)
         log(f"log: {log_path}", fh)
         try:
-            fromtime = args.fromtime or load_last_fetch(parallel=args.parallel)
+            if args.lookback_days:
+                if args.fromtime:
+                    raise ValueError("--lookback-days と --from は併用不可")
+                fromtime = (dt.datetime.now() - dt.timedelta(days=args.lookback_days)).strftime("%Y%m%d%H%M%S")
+                log(f"--lookback-days={args.lookback_days}: fromtime={fromtime} で広域re-fetch", fh)
+            else:
+                fromtime = args.fromtime or load_last_fetch(parallel=args.parallel)
             log(f"fromtime={fromtime} (parallel={args.parallel})", fh)
             if not args.skip_fetch:
                 run_fetch(fromtime, fh)

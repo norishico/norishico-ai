@@ -37,8 +37,8 @@ def run_mc_lite(horses, race_info, n_mc=N_MC):
     venue = race_info.get('venue', '')
     distance = race_info.get('distance', 1600)
 
+    # 東京2600m/中山3390m/中山3110mはDB照合の結果、該当レース0件（JRAに実在しない距離）のため削除(2026-07-20)
     COURSE_ADV = {
-        '東京': {2600: -8}, '中山': {3390: 5, 3110: 4},
         '阪神': {1800: 3}, '中京': {1800: 3, 2000: 3}
     }
     c_adj = COURSE_ADV.get(venue, {}).get(distance, 0)

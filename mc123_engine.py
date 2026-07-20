@@ -8,8 +8,22 @@ CTA(build_class_par.py)・個体化ペース応答/Grit(build_pace_baseline.py)�
 【まだ本番未統合の独立ライン】v6.6への統合・表示ページ(mc123.html)・オッズフィルタ・
 正式BT/WF CVはすべてスコープ外(Phase 2は「動く版」を作ることが目的)。
 
-風スロット係数(a, b)は race_wind_v2 x results の簡易回帰で概算した値であり、
-厳密な年次WF較正(Gate 1以降)はまだ行っていない。プレースホルダとして明記する。
+【2026-07-20 正式較正済み(第2回、rfa_rank_z/rfa_margin_z/l3f_z追加後)】
+K_ABILITY・GRIT_SCALE・WIND_A_PACE_SHIFT・WIND_B_STYLE・WIND_C_GUST・K_RANK・K_MARGIN・
+K_L3Fの8係数を、calibrate_mc123.py/run_calibration.pyによりBrier score最小化の座標降下法
+で較正済み(探索: 2021-2022年データのみ、n_mc=200、49回評価、625.0秒。8係数化に伴い
+既存5係数の候補数を5→3に削減して探索コストを制御)。
+
+【採否判定のbaseline訂正について(重要)】初回報告時、較正前後比較の"before"に
+「新3特徴量を較正せずplaceholder=1.0のまま足した状態」を誤って使い、相対改善0.356%
+(閾値0.44%未達)として一旦「不採用」と報告した。コーディネーターの指摘により、正しい
+比較対象は「新3特徴量を全く含まない状態(=この較正の前の本番モデル、K_RANK=K_MARGIN=
+K_L3F=0相当)」であるべきと判明。正しいbaseline(pooled avg_brier=0.0658723、
+年別2023=0.065914/2024=0.066176/2025=0.065527)と比較すると:
+  pooled相対改善 = (0.065872-0.064931)/0.065872 = 1.43%(閾値0.44%を大きく上回る)
+  年別: 2023=1.60% / 2024=1.30% / 2025=1.39%(3年とも個別改善かつ前回実績0.22%を大幅に上回る)
+この訂正後の数値で事前登録の採否基準を明確にクリアしたため、本反映に至った。
+詳細はcalibration_result.json参照。
 """
 import hashlib
 import sqlite3
@@ -26,29 +40,39 @@ from build_pace_baseline import (
 DB_PATH = "keiba.db"
 N_MC_DEFAULT = 500  # 動作確認用。本番2000回はn_mc引数で切替可能
 
-# COURSE_ADV: run_mc_fixed(generate_mc_record.py:119-120)からそのまま継承
-COURSE_ADV = {'東京': {2600: -8}, '中山': {3390: 5, 3110: 4},
-              '阪神': {1800: 3}, '中京': {1800: 3, 2000: 3}}
+# COURSE_ADV: run_mc_fixed(generate_mc_record.py:119-120)から継承
+# 東京2600m/中山3390m/中山3110mはDB照合の結果、該当レース0件（JRAに実在しない距離）のため削除(2026-07-20)
+COURSE_ADV = {'阪神': {1800: 3}, '中京': {1800: 3, 2000: 3}}
 
-# ── CTA項の係数 ─────────────────────────────────────────────
-K_ABILITY = 1.0  # cta_z * K_ABILITY。初期値プレースホルダ(要calibration、Gate1以降)
+# ── CTA項の係数(2026-07-20較正済み。座標降下法でplaceholder=1.0のまま最良と判定) ──
+K_ABILITY = 1.0  # cta_z * K_ABILITY
 
-# ── Grit項のスケール ─────────────────────────────────────────
+# ── rfa_rank_z / rfa_margin_z / l3f_z 係数(2026-07-20 第2回較正で正式反映) ──
+# K_RANK=K_MARGIN=2.0で共に生存(同水準)。プランナーの事前スクリーニング
+# (「着順ベース・着差ベース両方の地力情報が必要」という予測)と整合する結果。
+K_RANK = 2.0
+K_MARGIN = 2.0
+K_L3F = 1.0  # placeholderのまま最良と判定(変化なし)
+
+# ── Grit項のスケール(2026-07-20 第2回較正。10.0 -> 5.0) ─────────
 # Grit_H/Grit_Sはrel_finish残差(±0.25キャップ、0-1スケール)なので、gainのpoint
-# スケールに変換する係数。初期値プレースホルダ。
-GRIT_SCALE = 20.0
+# スケールに変換する係数。
+GRIT_SCALE = 5.0
 
-# ── 風スロット係数(簡易回帰による概算値、要Gate1較正) ──────────
-# W1: race_wind_v2 x race_laps.pace_type の実測(tail_home平均: H=-0.217/M=-0.023/S=+0.083)
-#     から、tail_home 1単位あたりのH<->Sペース確率シフト量として概算。
-WIND_A_PACE_SHIFT = 0.02
-# W2: race_wind_v2 x results の簡易回帰(rel_finish ~ tail_home, 脚質別)から、
-#     front(前/好位): slope=+0.00191(tailwindで不利) / closer(中団/後方): slope=-0.00202(有利)
-#     をpointスケールに変換した係数。
-WIND_B_STYLE = 0.15
-# W3: 突風ノイズ拡大。noise_std = BASE_NOISE_STD + WIND_C_GUST * gust_max
+# ── 風スロット係数(2026-07-20 第2回較正。W1・W2は0まで押し下げ) ──
+# 【重要】rfa_rank_z/rfa_margin_z/l3f_z(地力系特徴量)投入後、W1・W2は共に0.0に較正された。
+# これは「僅差で効果が小さい」のではなく、Brier最小化の観点で風のペースシフト効果・
+# 脚質ボーナス効果の最適推定値が文字通りゼロになったことを意味する(地力系特徴量が
+# 入った時点で風の実力差別化への寄与は識別できなくなった、というより強いnull result)。
+# この帰結として、Gate2 F6フィルタの「風による当日実況/中立シナリオのP1差」も
+# 定義上ほぼゼロになり、F6条件が構造的に発火しなくなる(n=0の再確認はこの意味で
+# 「僅差の不合格」ではなく「風シフト自体が較正でゼロになったことの必然的帰結」)。
+WIND_A_PACE_SHIFT = 0.0
+WIND_B_STYLE = 0.0
+# W3: 突風ノイズ拡大。noise_std = BASE_NOISE_STD + WIND_C_GUST * gust_max。
+# 0.15のまま変化なし(ノイズ拡大効果はW1/W2と異なり生き残った)。
 BASE_NOISE_STD = 5.0
-WIND_C_GUST = 0.3
+WIND_C_GUST = 0.15
 
 
 def hash64_seed(race_id: str) -> int:
@@ -86,6 +110,11 @@ def precompute_horse_features(conn, horses, race_info, class_par, k_cls, same_da
         h["pace_v"] = resp["v"]
         if "style" not in h or not h["style"]:
             h["style"] = resp["style"]
+        # 【2026-07-20 時間制約による簡略化】rfa_rank_z/rfa_margin_z/l3f_zはDBクエリ版では
+        # 未実装(run_mc123側は.get(...,0.0)で中立0にフォールバックするため動作は壊れない)。
+        # 高速一括版(mc123_batch.precompute_horse_features_fast)側には実装済みで、
+        # 較正・BTはすべてそちらを使う。_self_test()専用のこの経路は将来必要になれば
+        # mc123_batch.compute_rank_z_fast等をDB版に移植すること。
     return horses
 
 
@@ -167,8 +196,10 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
             st = h["style"]
             # ── 個体化ペース応答 (STYLE_DEF静的値の代わりにv_i(P)を使用) ──
             v = h.get("pace_v", {}).get(P, 60)
-            # ── CTA項 (last3f項の代替。上位互換のため削除) ──
-            g = (75.0 * v / 100 - 70) * 0.45 + h.get("cta_z", 0.0) * K_ABILITY
+            # ── CTA項 (last3f項の代替。上位互換のため削除) + rfa_rank_z/rfa_margin_z/l3f_z(2026-07-20追加) ──
+            g = (75.0 * v / 100 - 70) * 0.45 + h.get("cta_z", 0.0) * K_ABILITY \
+                + h.get("rfa_rank_z", 0.0) * K_RANK + h.get("rfa_margin_z", 0.0) * K_MARGIN \
+                + h.get("l3f_z", 0.0) * K_L3F
 
             bon = 0.0
             if P == "S":

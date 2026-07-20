@@ -17,6 +17,7 @@ from mc123_batch import (
 )
 from build_class_par import build_class_par_table, calibrate_k_cls
 from build_pace_baseline import build_baseline_table
+from build_extra_par import build_rank_par, build_margin_par, build_l3f_par
 
 DB_PATH = "keiba.db"
 FOLD_YEARS = [2022, 2023, 2024, 2025]
@@ -75,16 +76,27 @@ def estimate_wind_ab(conn, cutoff_date):
     return round(a, 4), round(b, 4)
 
 
-def run_fold(conn, year, horse_hist, bias_map, n_mc=N_MC_DEFAULT, verbose=True):
+def run_fold(conn, year, horse_hist, bias_map, n_mc=N_MC_DEFAULT, verbose=True,
+             fixed_coefs=None):
+    """fixed_coefs指定時: WIND_A/Bのfold内再推定をスキップし、mc123_engineの現在の
+    グローバル係数(呼び出し前にcalibrate_mc123.set_coefs()等で設定済み)をそのまま使う
+    (較正後係数でのGate2頑健性チェック用)。"""
     cutoff = f"{year}-01-01"
     class_par = build_class_par_table(conn, cutoff_date=cutoff, verbose=False)
     k_cls = calibrate_k_cls(conn, cutoff_date=cutoff, verbose=False)
     pace_baseline = build_baseline_table(conn, cutoff_date=cutoff, verbose=False)
-    a, b = estimate_wind_ab(conn, cutoff)
-    mc123_engine.WIND_A_PACE_SHIFT = a
-    mc123_engine.WIND_B_STYLE = b
-    if verbose:
-        print(f"  [{year}] wind a={a} b={b} (fold内で先行年データのみから再推定)")
+    rank_par = build_rank_par(conn, cutoff_date=cutoff, verbose=False)
+    margin_par = build_margin_par(conn, cutoff_date=cutoff, verbose=False)
+    l3f_par = build_l3f_par(conn, cutoff_date=cutoff, verbose=False)
+    if fixed_coefs is None:
+        a, b = estimate_wind_ab(conn, cutoff)
+        mc123_engine.WIND_A_PACE_SHIFT = a
+        mc123_engine.WIND_B_STYLE = b
+        if verbose:
+            print(f"  [{year}] wind a={a} b={b} (fold内で先行年データのみから再推定)")
+    elif verbose:
+        print(f"  [{year}] 較正後の固定係数を使用(fold内再推定スキップ): "
+              f"a={mc123_engine.WIND_A_PACE_SHIFT} b={mc123_engine.WIND_B_STYLE}")
 
     races = conn.execute("""
         SELECT DISTINCT r.date, r.venue, r.race_num, r.race_id, r.surface, r.distance, r.track_cond
@@ -121,7 +133,8 @@ def run_fold(conn, year, horse_hist, bias_map, n_mc=N_MC_DEFAULT, verbose=True):
         race_info = {"venue": venue, "distance": dist or 1600, "track_cond": tc or "良",
                      "num_horses": len(horses), "date": date, "surface": srf, "race_id": race_id}
         precompute_horse_features_fast(horses, race_info, horse_hist, class_par, k_cls,
-                                        bias_map, pace_baseline)
+                                        bias_map, pace_baseline, rank_par=rank_par,
+                                        margin_par=margin_par, l3f_par=l3f_par)
 
         wind = wind_map.get(race_id)
         seed = hash64_seed(race_id)

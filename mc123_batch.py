@@ -28,7 +28,7 @@ def load_horse_hist_all(conn, hist_start=HIST_START):
     rows = conn.execute("""
         SELECT r.horse_name, r.date, r.venue, r.surface, r.distance, r.finish,
                r.num_horses, r.pos4, r.last3f, r.time_sec, r.track_cond, r.race_id,
-               r.race_name, rl.pace_type
+               r.race_name, rl.pace_type, r.margin
         FROM results r
         LEFT JOIN race_laps rl ON rl.race_id = r.race_id
         WHERE r.date >= ? AND r.finish < 90
@@ -40,7 +40,7 @@ def load_horse_hist_all(conn, hist_start=HIST_START):
             "horse_name": r[0], "date": r[1], "venue": r[2], "surface": r[3],
             "distance": r[4], "finish": r[5], "num_horses": r[6], "pos4": r[7],
             "last3f": r[8], "time_sec": r[9], "track_cond": r[10], "race_id": r[11],
-            "race_name": r[12] or "", "pace_type": r[13],
+            "race_name": r[12] or "", "pace_type": r[13], "margin": r[14],
         }
         hist[r[0]].append(entry)
 
@@ -81,6 +81,38 @@ def load_pace_baseline_dict(conn):
     return d
 
 
+def load_rank_par(conn):
+    return conn.execute("SELECT mu, sigma FROM rank_par").fetchone()
+
+
+def load_margin_par_dict(conn):
+    return {(surf, db): sigma for surf, db, sigma, n in
+            conn.execute("SELECT surface, dist_bucket, sigma, n FROM margin_par")}
+
+
+def load_l3f_par_dict(conn):
+    d = {}
+    for cls, venue, surface, distance, track_cond, mu, sigma, n in conn.execute(
+        "SELECT cls, venue, surface, distance, track_cond, mu, sigma, n FROM l3f_par"
+    ):
+        d[(cls, venue, surface, distance, track_cond)] = (mu, sigma, n)
+    return d
+
+
+def _top2_weighted_agg(vals_desc_by_date):
+    """CTA(compute_cta_fast)と同一の集約方式: 直近5件を新しい順に受け取り、その中で
+    「値」が大きい上位2件をrecency重み(CTA_WEIGHTS)で加重平均する。"""
+    if not vals_desc_by_date:
+        return None
+    n = min(5, len(vals_desc_by_date))
+    recent = vals_desc_by_date[:n]
+    weights = CTA_WEIGHTS[:n]
+    idx_sorted = sorted(range(n), key=lambda i: -recent[i])
+    top2 = idx_sorted[:2]
+    w_sum = sum(weights[i] for i in top2)
+    return sum(recent[i] * weights[i] for i in top2) / w_sum
+
+
 # ── in-memory版 CTA ─────────────────────────────────────────
 def _a_run_from_entry(e, class_par, k_cls, bias_map):
     cls = classify_class(e["race_name"])
@@ -117,6 +149,79 @@ def compute_cta_fast(hist_list, asof_date, class_par, k_cls, bias_map, n_recent=
     w_sum = sum(weights[i] for i in top2)
     cta_main = sum(a_runs[i][1] * weights[i] for i in top2) / w_sum
     return round(cta_main, 4), round(cta_full, 4), len(a_runs)
+
+
+# ── in-memory版 rfa_rank_z(着順ベース地力) ─────────────────────
+from build_extra_par import dist_bucket as _margin_dist_bucket
+
+
+def compute_rank_z_fast(hist_list, asof_date, rank_mu, rank_sigma, n_recent=5):
+    """raw = -(finish-1)/(num_horses-1) を rank_par(グローバルmu,sigma)でz化してから
+    CTAと同じ上位2走加重平均で集約。有効過去走2走未満は中立0。"""
+    past = [e for e in hist_list if e["date"] < asof_date
+            and e["finish"] is not None and e["num_horses"] and e["num_horses"] > 1]
+    recent = past[-n_recent:][::-1]
+    zs = []
+    for e in recent:
+        raw = -(e["finish"] - 1) / (e["num_horses"] - 1)
+        z = (raw - rank_mu) / rank_sigma if rank_sigma > 0 else 0.0
+        zs.append(z)
+    if len(zs) < 2:
+        return 0.0
+    return round(_top2_weighted_agg(zs), 4)
+
+
+# ── in-memory版 rfa_margin_z(着差ベース地力) ────────────────────
+def compute_margin_z_fast(hist_list, asof_date, margin_par, n_recent=5):
+    """mba_run = -clip(margin,-2,4)/sigma_cell (平均センタリングなし)。
+    margin>=90(DNF)・NULLはスキップ。有効過去走2走未満は中立0。"""
+    past = [e for e in hist_list if e["date"] < asof_date
+            and e.get("margin") is not None and e["margin"] < 90
+            and e["surface"] in ("芝", "ダ")]
+    recent = past[-n_recent:][::-1]
+    vals = []
+    for e in recent:
+        db = _margin_dist_bucket(e["distance"])
+        if db is None:
+            continue
+        entry = margin_par.get((e["surface"], db))
+        if entry is None:
+            continue
+        # entry は (sigma, n) タプル(build_margin_par直接使用時)、または sigma単体
+        # (load_margin_par_dict経由時)のどちらも許容する
+        sigma = entry[0] if isinstance(entry, tuple) else entry
+        if not sigma or sigma <= 0:
+            continue
+        clipped = max(-2.0, min(4.0, e["margin"]))
+        vals.append(-clipped / sigma)
+    if len(vals) < 2:
+        return 0.0
+    return round(_top2_weighted_agg(vals), 4)
+
+
+# ── in-memory版 l3f_z(上がり3F指数、自クラス平均比) ──────────────
+def compute_l3f_z_fast(hist_list, asof_date, l3f_par, n_recent=5):
+    """必ず過去走のlast3fのみ使用(当該レースのlast3fは絶対に使わない)。
+    z = -(last3f-mu)/sigma (速い=正)。CTA同様の上位2走加重平均。"""
+    past = [e for e in hist_list if e["date"] < asof_date
+            and e.get("last3f") and e["last3f"] > 0]
+    recent = past[-n_recent:][::-1]
+    zs = []
+    for e in recent:
+        cls = classify_class(e["race_name"])
+        if cls is None or not e["track_cond"]:
+            continue
+        key = (cls, e["venue"], e["surface"], e["distance"], e["track_cond"])
+        cp = l3f_par.get(key)
+        if cp is None:
+            continue
+        mu, sigma, n = cp
+        if sigma <= 0:
+            continue
+        zs.append(-(e["last3f"] - mu) / sigma)
+    if len(zs) < 2:
+        return 0.0
+    return round(_top2_weighted_agg(zs), 4)
 
 
 # ── in-memory版 PGR ─────────────────────────────────────────
@@ -213,9 +318,12 @@ def compute_pace_response_fast(hist_list, asof_date, target_distance, surface, j
 
 
 def precompute_horse_features_fast(horses, race_info, horse_hist, class_par, k_cls,
-                                    bias_map, pace_baseline):
+                                    bias_map, pace_baseline, rank_par=None, margin_par=None,
+                                    l3f_par=None):
     """mc123_engine.precompute_horse_features()のDBクエリ0回版。horse_histは
-    load_horse_hist_all()の出力(horse_name -> [entry,...])。"""
+    load_horse_hist_all()の出力(horse_name -> [entry,...])。
+    rank_par/margin_par/l3f_parを渡すとrfa_rank_z/rfa_margin_z/l3f_zも計算する
+    (Noneのままなら計算をスキップし、その特徴量は中立0のまま=既存呼び出し元との互換性維持)。"""
     asof_date = race_info.get("date")
     distance = race_info.get("distance", 1600)
     surface = race_info.get("surface", "芝")
@@ -235,4 +343,11 @@ def precompute_horse_features_fast(horses, race_info, horse_hist, class_par, k_c
         h["pace_v"] = v
         if not h.get("style"):
             h["style"] = style
+
+        if rank_par is not None:
+            h["rfa_rank_z"] = compute_rank_z_fast(hist_list, asof_date, rank_par[0], rank_par[1])
+        if margin_par is not None:
+            h["rfa_margin_z"] = compute_margin_z_fast(hist_list, asof_date, margin_par)
+        if l3f_par is not None:
+            h["l3f_z"] = compute_l3f_z_fast(hist_list, asof_date, l3f_par)
     return horses

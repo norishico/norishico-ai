@@ -151,6 +151,33 @@ def compute_cta_fast(hist_list, asof_date, class_par, k_cls, bias_map, n_recent=
     return round(cta_main, 4), round(cta_full, 4), len(a_runs)
 
 
+# ── in-memory版 layoff_pen(鮮度/休み明けペナルティ、2026-07-20追加) ────────
+import datetime as _datetime
+
+
+def compute_layoff_pen_fast(hist_list, asof_date):
+    """asof_date - 直近走date の日数で固定バケット判定。
+    追加SQL不要(compute_cta_fastと同じ「直近走取得」ロジックの日数版)。
+    過去走が1走もない(新馬相当)場合はlayoff不明のため中立0.0。
+    連闘ボーナスは統制後効果ゼロだったため実装しない(プランナー設計通り)。"""
+    past = [e for e in hist_list if e["date"] < asof_date]
+    if not past:
+        return 0.0
+    last_date = past[-1]["date"]  # 昇順リストの末尾=直近
+    try:
+        d1 = _datetime.date.fromisoformat(asof_date)
+        d0 = _datetime.date.fromisoformat(last_date)
+        layoff_days = (d1 - d0).days
+    except (ValueError, TypeError):
+        return 0.0
+    if layoff_days <= 90:
+        return 0.0
+    elif layoff_days <= 180:
+        return 1.0
+    else:
+        return 2.7
+
+
 # ── in-memory版 rfa_rank_z(着順ベース地力) ─────────────────────
 from build_extra_par import dist_bucket as _margin_dist_bucket
 
@@ -350,4 +377,7 @@ def precompute_horse_features_fast(horses, race_info, horse_hist, class_par, k_c
             h["rfa_margin_z"] = compute_margin_z_fast(hist_list, asof_date, margin_par)
         if l3f_par is not None:
             h["l3f_z"] = compute_l3f_z_fast(hist_list, asof_date, l3f_par)
+
+        # layoff_pen(2026-07-20追加): 較正テーブル不要の固定バケット、追加SQLなし
+        h["layoff_pen"] = compute_layoff_pen_fast(hist_list, asof_date)
     return horses

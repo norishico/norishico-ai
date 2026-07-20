@@ -102,44 +102,54 @@ def set_coefs(coefs):
     mc123_engine.K_RANK = coefs["K_RANK"]
     mc123_engine.K_MARGIN = coefs["K_MARGIN"]
     mc123_engine.K_L3F = coefs["K_L3F"]
+    mc123_engine.K_LAYOFF = coefs.get("K_LAYOFF", 0.0)
 
 
-# PLACEHOLDER: 前回較正(2026-07-20 1回目)の結果を既存5係数の起点として使う
-# (前回較正済みの値を再度探索の初期値にするのは自然で、プレースホルダに巻き戻す理由がない)。
-# 新規3係数(K_RANK/K_MARGIN/K_L3F)はプランナー指定通り1.0を初期値とする。
-PLACEHOLDER = {
-    "K_ABILITY": 1.0, "GRIT_SCALE": 10.0, "WIND_A_PACE_SHIFT": 0.01,
-    "WIND_B_STYLE": 0.05, "WIND_C_GUST": 0.15,
-    "K_RANK": 1.0, "K_MARGIN": 1.0, "K_L3F": 1.0,
+# 【命名に関する重要な注記 — 前回のbaseline取り違えミスの再発防止】
+# PROD_BASELINE = 現行本番モデル(K_LAYOFF=0、つまり新機能なしの状態)。
+#   採否判定の"before"には必ずこちらを使う。
+# WARM_START = PROD_BASELINE + K_LAYOFF初期値0.4。座標降下法の「探索の出発点」に
+#   使うだけであり、採否判定のbeforeとして使ってはならない。
+PROD_BASELINE = {
+    "K_ABILITY": 1.0, "GRIT_SCALE": 5.0, "WIND_A_PACE_SHIFT": 0.0,
+    "WIND_B_STYLE": 0.0, "WIND_C_GUST": 0.15,
+    "K_RANK": 2.0, "K_MARGIN": 2.0, "K_L3F": 1.0, "K_LAYOFF": 0.0,
 }
+WARM_START = dict(PROD_BASELINE, K_LAYOFF=0.4)
 
-# 座標降下法の探索候補。
-# 【2026-07-20 時間予算対応】8係数になり探索コストが増えるため、既存5係数の候補数を
-# 5→3に削減(前回較正値を中心に±方向のみ残す)。新規3係数も3候補ずつとする。
-# 8パラメータ×3候補×最大2ラウンド=48回評価が上限(実際は早期収束で減る想定)。
+# 後方互換のためPLACEHOLDER名も残す(過去スクリプトからの参照用、PROD_BASELINEと同一)
+PLACEHOLDER = PROD_BASELINE
+
+# 座標降下法の探索候補(既存8係数は前回較正値で固定、K_LAYOFFのみ探索するSTEP1用)。
 CANDIDATES = {
     "K_ABILITY": [0.5, 1.0, 2.0],
-    "GRIT_SCALE": [5.0, 10.0, 20.0],
+    "GRIT_SCALE": [2.5, 5.0, 10.0],
     "WIND_A_PACE_SHIFT": [0.0, 0.01, 0.02],
     "WIND_B_STYLE": [0.0, 0.05, 0.15],
     "WIND_C_GUST": [0.0, 0.15, 0.3],
-    "K_RANK": [0.3, 1.0, 2.0],
-    "K_MARGIN": [0.3, 1.0, 2.0],
-    "K_L3F": [0.3, 1.0, 2.0],
+    "K_RANK": [1.0, 2.0, 3.0],
+    "K_MARGIN": [1.0, 2.0, 3.0],
+    "K_L3F": [0.5, 1.0, 2.0],
+    "K_LAYOFF": [0.0, 0.4, 0.8, 1.2, 2.0],
 }
 
 
-def coordinate_descent(prepared_train, n_mc=N_MC_DEFAULT, rounds=2, verbose=True):
-    best = dict(PLACEHOLDER)
+def coordinate_descent(prepared_train, n_mc=N_MC_DEFAULT, rounds=2, verbose=True,
+                        start=None, params=None):
+    """start: 探索の出発点(Noneならprod_baseline)。params: 探索対象パラメータのリスト
+    (NoneならCANDIDATESの全パラメータ)。他は固定したまま指定パラメータのみ座標降下する。"""
+    best = dict(start) if start is not None else dict(PROD_BASELINE)
+    search_params = params if params is not None else list(CANDIDATES.keys())
     set_coefs(best)
     best_brier, best_ll, n = brier_and_logloss(prepared_train, n_mc=n_mc)
     if verbose:
-        print(f"  初期(placeholder) Brier={best_brier:.6f} logloss={best_ll:.6f} n={n}")
+        print(f"  初期 Brier={best_brier:.6f} logloss={best_ll:.6f} n={n} "
+              f"(探索対象: {search_params})")
 
     n_evals = 1
     for rd in range(rounds):
         improved_this_round = False
-        for param in CANDIDATES:
+        for param in search_params:
             local_best_val = best[param]
             local_best_brier = best_brier
             for cand in CANDIDATES[param]:
@@ -165,5 +175,5 @@ def coordinate_descent(prepared_train, n_mc=N_MC_DEFAULT, rounds=2, verbose=True
     set_coefs(best)
     final_brier, final_ll, n = brier_and_logloss(prepared_train, n_mc=n_mc)
     if verbose:
-        print(f"  最終(較正後) Brier={final_brier:.6f} logloss={final_ll:.6f}  評価回数={n_evals}")
+        print(f"  最終 Brier={final_brier:.6f} logloss={final_ll:.6f}  評価回数={n_evals}")
     return best, final_brier, final_ll, n_evals

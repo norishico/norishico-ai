@@ -54,6 +54,19 @@ K_RANK = 2.0
 K_MARGIN = 2.0
 K_L3F = 1.0  # placeholderのまま最良と判定(変化なし)
 
+# ── K_LAYOFF(鮮度/休み明けペナルティ、2026-07-20 プランナー設計) ──
+# g -= K_LAYOFF * layoff_pen。layoff_penは較正テーブル不要の固定バケット
+# (mc123_batch.compute_layoff_pen_fast: <=90日=0.0 / <=180日=1.0 / それ以上=2.7)。
+#
+# 【2026-07-20 較正実施→不採用】座標降下法で探索した結果K_LAYOFF=0.8が最良候補として
+# 見つかったが、OOS評価(2023/2024/2025、before=K_LAYOFF=0の現行本番モデル)でpooled
+# 相対Brier改善は+0.16%(全年個別には改善したが、事前登録基準0.44%に量が届かず)。
+# プランナー事前予測(0.06〜0.2%)の範囲内に収まる結果で、不採用と判定した。
+# K_LAYOFF=0.0としてgainへの影響を完全に無効化し、この機能導入前と数学的に同一の
+# 挙動に戻す。layoff_pen自体の計算ロジック(mc123_batch.compute_layoff_pen_fast)は
+# 将来の再検討用にコードとして残置する。
+K_LAYOFF = 0.0
+
 # ── Grit項のスケール(2026-07-20 第2回較正。10.0 -> 5.0) ─────────
 # Grit_H/Grit_Sはrel_finish残差(±0.25キャップ、0-1スケール)なので、gainのpoint
 # スケールに変換する係数。
@@ -199,7 +212,8 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
             # ── CTA項 (last3f項の代替。上位互換のため削除) + rfa_rank_z/rfa_margin_z/l3f_z(2026-07-20追加) ──
             g = (75.0 * v / 100 - 70) * 0.45 + h.get("cta_z", 0.0) * K_ABILITY \
                 + h.get("rfa_rank_z", 0.0) * K_RANK + h.get("rfa_margin_z", 0.0) * K_MARGIN \
-                + h.get("l3f_z", 0.0) * K_L3F
+                + h.get("l3f_z", 0.0) * K_L3F \
+                - K_LAYOFF * h.get("layoff_pen", 0.0)
 
             bon = 0.0
             if P == "S":

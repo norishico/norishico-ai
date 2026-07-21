@@ -23,12 +23,6 @@
       "desc": "scoring/backtest/predictに散在する特徴量計算を1ファイルに集約。機能変更なし、BT数値変わらず"
     },
     {
-      "title": "先行×長直線ボーナス（再設計案）",
-      "owner": "ひなた",
-      "prio": "mid",
-      "desc": "元の先行/差し×短/長直線仮説とは逆。長直線(東京/新潟)×先行でEV=1.016(全honmei中唯一>1.0)。venue_sire_bonusとの独立性要確認。BTで効果測定後に再提案。(2026-04-30)"
-    },
-    {
       "title": "輸送ストレスデバフ（交差分析待ち）",
       "owner": "ゆめ",
       "prio": "low",
@@ -36,6 +30,12 @@
     }
   ],
   "完了": [
+    {
+      "title": "先行×長直線ボーナス（再設計案）",
+      "owner": "ひなた",
+      "prio": "mid",
+      "desc": "不採用確定(2026-07-21)。/committee審議の上、venue_geo_v2.straight_length_m(連続値)×_infer_running_styleで新規venue_style_bonusテーブルを実装。venue_sire_bonusとの独立性はクリア(r=-0.0037)だが、母集団検証でlong×先行セル(n=18,570)の複勝率diffが+0.21pt(他ボーナスの採用基準min_diff=12ptの1/50以下)としか出ず、テーブルは4年分すべて0件構築。WF-CVを回すまでもなく不採用。gate_style_biasと同型の「簡易EV集計は本番検証で消える」パターンを追加確認。コードは無害な既定OFF状態でリポジトリに残置(commit d4e92c2)"
+    },
     {
       "title": "騎手×会場ボーナス",
       "owner": "あおい",

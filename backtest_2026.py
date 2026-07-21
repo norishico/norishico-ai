@@ -46,18 +46,14 @@ from scoring import (
     score_bloodline, score_gate_style, get_weights,
     score_surface_switch, _surface_switch_cache,
     calc_pace_context, _infer_running_style,
-    calc_course_blood_bonus, calc_gate_cond_blood_bonus,
-    calc_track_bias_bonus, calc_venue_sire_bonus,
-    calc_venue_damsire_bonus, calc_cushion_sire_bonus,
-    calc_nicks_bonus, calc_family_nicks_bonus,
     calc_daily_bias_bonus, calc_condition_penalty, EV_CONDITIONS,
-    calc_race_level_bonus, calc_lap_pace_bonus, calc_venue_style_bonus,
-    calc_front4_bonus,
+    calc_lap_pace_bonus,
     _past_runs_cache, _course_runs_cache, _running_style_cache,
     _jockey_cache, _trainer_cache, _combo_cache, _ace_cache,
     _avg_time_cache, _last3f_cache, _training_actual_cache,
     _bloodline_score_cache, _week_cache, _wet_perf_cache,
 )
+from features import compute_all_bonuses
 
 
 # ══════════════════════════════════════════════════════════════
@@ -415,25 +411,13 @@ def score_one_race(race_rows, sc_conn):
     for rank, h2 in enumerate(blood_sorted, 1):
         h2['_blood_rank'] = rank
 
+    race_info = {'date': date, 'venue': venue, 'surface': surf, 'dist': dist,
+                 'heads': heads, 'cond': cond, 'cushion': cushion}
     for h2 in res:
-        bonus = calc_course_blood_bonus(h2['horse_name'], date, venue, surf, dist,
-                                        h2['_blood_rank'], sc_conn)
-        gcbb  = calc_gate_cond_blood_bonus(h2['horse_name'], date, venue, surf, dist,
-                                           h2['horse_num'], heads, cond, h2['_sire'], sc_conn)
-        tbb   = calc_track_bias_bonus(venue, surf, date, h2['horse_num'], heads,
-                                       h2['_prev_pos4'], sc_conn)
-        vsb   = calc_venue_sire_bonus(venue, dist, h2['_sire'], sc_conn)
-        vdsb  = calc_venue_damsire_bonus(venue, dist, h2['_dam_sire'], sc_conn)
-        csb   = calc_cushion_sire_bonus(cushion, h2['_sire'], surf, sc_conn)
-        nkb   = calc_nicks_bonus(h2['_sire'], h2['_dam_sire'], surf, sc_conn)
-        fnkb  = calc_family_nicks_bonus(h2['_sire'], h2['_dam_sire'], surf, sc_conn)
-        rlb   = calc_race_level_bonus(h2['horse_name'], date, sc_conn)
-        vstb  = calc_venue_style_bonus(h2['horse_name'], date, venue, surf, dist, sc_conn)
-        f4b   = calc_front4_bonus(h2['horse_name'], date, h2['_prev_runs'])
-        h2['total_score'] = round(h2['total_score'] + bonus + gcbb + tbb + vsb + vdsb + csb + nkb + fnkb + rlb + vstb + f4b, 1)
+        h2['total_score'], _bd = compute_all_bonuses(h2, race_info, sc_conn)
         # りさ戦略用: 血統・調教・コースボーナスの非ゼロ数（データの充実度）
-        h2['_bd_nonzero'] = sum(1 for v in [bonus, gcbb, tbb, vsb, vdsb, csb, nkb, fnkb, rlb, vstb, f4b,
-            h2.get('_blood_score', 0), h2.get('accel_lap') or 0, h2.get('has_good_train') or 0]
+        h2['_bd_nonzero'] = sum(1 for v in list(_bd.values()) +
+            [h2.get('_blood_score', 0), h2.get('accel_lap') or 0, h2.get('has_good_train') or 0]
             if v and v > 0)
 
     res.sort(key=lambda x: (-x['total_score'], x['horse_name']))

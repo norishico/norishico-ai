@@ -18,14 +18,13 @@ from scoring import (
     score_jockey_trainer, score_rotation, score_training_actual, score_bloodline,
     score_gate_style, get_weights, calc_pace_context, _infer_running_style,
     score_surface_switch, _surface_switch_cache,
-    calc_course_blood_bonus, calc_gate_cond_blood_bonus, calc_track_bias_bonus,
-    calc_venue_sire_bonus, calc_venue_damsire_bonus, calc_cushion_sire_bonus,
-    calc_nicks_bonus, get_race_level_badge_info,
+    calc_venue_sire_bonus, calc_venue_damsire_bonus, get_race_level_badge_info,
     calc_daily_bias_bonus, calc_condition_penalty, EV_CONDITIONS,
     _past_runs_cache, _course_runs_cache, _running_style_cache,
     _jockey_cache, _trainer_cache, _combo_cache, _ace_cache,
     _avg_time_cache, _last3f_cache, _training_actual_cache,
     _bloodline_score_cache, _week_cache, _wet_perf_cache)
+from features import compute_all_bonuses
 from backtest_2026 import prefetch_month, clear_caches
 from backtest_full import prefetch_score_caches, prefetch_jt, grade_full
 from backtest_v2 import calc_win_prob_s12, calc_ev_scale7
@@ -335,6 +334,7 @@ def score_weekend_race(race, conn, sc_conn):
             'odds': odds, 'popularity': pop, 'total_score': round(total, 1),
             '_blood_score': sb['score'], '_sire': sire, '_dam_sire': dam_sire,
             '_prev_pos4': int(prev_runs[0]['pos4']) if prev_runs and prev_runs[0].get('pos4') else 0,
+            '_prev_runs': prev_runs,
             '_running_style': _style_map.get(name),
             'accel_lap': st.get('accel_lap', False),
             'has_good_train': st.get('has_good_train', False),
@@ -354,28 +354,27 @@ def score_weekend_race(race, conn, sc_conn):
     for rank, h2 in enumerate(blood_sorted, 1):
         h2['_blood_rank'] = rank
 
+    race_info = {'date': date, 'venue': venue, 'surface': surface, 'dist': dist,
+                 'heads': heads, 'cond': cond, 'cushion': cushion}
     for h2 in results:
         base_score = h2['total_score']
-        bonus = calc_course_blood_bonus(h2['horse_name'], date, venue, surface, dist,
-                                        h2['_blood_rank'], sc_conn)
-        gcbb  = calc_gate_cond_blood_bonus(h2['horse_name'], date, venue, surface, dist,
-                                           h2['horse_num'], heads, cond, h2['_sire'], sc_conn)
-        tbb   = calc_track_bias_bonus(venue, surface, date, h2['horse_num'], heads,
-                                       h2['_prev_pos4'], sc_conn)
-        vsb   = calc_venue_sire_bonus(venue, dist, h2['_sire'], sc_conn)
-        vdsb  = calc_venue_damsire_bonus(venue, dist, h2['_dam_sire'], sc_conn)
-        csb   = calc_cushion_sire_bonus(cushion, h2['_sire'], surface, sc_conn)
-        nkb   = calc_nicks_bonus(h2['_sire'], h2['_dam_sire'], surface, sc_conn)
-        h2['total_score'] = round(base_score + bonus + gcbb + tbb + vsb + vdsb + csb + nkb, 1)
+        h2['total_score'], _bd = compute_all_bonuses(h2, race_info, sc_conn)
         h2['_score_breakdown'] = {
             'base': round(base_score, 1),
-            'course_blood': round(bonus, 1),
-            'gate_cond_blood': round(gcbb, 1),
-            'track_bias': round(tbb, 1),
-            'venue_sire': round(vsb, 1),
-            'venue_damsire': round(vdsb, 1),
-            'cushion_sire': round(csb, 1),
-            'nicks': round(nkb, 1),
+            'course_blood': round(_bd['course_blood'], 1),
+            'gate_cond_blood': round(_bd['gate_cond_blood'], 1),
+            'track_bias': round(_bd['track_bias'], 1),
+            'venue_sire': round(_bd['venue_sire'], 1),
+            'venue_damsire': round(_bd['venue_damsire'], 1),
+            'cushion_sire': round(_bd['cushion_sire'], 1),
+            'nicks': round(_bd['nicks'], 1),
+            # fnkb/rlb/vstb/f4bは現状デフォルトOFFのフラグ付きボーナス。
+            # features.pyへの一元化により今後backtestで有効化された場合、
+            # ここにも自動的に反映される(りさ指摘のリスク解消)。
+            'family_nicks': round(_bd['family_nicks'], 1),
+            'race_level': round(_bd['race_level'], 1),
+            'venue_style': round(_bd['venue_style'], 1),
+            'front4': round(_bd['front4'], 1),
         }
 
     results.sort(key=lambda x: x['total_score'], reverse=True)

@@ -2311,6 +2311,11 @@ def get_race_level_badge_info(horse_name: str, race_date: str, conn) -> dict | N
         return None
     if not row:
         return None
+    if row['time_z_corrected'] is None or row['percentile_rank'] is None:
+        # race_level_indexの一部行はtime_z_corrected/percentile_rank未算出でNULL
+        # (2026-07-22発見: 未処理NoneTypeでpredict_weekend.py側が例外→レース丸ごと
+        # スキップされていた。バッジ表示に必須の値が欠けている場合は素直にNoneを返す)
+        return None
     return {
         'time_z_corrected': float(row['time_z_corrected']),
         'percentile_rank':  float(row['percentile_rank']),
@@ -2318,7 +2323,7 @@ def get_race_level_badge_info(horse_name: str, race_date: str, conn) -> dict | N
         'surface':  row['surface'],
         'distance': row['distance'],
         'track_cond': row['track_cond'],
-        'win_time': float(row['win_time']),
+        'win_time': float(row['win_time']) if row['win_time'] is not None else None,
         'prev_finish': int(row['prev_finish']) if row['prev_finish'] else None,
     }
 

@@ -41,6 +41,7 @@ G2_NORMAL          = False  # --g2-normal: G2を challenge→normal化 (単勝10
 EV_LO              = 2.0    # --ev-lo=X: EV下限緩和検証用 (2026-07-11 Phase C候補、既定2.0)
 TRAIN_GATE_MIN     = 2      # --no-train-gate: train_count_7dゲート撤廃検証用 (0にすると無効化)
 STRAIGHT_STYLE_BONUS = False  # --straight-style-bonus: 先行×長直線ボーナス検証用 (2026-07-21)
+FRONT4_BONUS       = False  # --front4-bonus: H3 4角先頭加重ボーナス検証用 (2026-07-21、新規提案として再検証)
 
 # 調教フィルタ用: サンデーサイレンス系種牡馬リスト
 SUNDAY_SIRES = frozenset({
@@ -514,7 +515,7 @@ def run_year_v6(year, db_path):
 
 if __name__ == '__main__':
     if '--year' not in sys.argv:
-        print("Usage: python backtest_v6.py --year YYYY [--tansho-only] [--straight-style-bonus]")
+        print("Usage: python backtest_v6.py --year YYYY [--tansho-only] [--straight-style-bonus] [--front4-bonus]")
         sys.exit(1)
 
     if '--tansho-only' in sys.argv:
@@ -534,6 +535,10 @@ if __name__ == '__main__':
         STRAIGHT_STYLE_BONUS = True  # noqa: F841  (module-level global)
         import scoring as _sc2
         _sc2.STRAIGHT_STYLE_BONUS_ENABLED = True
+    if '--front4-bonus' in sys.argv:
+        FRONT4_BONUS = True  # noqa: F841  (module-level global)
+        import scoring as _sc4
+        _sc4.FRONT4_BONUS_ENABLED = True
     if '--family-nicks' in sys.argv:
         FAMILY_NICKS_BONUS = True  # noqa: F841  (module-level global)
         os.environ['NORISHIKO_FAMILY_NICKS'] = '1'

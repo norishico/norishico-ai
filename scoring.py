@@ -1966,10 +1966,17 @@ def calc_condition_penalty(horse_name: str, date: str, interval_weeks: float,
 
 
 # ══════════════════════════════════════════════════════════
-# 4コーナー先頭予測ボーナス
+# 4コーナー先頭予測ボーナス（H3）
 # 過去走のpos4から「4コーナーで先頭グループにいる確率」を推定
 # 先頭確率が高い馬 → 勝率17-20%/複勝率42-54%で圧倒的に強い
+# 2026-07-21 /committee審議済み・のりお承認済み。「復活」ではなく新規提案として扱う
+# (2026-04-16のH3改善コミットではこの関数がscore_one_race()に一度も配線されておらず、
+#  本番スコアに影響したことが無い=期待値をリセットして厳格に再検証する対象)。
+# backtest_v6.py --front4-bonus で有効化する孤立フラグ実験用ボーナス
+# (calc_venue_style_bonus/calc_race_level_bonusと同じ設計)。
 # ══════════════════════════════════════════════════════════
+FRONT4_BONUS_ENABLED = False   # backtest_v6.py --front4-bonus で有効化
+
 _front4_cache: dict = {}  # (horse_name, ym) -> front4_rate
 
 def calc_front4_bonus(horse_name: str, race_date: str, prev_runs: list) -> float:
@@ -1977,7 +1984,12 @@ def calc_front4_bonus(horse_name: str, race_date: str, prev_runs: list) -> float
 
     H3改善: 直近走を重視する加重平均 (直近=1.0, 2走前=0.7, 3走前=0.4)
     pos4/num_horses の加重平均で連続値として評価 → 精度向上
+
+    FRONT4_BONUS_ENABLED=False(既定)の間は常に0.0を返し、
+    本番スコアリングに一切影響しない(calc_venue_style_bonusと同じ孤立フラグ設計)。
     """
+    if not FRONT4_BONUS_ENABLED:
+        return 0.0
     ym = race_date[:7]
     ck = (horse_name, ym)
     if ck in _front4_cache:

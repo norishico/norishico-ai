@@ -52,6 +52,7 @@ from scoring import (
     calc_nicks_bonus, calc_family_nicks_bonus,
     calc_daily_bias_bonus, calc_condition_penalty, EV_CONDITIONS,
     calc_race_level_bonus, calc_lap_pace_bonus, calc_venue_style_bonus,
+    calc_front4_bonus,
     _past_runs_cache, _course_runs_cache, _running_style_cache,
     _jockey_cache, _trainer_cache, _combo_cache, _ace_cache,
     _avg_time_cache, _last3f_cache, _training_actual_cache,
@@ -399,6 +400,7 @@ def score_one_race(race_rows, sc_conn):
             '_sire':        si,
             '_dam_sire':    ds,
             '_prev_pos4':   int(prev_runs[0]['pos4']) if prev_runs and prev_runs[0].get('pos4') else 0,
+            '_prev_runs':   prev_runs,
             '_running_style': race_styles[_ri] if _ri < len(race_styles) else '',
             'accel_lap':    st.get('accel_lap', False),
             'has_good_train': st.get('has_good_train', False),
@@ -427,9 +429,10 @@ def score_one_race(race_rows, sc_conn):
         fnkb  = calc_family_nicks_bonus(h2['_sire'], h2['_dam_sire'], surf, sc_conn)
         rlb   = calc_race_level_bonus(h2['horse_name'], date, sc_conn)
         vstb  = calc_venue_style_bonus(h2['horse_name'], date, venue, surf, dist, sc_conn)
-        h2['total_score'] = round(h2['total_score'] + bonus + gcbb + tbb + vsb + vdsb + csb + nkb + fnkb + rlb + vstb, 1)
+        f4b   = calc_front4_bonus(h2['horse_name'], date, h2['_prev_runs'])
+        h2['total_score'] = round(h2['total_score'] + bonus + gcbb + tbb + vsb + vdsb + csb + nkb + fnkb + rlb + vstb + f4b, 1)
         # りさ戦略用: 血統・調教・コースボーナスの非ゼロ数（データの充実度）
-        h2['_bd_nonzero'] = sum(1 for v in [bonus, gcbb, tbb, vsb, vdsb, csb, nkb, fnkb, rlb, vstb,
+        h2['_bd_nonzero'] = sum(1 for v in [bonus, gcbb, tbb, vsb, vdsb, csb, nkb, fnkb, rlb, vstb, f4b,
             h2.get('_blood_score', 0), h2.get('accel_lap') or 0, h2.get('has_good_train') or 0]
             if v and v > 0)
 

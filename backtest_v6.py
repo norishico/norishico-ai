@@ -40,6 +40,7 @@ RACE_LEVEL_BONUS   = False  # --race-level: 前走レースレベルボーナス
 G2_NORMAL          = False  # --g2-normal: G2を challenge→normal化 (単勝1000→単勝+馬連2000)
 EV_LO              = 2.0    # --ev-lo=X: EV下限緩和検証用 (2026-07-11 Phase C候補、既定2.0)
 TRAIN_GATE_MIN     = 2      # --no-train-gate: train_count_7dゲート撤廃検証用 (0にすると無効化)
+STRAIGHT_STYLE_BONUS = False  # --straight-style-bonus: 先行×長直線ボーナス検証用 (2026-07-21)
 
 # 調教フィルタ用: サンデーサイレンス系種牡馬リスト
 SUNDAY_SIRES = frozenset({
@@ -488,6 +489,13 @@ def run_year_v6(year, db_path):
     scoring._gcbb_cache.clear(); scoring._gcbb_loaded = False
     scoring._tbb_cache.clear(); scoring._week_cache.clear()
 
+    if STRAIGHT_STYLE_BONUS:
+        # 孤立フラグ: --straight-style-bonus 時のみ年度別cutoffでリビルド
+        from build_venue_style_bonus import build_venue_style_bonus
+        build_venue_style_bonus(sc_conn, cutoff_date=cutoff)
+        scoring._vstb_cache.clear(); scoring._vstb_geo_cache.clear()
+        scoring._vstb_loaded = False
+
     for month in range(1, 13):
         if month == 1: clear_caches(full=True); prefetch_score_caches(sc_conn, cutoff_date=cutoff)
         else:          clear_caches(full=False)
@@ -506,7 +514,7 @@ def run_year_v6(year, db_path):
 
 if __name__ == '__main__':
     if '--year' not in sys.argv:
-        print("Usage: python backtest_v6.py --year YYYY [--tansho-only]")
+        print("Usage: python backtest_v6.py --year YYYY [--tansho-only] [--straight-style-bonus]")
         sys.exit(1)
 
     if '--tansho-only' in sys.argv:
@@ -522,6 +530,10 @@ if __name__ == '__main__':
         EV_LO = float(ev_lo_flags[-1].split('=')[1])  # noqa: F841  (module-level global)
     if '--no-train-gate' in sys.argv:
         TRAIN_GATE_MIN = 0  # noqa: F841  (module-level global)
+    if '--straight-style-bonus' in sys.argv:
+        STRAIGHT_STYLE_BONUS = True  # noqa: F841  (module-level global)
+        import scoring as _sc2
+        _sc2.STRAIGHT_STYLE_BONUS_ENABLED = True
     if '--family-nicks' in sys.argv:
         FAMILY_NICKS_BONUS = True  # noqa: F841  (module-level global)
         os.environ['NORISHIKO_FAMILY_NICKS'] = '1'
@@ -593,6 +605,8 @@ if __name__ == '__main__':
         suffix += '_notraingate'
     if os.environ.get('NORISHIKO_TRAIN_COVERAGE_NEUTRAL') == '1':
         suffix += '_trainneutral'
+    if STRAIGHT_STYLE_BONUS:
+        suffix += '_straightstyle'
     fname = f'btv6_{year}{suffix}.json'
     with open(fname, 'w', encoding='utf-8') as f:
         json.dump({'summary': s, 'bet_records': bet_records, 'all_races': all_races}, f,

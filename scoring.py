@@ -2195,6 +2195,90 @@ def calc_race_level_bonus(horse_name: str, race_date: str, conn) -> float:
     return round(base * mult, 2)
 
 
+# ══════════════════════════════════════════════════════════
+# 先行×長直線ボーナス (venue_style_bonus テーブル使用)
+# 2026-07-21 /committee審議済み・のりお承認済み。backtest_v6.py
+# --straight-style-bonus で有効化する孤立フラグ実験用ボーナス。
+# 会場の直線長(venue_geo_v2.straight_length_m、連続値)をshort/mid/longに
+# ビン分割し、脚質(_infer_running_style)とのクロスで複勝率乖離を見る。
+# ══════════════════════════════════════════════════════════
+STRAIGHT_STYLE_BONUS_ENABLED = False   # backtest_v6.py --straight-style-bonus で有効化
+
+_vstb_cache: dict = {}     # {(straight_bucket, style): bonus}
+_vstb_loaded: bool = False
+_vstb_geo_cache: dict = {}  # {(venue, venue_variant): straight_length_m}
+
+
+def _load_vstb_all(conn):
+    """venue_style_bonus / venue_geo_v2 を全件一括ロード"""
+    global _vstb_loaded
+    if _vstb_loaded:
+        return
+    try:
+        rows = conn.execute('SELECT straight_bucket, style, bonus FROM venue_style_bonus').fetchall()
+        for r in rows:
+            _vstb_cache[(r['straight_bucket'], r['style'])] = r['bonus']
+    except Exception:
+        pass
+    try:
+        geo_rows = conn.execute('SELECT venue, venue_variant, straight_length_m FROM venue_geo_v2').fetchall()
+        for r in geo_rows:
+            _vstb_geo_cache[(r['venue'], r['venue_variant'])] = r['straight_length_m']
+    except Exception:
+        pass
+    _vstb_loaded = True  # テーブルなくてもエラーにしない
+
+
+def _straight_bucket(length_m) -> str | None:
+    """build_venue_style_bonus.straight_bucket と同一閾値(short<300 / mid<450 / long>=450)"""
+    if length_m is None:
+        return None
+    if length_m < 300.0:
+        return 'short'
+    if length_m < 450.0:
+        return 'mid'
+    return 'long'
+
+
+def _resolve_straight_length(venue: str, surface: str, distance: int) -> float | None:
+    """新潟のみ芝1000m=直線コース('straight')/それ以外=周回コース('loop')を判定。
+    build_race_wind_v2.niigata_variant と同一ロジック。"""
+    if venue == '新潟':
+        variant = 'straight' if (surface == '芝' and distance == 1000) else 'loop'
+    else:
+        variant = 'default'
+    return _vstb_geo_cache.get((venue, variant))
+
+
+def calc_venue_style_bonus(horse_name: str, race_date: str, venue: str,
+                            surface: str, distance: int, conn) -> float:
+    """
+    会場の直線長(short/mid/long)×脚質のボーナスを返す（0〜5pt）。
+    STRAIGHT_STYLE_BONUS_ENABLED=False(既定)の間は常に0.0を返し、
+    本番スコアリングに一切影響しない(calc_race_level_bonusと同じ孤立フラグ設計)。
+    芝レースのみ対象(straight_length_mはJRA公式の芝直線距離のため)。
+    """
+    if not STRAIGHT_STYLE_BONUS_ENABLED:
+        return 0.0
+    if surface != '芝':
+        return 0.0
+    if not _vstb_loaded:
+        _load_vstb_all(conn)
+    if not _vstb_cache:
+        return 0.0
+
+    length_m = _resolve_straight_length(venue, surface, distance)
+    bucket = _straight_bucket(length_m)
+    if bucket is None:
+        return 0.0
+
+    style = _infer_running_style(horse_name, race_date, surface, distance, conn)
+    if not style:
+        return 0.0
+
+    return _vstb_cache.get((bucket, style), 0.0)
+
+
 def get_race_level_badge_info(horse_name: str, race_date: str, conn) -> dict | None:
     """
     前走レースレベル情報を返す（バッジ表示専用、RACE_LEVEL_ENABLEDに依存しない）。

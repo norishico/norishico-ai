@@ -691,6 +691,37 @@ def main():
     print(f"  全{len(predictions)}R中 買い推奨{buy_count}R + 別枠{sp_count}R")
     print(f"  → weekend_predictions.json に保存")
 
+    # ── データ健全性チェック(fail-loud、2026-07-22導入) ──────────────────
+    # 過去2件の重大インシデント(results.odds広範NULL化、get_race_level_badge_infoの
+    # NULL未処理例外による予想生成78%欠落)を踏まえ、同種の問題が発生した際に
+    # 無言で不完全な結果を出し続けないよう、生成後にアラートを出す。
+    # notify_paused.flagには依存しない専用エラーチャンネル(fetch_and_build.alertと同一)
+    # を使うため、通常のDiscord通知停止中でも異常検知だけは届く。
+    try:
+        n_races, n_preds = len(races), len(predictions)
+        gap_pct = (n_races - n_preds) / n_races * 100 if n_races else 0
+        odds_missing = sum(1 for p in predictions
+                            for h in p.get('results', []) if not (h.get('odds') or 0))
+        odds_total = sum(len(p.get('results', [])) for p in predictions)
+        odds_missing_pct = odds_missing / odds_total * 100 if odds_total else 0
+
+        problems = []
+        if gap_pct > 20:
+            problems.append(f"予想生成失敗率{gap_pct:.1f}%({n_races}R中{n_races-n_preds}R失敗)")
+        if odds_missing_pct > 20:
+            problems.append(f"オッズ欠損率{odds_missing_pct:.1f}%({odds_missing}/{odds_total}頭)")
+
+        if problems:
+            msg = "predict_weekend.py 異常検知: " + " / ".join(problems)
+            print(f"  ⚠️ {msg}")
+            sys.path.insert(0, '.')
+            import fetch_and_build as _fab
+            _fab.alert(msg)
+        else:
+            print(f"  健全性チェックOK(生成失敗率{gap_pct:.1f}%、オッズ欠損率{odds_missing_pct:.1f}%)")
+    except Exception as e:
+        print(f"  ⚠️ 健全性チェック自体が失敗(非致命的、処理は継続): {e}")
+
 
 if __name__ == '__main__':
     main()

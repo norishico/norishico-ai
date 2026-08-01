@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 sync_course_variant.py — jvlink_dump.json(jvlink_fetch.py出力)のraレコードから
-course_kubun(A/B/C/D開催の仮設ラチ位置区分、RA構造体offset710より取得済みだが従来は
-未使用のまま捨てられていた)を抽出し、race_course_variantテーブルに投入する。
+course_kubun(開催の仮設ラチ位置区分、RA構造体offset710より取得済みだが従来は未使用の
+まま捨てられていた)を抽出し、race_course_variantテーブルに投入する。
+【2026-08-01 JV-Data仕様書_4.9.0.1.xlsxで正式確認】半角2文字、"A "〜"E "の5区分
+(2002年以前の東京競馬場は"A1"/"A2"も存在)。「A/B/C/D」の4区分ではない(要訂正済み)。
 
 【設計判断】course_kubunをresults/dividendsテーブルに直接カラム追加せず、独立した新規
 テーブルとする理由: build_db.pyのupsert_df()はINSERT OR REPLACEでUPSERTするため、

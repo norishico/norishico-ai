@@ -86,28 +86,78 @@ def parse_lap_times(html):
     return laps, cums
 
 
+def _time_for_distance(laps, seg_lens, target_dist):
+    """先頭からtarget_dist(m)ぶんの累積時間(区間をまたぐ場合は按分)。距離が足りなければNone。"""
+    acc_dist, acc_time = 0.0, 0.0
+    for lap, seg_len in zip(laps, seg_lens):
+        if acc_dist + seg_len <= target_dist + 1e-9:
+            acc_time += lap
+            acc_dist += seg_len
+        else:
+            remaining = target_dist - acc_dist
+            frac = remaining / seg_len if seg_len > 0 else 0.0
+            acc_time += lap * frac
+            acc_dist = target_dist
+            break
+    return acc_time if acc_dist >= target_dist - 1e-6 else None
+
+
 def calc_derived(laps, distance):
-    """ラップタイムから派生指標を計算"""
+    """ラップタイムから派生指標を計算
+
+    【2026-08-01発見・修正】netkeibaのハロンタイム表は距離が200mの倍数でない場合、
+    最初の区間だけ短い端数(distance%200 m)になる(実データで150m/100mの端数を複数会場
+    ×距離で確認済み: 端数150m→約9.3秒、端数100m→約7.0-7.2秒、通常200m区間は11-13秒)。
+    これを無視して`laps[:3]`等を単純平均すると、端数区間の短い絶対秒数に引きずられて
+    前半が異常に速く見え、pace_typeがほぼ確実に'H'に誤判定される(該当11会場×距離組み
+    合わせで実際にH率95-100%という異常値を確認、修正前バグ)。
+
+    修正はdistance%200!=0の場合のみ物理距離ベースの按分計算に切り替え、distance%200==0
+    (全区間200mで均一、大多数のレース)は従来のcount-basedロジックをそのまま維持する
+    (奇数区間数nの場合、count-based平均は区間数の違いを自動的に正規化できておりバグは
+    無い。物理距離ベースに一律置き換えるとn奇数レースの分割点がずれ、無関係な既存の
+    挙動まで変えてしまうため、影響範囲をバグの実在する端数区間ケースだけに限定する)。
+    """
     n = len(laps)
     if n < 3:
         return {}
 
-    # 前3F (最初の3ハロン)
-    first_3f = sum(laps[:3]) if n >= 3 else None
+    remainder = distance % 200 if distance else 0
 
-    # 上がり3F (最後の3ハロン)
-    last_3f = sum(laps[-3:]) if n >= 3 else None
-
-    # 中間区間 (前3Fと上がり3Fを除いた部分)
-    if n > 6:
-        mid = sum(laps[3:-3])
-    elif n > 3:
-        mid = sum(laps[3:])
+    if remainder == 0:
+        # 従来ロジック(全区間200mで均一、変更なし)
+        first_3f = sum(laps[:3])
+        last_3f = sum(laps[-3:])
+        if n > 6:
+            mid = sum(laps[3:-3])
+        elif n > 3:
+            mid = sum(laps[3:])
+        else:
+            mid = None
+        half = n // 2
+        front_avg = sum(laps[:half]) / half
+        back_avg = sum(laps[half:]) / (n - half)
     else:
-        mid = None
+        # 端数区間ケース: 物理距離(m)ベースで按分計算
+        seg_lens = [float(remainder)] + [200.0] * (n - 1)
+        total_len = sum(seg_lens)
+        first_3f = _time_for_distance(laps, seg_lens, 600.0)
+        last_3f = _time_for_distance(list(reversed(laps)), list(reversed(seg_lens)), 600.0)
+        if first_3f is not None and last_3f is not None and total_len > 1200:
+            mid = sum(laps) - first_3f - last_3f
+        else:
+            mid = None
+        half_dist = total_len / 2
+        front_time = _time_for_distance(laps, seg_lens, half_dist)
+        back_time = (sum(laps) - front_time) if front_time is not None else None
+        if front_time is not None and back_time is not None and (total_len - half_dist) > 0:
+            front_avg = front_time / half_dist * 200   # 200m換算に揃えて従来閾値をそのまま使う
+            back_avg = back_time / (total_len - half_dist) * 200
+        else:
+            front_avg = back_avg = None
 
     # ペース加速ポイント: 最も遅いハロンの次のハロン
-    # (ペースが緩んだ後に加速開始)
+    # (ペースが緩んだ後に加速開始。indexベースの探索で区間長には依存しないため両ケース共通)
     if n >= 4:
         # 後半のラップで最小値(最速)のindexを探す
         mid_start = max(2, n // 3)
@@ -121,11 +171,10 @@ def calc_derived(laps, distance):
     else:
         accel_point = None
 
-    # ペースタイプ: 前半 vs 後半の比率
-    half = n // 2
-    front_avg = sum(laps[:half]) / half
-    back_avg = sum(laps[half:]) / (n - half)
-    if front_avg < back_avg - 0.3:
+    # ペースタイプ: 前半 vs 後半の比率(閾値0.3秒は従来通り、両ケース共通)
+    if front_avg is None or back_avg is None:
+        pace_type = None
+    elif front_avg < back_avg - 0.3:
         pace_type = 'H'  # ハイ (前半速い)
     elif front_avg > back_avg + 0.3:
         pace_type = 'S'  # スロー (後半速い)

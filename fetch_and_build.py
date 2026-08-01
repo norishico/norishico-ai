@@ -199,6 +199,34 @@ def run_jvlink_training_import(fh):
         log(f"jvlink training import done in {time.time()-t0:.0f}s", fh)
 
 
+def run_course_variant_sync(fh):
+    """jvlink_dump.jsonのraレコードからcourse_kubun(開催コース区分)を抽出し、
+    独立テーブルrace_course_variantへ投入する(2026-08-01追加)。training importと
+    同じ理由・同じ呼び出しタイミングでkeiba.db(prod)に直接書き込む — race_course_variant
+    はresults/dividendsとは無関係な独立テーブルのため、atomic_swapで上書き消去される
+    心配がない(training importが2026-07-13にswap後呼び出しへ修正された経緯を踏襲)。
+    """
+    script = ROOT / "sync_course_variant.py"
+    if not script.exists() or not DUMP_JSON.exists():
+        log("course variant sync: script/dump missing, skip", fh)
+        return
+    log("course variant sync start", fh)
+    t0 = time.time()
+    proc = subprocess.run(
+        [sys.executable, str(script), str(DUMP_JSON)],
+        cwd=str(ROOT), capture_output=True, text=True,
+        encoding="utf-8", errors="replace",
+    )
+    if fh:
+        fh.write(proc.stdout or "")
+        if proc.stderr:
+            fh.write("STDERR:\n" + proc.stderr)
+    if proc.returncode != 0:
+        log(f"[WARN] course variant sync rc={proc.returncode} (non-fatal)", fh)
+    else:
+        log(f"course variant sync done in {time.time()-t0:.0f}s", fh)
+
+
 def run_blood_fetch(fh):
     """netkeiba血統スクレイパを staging DB に対して実行。
     JV-Link蓄積系(UM)が契約プラン制約で取れないので代替経路。
@@ -352,6 +380,7 @@ def main():
             if args.parallel:
                 # prod未swapのためここで直接書き込んでも安全(stagingはdiff用でprodに影響しない)
                 run_jvlink_training_import(fh)
+                run_course_variant_sync(fh)
                 log("--parallel: skip BT verification (staging is for diff, not prod)", fh)
                 save_last_fetch(dt.datetime.now().strftime("%Y%m%d%H%M%S"), parallel=True)
                 log("=== fetch_and_build DONE (parallel) ===", fh)
@@ -360,6 +389,7 @@ def main():
             if not ok:
                 # prod未swapのためここで直接書き込んでも安全
                 run_jvlink_training_import(fh)
+                run_course_variant_sync(fh)
                 msg = (f"verification FAIL: 件数減少 {metrics['drop_rate']:.1%} "
                        f"staging={metrics['stg_count']} prod={metrics['prod_count']}")
                 log("[FAIL] " + msg, fh)
@@ -376,6 +406,7 @@ def main():
             if args.dry_run:
                 # prod未swapのためここで直接書き込んでも安全
                 run_jvlink_training_import(fh)
+                run_course_variant_sync(fh)
                 log("--dry-run: skipping swap", fh)
                 return 0
 
@@ -384,7 +415,9 @@ def main():
             # staging cloneはswap前のprod状態からなので、training importをswap前に
             # 行うとその回のtraining importがswapで丸ごと上書き消去されるバグがあった
             # (2026-07-09〜07-13、5日間の調教データが毎晩書き込まれては消える状態だった)。
+            # course_variant_syncも同じ理由でswap後に呼ぶ(2026-08-01追加)。
             run_jvlink_training_import(fh)
+            run_course_variant_sync(fh)
             log("prev_last3f fix start", fh)
             try:
                 from fix_prev_last3f import fix_prev_last3f as _fix_l3f

@@ -24,6 +24,19 @@ KICK_START_M = 600.0  # 残りこの距離から仕掛け開始
 ACCEL_FRAC = 0.96     # 発走直後(最初の区間)の速度掛け目【2026-08-01 Phase1較正済み値、旧初期値0.90から変更】
 ACCEL_ZONE_M = 200.0  # 加速区間の長さ(m)
 
+# --- 馬場状態による巡航速度補正(2026-08-01追加) -----------------------------
+# 【発見】keiba.db実測(全venue×distance横断、良基準の相対勝ちタイム比・サンプル数
+# 加重平均、芝70グループ/ダート36グループ)で、芝は馬場が悪化するほど遅くなる
+# (稍+1.09%/重+1.86%/不良+3.69%)一方、ダートは逆に速くなる(稍-0.33%/重-1.39%/
+# 不良-1.47%、雨で締まって高速化する実際の傾向と一致)ことを確認。kappa_press/
+# D_SCALEと同様、芝とダートで符号が逆になるため表面別辞書とする。値は速度倍率
+# (=1/タイム比)。この機能はデフォルト(track_cond_factor=1.0)では無効なので、
+# 既存のPhase1/Phase2ゲート検証には一切影響しない(オプトインの新機能)。
+TRACK_COND_V_FACTOR = {
+    "芝": {"良": 1.0, "稍": 1 / 1.0109, "重": 1 / 1.0186, "不": 1 / 1.0369, "不良": 1 / 1.0369},
+    "ダ": {"良": 1.0, "稍": 1 / 0.9967, "重": 1 / 0.9861, "不": 1 / 0.9853, "不良": 1 / 0.9853},
+}
+
 # --- 坂(最終直線の勾配)による速度補正(2026-08-01追加) -----------------------
 # venue_elevation.md(2026-07-20調査)で定量化できた5場(東京・中山・中京・阪神・小倉)の
 # 最終直線の坂を反映する。坂ゾーンはDB(course_slope)から呼び出し側(calibrate_mc_dyn_
@@ -77,14 +90,16 @@ def find_slope_grade(zones, pos):
 
 def _run(seg_lens, distance, v_base, spd_res=0.0, spr_res=0.0, sta_res=0.0,
          accel_frac=ACCEL_FRAC, accel_zone_m=ACCEL_ZONE_M, k0=K0, phi_fade=PHI_FADE,
-         slope_zones=None, k_slope=K_SLOPE):
+         slope_zones=None, k_slope=K_SLOPE, track_cond_factor=1.0):
     """レール上1頭走行シミュレーション。戻り値: (総タイム, 区間ラップ秒のリスト)。
-    発走直後(accel_zone_m以内)はスタンディングスタートの加速により速度を割り引く。"""
+    発走直後(accel_zone_m以内)はスタンディングスタートの加速により速度を割り引く。
+    track_cond_factor: 馬場状態による巡航速度倍率(2026-08-01追加、既定1.0=無補正で
+    既存ゲートへの影響なし)。表面別のTRACK_COND_V_FACTORから呼び出し側が解決して渡す。"""
     e_max = E0 + BE * sta_res
     E = e_max
     cum = 0.0
     laps = []
-    v_flat = v_base + spd_res * A1
+    v_flat = (v_base + spd_res * A1) * track_cond_factor
     for seg_len in seg_lens:
         remaining_to_finish = distance - cum
         seg_mid = cum + seg_len / 2
@@ -202,6 +217,15 @@ KAPPA_PRESS_TURF = 0.0    # 芝向け(座標降下法で調整対象、2026-08-0
 K_GAP = 0.05              # 車間維持のゲイン(/s)
 RHO_SAVE = 1.3            # 先頭馬が脚を溜める減速量(m/s、2026-08-01較正済み値)
 A_LAT = 2.1               # コーナー横加速度上限(m/s^2、2026-08-01較正済み値)
+
+# --- 位置取り競合(kappa_press)の作用距離キャップ(2026-08-02追加) -----------------
+# 【発見】kick_trigger修正(コーナー入口→出口)後も東京だけ誤差が残存(1800m/2000m等、
+# 会場を問わずkick_trigger位置が同一になる距離帯で顕著)。原因はd_c1(発走〜第1コーナー)
+# そのものの長さ: 東京は1800mでd_c1=719.9m(レースの40%)に対し小倉は172.8m(9.6%)と、
+# 「押し合い」が働き続ける距離が会場によって大きく異なり、P0ダッシュ(dash_end=
+# min(d_c1,400.0)で既に距離キャップ済み)と違い、P1位置取り競合(kappa_press)には
+# d_c1以外の上限が無かった。dash_endと同じ発想でPRESS_CAP_Mを導入する。
+PRESS_CAP_M = 400.0       # 位置取り競合が働く距離の上限(m)。座標降下法で調整対象
 
 # --- モデル化のための設計判断(仕様書に数値指定が無いため明記する既定値) -------
 TARGET_GAP_M = 3.0        # P2追走時の目標車間(m、おおよそ1馬身)
@@ -328,6 +352,7 @@ def v_corner_max(R, a_lat=A_LAT):
 def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                     k0=K0, phi_fade=PHI_FADE,
                     kappa_press=KAPPA_PRESS, k_gap=K_GAP, rho_save=RHO_SAVE, a_lat=A_LAT,
+                    press_cap_m=PRESS_CAP_M,
                     target_gap_m=TARGET_GAP_M, d_scale=D_SCALE,
                     dash_min_frac=DASH_MIN_FRAC, dash_rival_sat=DASH_RIVAL_SAT,
                     is_chute_start=False, chute_dash_frac=CHUTE_DASH_FRAC,
@@ -337,7 +362,7 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                     follower_ease_s=FOLLOWER_EASE_TIME_S,
                     start_noise_sigma=START_NOISE_SIGMA,
                     kick_start_m=KICK_START_M_P2,
-                    slope_zones=None, k_slope=K_SLOPE,
+                    slope_zones=None, k_slope=K_SLOPE, track_cond_factor=1.0,
                     dt=DT_DEFAULT, max_time=400.0, seed=None):
     """複数馬フィールドシミュレーション(Phase2: 戦術コントローラP0-P4)。
 
@@ -360,7 +385,14 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
     d_c1 = d_c1 or 0.0
     final_corner = corner_zones[-1] if corner_zones else None
     dash_end = min(d_c1, 400.0)
-    kick_trigger = min(distance - kick_start_m, final_corner["start"] if final_corner else distance)
+    # 【2026-08-02修正】最終コーナー「入口(start)」ではなく「出口(end)」を仕掛けトリガーの
+    # 代替条件にする。のりお指摘で発覚: 東京は最終コーナー+直線の合計距離が実距離として
+    # ほぼ一定(残り1,000m前後)なため、短距離レースほどレース全体に占めるこの絶対距離の
+    # 割合が大きくなり、「コーナー入口」を基準にすると短距離レースで極端に早い地点
+    # (東京芝1400mでレースの23%地点!)で仕掛け開始と誤判定していた(実測: 誤判定の
+    # 早さと予測誤差がほぼ単調な関係、東京9セルで確認)。実際の騎手はコーナーの途中では
+    # なく直線に向いてから仕掛けるため、コーナー「出口」を基準にする方が実態に近い。
+    kick_trigger = min(distance - kick_start_m, final_corner["end"] if final_corner else distance)
 
     # 脚質ごとの頭数(ダッシュのライバル数スケール用)
     style_counts = {}
@@ -391,7 +423,7 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
 
         state.append({
             "style": style, "spr_res": spr_res,
-            "v_flat": v_base + spd_res * A1,
+            "v_flat": (v_base + spd_res * A1) * track_cond_factor,
             "dash": d_scale * D_STYLE.get(style, D_STYLE["先行"]) * dash_frac,
             "noise": rng.gauss(0.0, start_noise_sigma),
             "E": e_max, "pos": 0.0, "v": 0.0, "t": 0.0,
@@ -447,8 +479,8 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                         ahead_v = state[ahead_idx]["v"] or v_flat
                         v_des = ahead_v + k_gap * (gap_m - target_gap_m)
 
-                # P1 位置取り競合(発走〜D_c1のオーバーレイ、P0/P2の基準速度に加算)
-                if pos < d_c1:
+                # P1 位置取り競合(発走〜min(D_c1,press_cap_m)のオーバーレイ、P0/P2の基準速度に加算)
+                if pos < min(d_c1, press_cap_m):
                     r = rank_of[i]
                     rank_ratio = (r + 1) / n
                     target = q_star.get(s["style"], q_star.get("先行", 0.3))

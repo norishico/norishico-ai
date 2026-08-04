@@ -229,6 +229,33 @@ PRESS_CAP_M = 400.0       # 位置取り競合が働く距離の上限(m)。座�
 
 # --- モデル化のための設計判断(仕様書に数値指定が無いため明記する既定値) -------
 TARGET_GAP_M = 3.0        # P2追走時の目標車間(m、おおよそ1馬身)
+
+# --- 構成依存イージング(単騎逃げの余裕、2026-08-04追加) ----------------------
+# 【発見】従来の脚溜め条件「後続との時間差gap_s >= follower_ease_s(0.5秒≈8m)」は、
+# 追走馬のP2コントローラ(target_gap_m=3.0m≈0.18秒に収束)と構造的に矛盾しており、
+# 実質一度も発動しない死にコードだった(実測: 中京芝2000単騎逃げでrho_saveを0→3.0に
+# 振ってもS率4.5%→5.5%と無反応。ゲートを撤廃(follower_ease_s=0.0)すると同条件で
+# S率89.8%まで跳ね、経路自体は機能することを確認)。その結果、実データに存在する
+# 「逃げ馬頭数とスローペース率の強い逆相関」(実測: 芝プールで単騎S率47.1% vs
+# 複数逃げS率20.0%、中京芝2000では単騎77.2%/2頭57.4%/3頭以上39.0%)をほぼ再現
+# できていなかった(シミュはどの頭数でもS率2-6%)。
+# 対策: gap基準とは独立に「レース構成(逃げ馬頭数)に応じた恒常的な脚溜め」を追加する。
+# 先頭馬はP2巡航中、逃げ馬のライバルが少ないほど強く緩める:
+#   comp_ease = rho_save * solo_ease_scale * max(0, 1 - (n_nige - 1) / ease_rival_sat)
+# solo_ease_scale=0.0(既定)で完全に無効となり、従来動作とビット単位で一致する
+# (浮動小数点演算・乱数消費とも不変)。表面別の較正値はcalibrate_mc_dyn_phase2.py側で
+# solo_ease_scale_turf / solo_ease_scale_dirt として選択して渡す(kappa_pressと同じ分離方式)。
+SOLO_EASE_SCALE = 0.0     # simulate_field()の既定値=無効(レガシー互換)。呼び出し側が表面別較正値を渡す
+EASE_RIVAL_SAT = 4.0      # 逃げ馬ライバルがこの頭数で構成依存イージングが完全消滅(2026-08-04較正済み値)
+# 【2026-08-04較正結果】表面別グリッドサーチ(芝4セル×逃げ頭数3バケット、実測構成
+# サンプリング、n_sim=250/バケット)で芝はscale=0.7/sat=4が最良。ダートはscale=0〜0.3の
+# いずれでもシミュS率がほぼ動かず(実測の単騎S率8.1%を再現できない)、scale=0.3は
+# 単騎逃げのH率をわずかに悪化させるため0.0(レガシー)を維持。フルゲートへの影響:
+# gate1相関0.879→0.885(改善)、gate2新潟H率91.7%(不変)、gate3単騎S率4.7%→33.5%/
+# 複数S率3.5%→9.6%(実測プール28.1%/8.6%にほぼ整合)、会場別方向性(単騎>複数)は
+# 芝10会場全てOK。
+SOLO_EASE_SCALE_TURF = 0.7   # 芝向け較正済み値(calibrate_mc_dyn_phase2.py/predict_race_pace.pyが使用)
+SOLO_EASE_SCALE_DIRT = 0.0   # ダート向け(構成依存イージングでは実測S率を再現できず、レガシー維持)
 OVERTAKE_PENALTY_SEC = 0.05   # 直線での追い越しタイムロス(秒)
 CONGESTION_TIME_GAP_S = 0.4   # 混雑判定の到達時間差閾値(秒)
 LEADER_THREAT_TIME_S = 0.3    # 単騎逃げ馬が「詰められた」と判断する時間差閾値(秒)
@@ -360,10 +387,12 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                     congestion_gap_s=CONGESTION_TIME_GAP_S,
                     leader_threat_s=LEADER_THREAT_TIME_S,
                     follower_ease_s=FOLLOWER_EASE_TIME_S,
+                    solo_ease_scale=SOLO_EASE_SCALE, ease_rival_sat=EASE_RIVAL_SAT,
                     start_noise_sigma=START_NOISE_SIGMA,
                     kick_start_m=KICK_START_M_P2,
                     slope_zones=None, k_slope=K_SLOPE, track_cond_factor=1.0,
-                    dt=DT_DEFAULT, max_time=400.0, seed=None):
+                    dt=DT_DEFAULT, max_time=400.0, seed=None,
+                    record_snapshots=False):
     """複数馬フィールドシミュレーション(Phase2: 戦術コントローラP0-P4)。
 
     horses: [{"style": "逃げ"|"先行"|"差し"|"追い込み", "spd":80.0, "spr":80.0, "sta":75.0}, ...]
@@ -375,6 +404,13 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
     leader_lapsはfetch_laps.py:calc_derived()にそのまま渡せる区間ラップ秒列
     (各セグメント境界にフィールド最速で到達した時刻の差分= 実際のレース既定と同じ
     「先頭の通過タイム」ベースのラップ)。
+
+    record_snapshots=True(オプトイン、2026-08-03追加)の場合のみ、戻り値に
+    "snapshots" を追加する: 各チェックポイント(phase_c1=d_c1 / phase_kick=kick_trigger /
+    zone{i}_in・zone{i}_out=各コーナー区間の入口・出口 / goal=ゴール)を各馬が通過した
+    時刻(dt内線形補間)と、その通過時刻順の順位(1始まり、未到達馬は最後尾・index順)。
+    Falseの時は記録処理を一切行わず、従来と完全に同一の動作・戻り値
+    (乱数消費・浮動小数点演算とも不変。baseline_simfield.pyで24ケース完全一致を確認済み)。
     """
     rng = random.Random(seed)
     n = len(horses)
@@ -393,6 +429,18 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
     # 早さと予測誤差がほぼ単調な関係、東京9セルで確認)。実際の騎手はコーナーの途中では
     # なく直線に向いてから仕掛けるため、コーナー「出口」を基準にする方が実態に近い。
     kick_trigger = min(distance - kick_start_m, final_corner["end"] if final_corner else distance)
+
+    # スナップショット記録(オプトイン)。checkpoints/cross_timesはFalse時は未使用。
+    checkpoints = None
+    if record_snapshots:
+        checkpoints = [("phase_c1", min(d_c1, float(distance))),
+                       ("phase_kick", float(kick_trigger))]
+        for zi, z in enumerate(corner_zones):
+            checkpoints.append((f"zone{zi}_in", float(z["start"])))
+            checkpoints.append((f"zone{zi}_out", min(float(z["end"]), float(distance))))
+        checkpoints.append(("goal", float(distance)))
+        cp_dists = [c[1] for c in checkpoints]
+        cross_times = [[None] * len(checkpoints) for _ in range(len(horses))]
 
     # 脚質ごとの頭数(ダッシュのライバル数スケール用)
     style_counts = {}
@@ -431,6 +479,14 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
         })
 
     nige_idxs = [i for i, s in enumerate(state) if s["style"] == "逃げ"]
+
+    # 構成依存イージング(単騎逃げの余裕): レース構成は不変なので1回だけ計算する。
+    # solo_ease_scale=0.0(既定)ならcomp_ease=0.0となり従来動作とビット単位で一致。
+    if ease_rival_sat > 0:
+        _solo_f = max(0.0, 1.0 - max(0, len(nige_idxs) - 1) / ease_rival_sat)
+    else:
+        _solo_f = 0.0
+    comp_ease = rho_save * solo_ease_scale * _solo_f
 
     n_seg = max(3, round(distance / 200))
     seg_lens = segment_lengths(n_seg, distance)
@@ -472,7 +528,9 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                             gap_s = gap_m / follower_v if follower_v > 0 else 999.0
                         else:
                             gap_s = 999.0
-                        v_des = v_flat if gap_s < follower_ease_s else (v_flat - rho_save)
+                        # gap基準の脚溜め(レガシー)と構成依存イージングの大きい方を適用
+                        gap_ease = 0.0 if gap_s < follower_ease_s else rho_save
+                        v_des = v_flat - (gap_ease if gap_ease >= comp_ease else comp_ease)
                     else:
                         ahead_idx = order_idx[r - 1]
                         gap_m = state[ahead_idx]["pos"] - pos
@@ -539,6 +597,8 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                 continue
             v = v_des_list[i]
             step_dist = v * dt
+            if record_snapshots:
+                _pos_before, _t_before = s["pos"], s["t"]
             if s["pos"] + step_dist >= distance:
                 remain = distance - s["pos"]
                 frac_t = remain / v if v > 0 else 0.0
@@ -564,6 +624,14 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
             for mi, mpos in enumerate(markers):
                 if marker_hit_times[mi] is None and s["pos"] >= mpos:
                     marker_hit_times[mi] = s["t"]
+            if record_snapshots:
+                # チェックポイント通過時刻(dt内線形補間、状態・乱数には一切触れない)
+                for ci, cd in enumerate(cp_dists):
+                    if cross_times[i][ci] is None and s["pos"] >= cd:
+                        if v > 0 and s["pos"] > _pos_before:
+                            cross_times[i][ci] = _t_before + (cd - _pos_before) / v
+                        else:
+                            cross_times[i][ci] = s["t"]
 
     finish_times = [s["finish_time"] if s["finish_time"] is not None else s["t"] for s in state]
     order = sorted(range(n), key=lambda i: finish_times[i])
@@ -576,7 +644,7 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
         leader_laps.append(max(mt - prev, 1e-3))
         prev = mt
 
-    return {
+    result = {
         "finish_times": finish_times,
         "order": order,
         "leader_laps": leader_laps,
@@ -584,3 +652,20 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
         "leader_total_time": marker_hit_times[-1] if marker_hit_times and marker_hit_times[-1] is not None else prev,
         "styles": [s["style"] for s in state],
     }
+    if record_snapshots:
+        ranks = {}
+        for ci, (name, _cd) in enumerate(checkpoints):
+            ts = [cross_times[i][ci] for i in range(n)]
+            order_cp = sorted(range(n),
+                              key=lambda i: (ts[i] is None,
+                                             ts[i] if ts[i] is not None else 0.0, i))
+            rk = [0] * n
+            for r_, i in enumerate(order_cp):
+                rk[i] = r_ + 1
+            ranks[name] = rk
+        result["snapshots"] = {
+            "checkpoints": [{"name": nm, "dist": dv} for nm, dv in checkpoints],
+            "cross_times": cross_times,
+            "ranks": ranks,
+        }
+    return result

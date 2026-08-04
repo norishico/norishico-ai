@@ -29,6 +29,7 @@ from mc_dyn_engine import (
     DASH_MIN_FRAC, DASH_RIVAL_SAT, CHUTE_DASH_FRAC,
     KAPPA_PRESS_DIRT, KAPPA_PRESS_TURF, D_SCALE_TURF,
     build_slope_zones, K_SLOPE,
+    SOLO_EASE_SCALE, EASE_RIVAL_SAT, SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT,
 )
 from fetch_laps import calc_derived
 from calibrate_mc_dyn_phase1 import get_par_time
@@ -276,6 +277,14 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
     # 芝だけD_SCALEを部分的に弱める(完全ゼロ化は相関自体を悪化させるため不採用)。
     d_scale = 1.0 if surface == "ダ" else params.get("d_scale_turf", D_SCALE_TURF)
 
+    # 【2026-08-04追加】構成依存イージング(単騎逃げの余裕)。kappa_press/d_scaleと同じく
+    # 表面別に選択する(芝は実測の単騎逃げS率47.1%/複数20.0%と強く、ダートは8.1%/2.7%と
+    # 弱いため必要な強度が大きく異なる)。mc_dyn_engine.pyのSOLO_EASE_SCALE既定値は0.0
+    # (レガシー互換)なので、paramsに値が無ければ従来動作のまま。
+    solo_ease_scale = params.get("solo_ease_scale_dirt" if surface == "ダ"
+                                 else "solo_ease_scale_turf", SOLO_EASE_SCALE)
+    ease_rival_sat = params.get("ease_rival_sat", EASE_RIVAL_SAT)
+
     rng = random.Random(seed_base)
     counts_h = counts_m = counts_s = counts_none = 0
     records = []
@@ -298,6 +307,7 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
             is_chute_start=apply_chute_boost,
             chute_dash_frac=params.get("chute_dash_frac", CHUTE_DASH_FRAC),
             d_scale=d_scale,
+            solo_ease_scale=solo_ease_scale, ease_rival_sat=ease_rival_sat,
             slope_zones=slope_zones, k_slope=k_slope,
             dt=dt, seed=seed_base * 100003 + i,
         )
@@ -446,6 +456,10 @@ CALIB_CANDIDATES = {
     "chute_dash_frac": [0.6, 0.7, 0.8, 0.85, 0.9, 1.0],
     "d_scale_turf": [0.55, 0.7, 0.85, 1.0],
     "k_slope": [0.0, 5.0, 10.0, 20.0, 30.0, 45.0],
+    # 構成依存イージング(2026-08-04追加、単騎逃げ→スローペースの再現用)
+    "solo_ease_scale_turf": [0.0, 0.4, 0.55, 0.7, 0.85, 1.0],
+    "solo_ease_scale_dirt": [0.0, 0.1, 0.2, 0.3],
+    "ease_rival_sat": [2.0, 3.0, 4.0],
 }
 
 
@@ -535,6 +549,12 @@ def main():
         "chute_dash_frac": CHUTE_DASH_FRAC,
         "d_scale_turf": D_SCALE_TURF,
         "k_slope": K_SLOPE,
+        # 構成依存イージング(2026-08-04追加・較正済み)。値の出典はmc_dyn_engine.pyの
+        # SOLO_EASE_SCALE_TURF/DIRT(較正するたびにエンジン側定数を更新すること —
+        # 較正結果をJSON保存だけして既定値に反映し忘れる過去の不具合の再発防止)。
+        "solo_ease_scale_turf": SOLO_EASE_SCALE_TURF,
+        "solo_ease_scale_dirt": SOLO_EASE_SCALE_DIRT,
+        "ease_rival_sat": EASE_RIVAL_SAT,
     }
     if args.kappa_press is not None:
         params["kappa_press"] = args.kappa_press

@@ -119,6 +119,11 @@ def fetch_race(conn, race_id):
 def predict_formation(conn, race, horses, n_sim=100, seed=0):
     """4フェーズ隊列予測。戻り値: (フェーズ名→[馬indexの予測順], 馬index→c2結果, 詳細)"""
     from generate_race_sim import classify_style_c2
+    # 【2026-08-06追加】fetch_race()は"finish < 90"で絞るため、まだ確定していない
+    # レース(finish全てNULL)ではhorsesが0件になり、simulate_field()のn<2早期
+    # リターン(snapshotsキー無し)でKeyErrorになっていたバグを修正。
+    if len(horses) < 2:
+        return {"excluded": True, "reason": "着順が未確定(finish未反映)、または出走2頭未満のため予測できません"}
     # 【2026-08-05追加】新馬戦は除外。新馬は出走馬全員が過去走ゼロのため
     # classify_style_c2が騎手×種牡馬フォールバックのみに頼ることになり、
     # 実測検証(2026-01〜07月、n=89 vs 未勝利n=150/1勝クラスn=150)で

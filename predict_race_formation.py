@@ -119,6 +119,14 @@ def fetch_race(conn, race_id):
 def predict_formation(conn, race, horses, n_sim=100, seed=0):
     """4フェーズ隊列予測。戻り値: (フェーズ名→[馬indexの予測順], 馬index→c2結果, 詳細)"""
     from generate_race_sim import classify_style_c2
+    # 【2026-08-05追加】新馬戦は除外。新馬は出走馬全員が過去走ゼロのため
+    # classify_style_c2が騎手×種牡馬フォールバックのみに頼ることになり、
+    # 実測検証(2026-01〜07月、n=89 vs 未勝利n=150/1勝クラスn=150)で
+    # 相関ρ=0.289と、未勝利0.509・1勝クラス0.516に比べ明確に低い(のりお指摘、
+    # 実データで確認済み)。未勝利は過去走が平均3.4走と少ないが精度は通常水準
+    # (0.509)のため対象外にしない。
+    if pace_cls_group(race.get("race_name")) == "新馬":
+        return {"excluded": True, "reason": "新馬戦は過去走情報が無く、隊列予測の精度が実測で確認できないため対象外です"}
     bundle = get_course_bundle(conn, race["venue"], race["surface"], race["distance"])
     if bundle is None:
         return None
@@ -262,6 +270,10 @@ def cmd_race(args):
     if out is None:
         print("コース情報(par_time/geometry)が無いため予測できません")
         return
+    if out.get("excluded"):
+        print(f"{args.race_id} {race['race_name']} {race['surface']}{race['distance']}m "
+              f"{len(horses)}頭 — 予測対象外: {out['reason']}")
+        return
     n = len(horses)
     pace = out["pace"]
     print(f"{args.race_id} {race['race_name']} {race['surface']}{race['distance']}m "
@@ -318,7 +330,7 @@ def cmd_validate(args):
             n_skip += 1
             continue
         out = predict_formation(conn, race, horses, n_sim=args.n_sim, seed=n_done + 1)
-        if out is None:
+        if out is None or out.get("excluded"):
             n_skip += 1
             continue
         mr = out["mean_ranks"]

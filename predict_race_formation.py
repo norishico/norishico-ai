@@ -43,7 +43,9 @@ from mc_dyn_engine import (
     KAPPA_PRESS_DIRT, KAPPA_PRESS_TURF, RHO_SAVE, A_LAT, K0, PHI_FADE,
     DASH_MIN_FRAC, DASH_RIVAL_SAT, CHUTE_DASH_FRAC, D_SCALE_TURF,
     TRACK_COND_V_FACTOR,
-    SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT, EASE_RIVAL_SAT,
+    SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT, EASE_RIVAL_SAT, dash_cap_for,
+    PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
+    dash_window_for, pace_bias_for, pace_cls_group,
 )
 from calibrate_mc_dyn_phase2 import (
     get_par_time, get_course_geometry, get_slope_defs, compute_q_star,
@@ -131,6 +133,14 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
     apply_chute = bool(geometry.get("is_chute", False)) and surface == "ダ"
     # 構成依存イージング(単騎逃げの余裕、2026-08-04追加・較正済み、predict_race_pace.pyと同一配線)
     solo_ease_scale = SOLO_EASE_SCALE_DIRT if surface == "ダ" else SOLO_EASE_SCALE_TURF
+    # レースレベルのペース意図ノイズ(2026-08-05追加・較正済み、predict_race_pace.pyと同一配線)
+    pace_noise_sigma = PACE_NOISE_SIGMA_DIRT if surface == "ダ" else PACE_NOISE_SIGMA_TURF
+    # レース属性ペースバイアス(2026-08-05追加): クラス(race_nameから判定)・頭数・直線長。
+    # コーナー無しコース(直線競走)は対象外。
+    has_corners = bool(geometry["corner_zones"])
+    pace_bias = pace_bias_for(surface, pace_cls_group(race.get("race_name")),
+                              len(horses), geometry.get("straight_home"),
+                              distance=race["distance"], has_corners=has_corners)
     # 【2026-08-04修正】track_cond_factorが未配線でmc_dynのTRACK_COND_V_FACTORが
     # 一切反映されていなかったバグを修正(画面には「馬場=良」等と表示するのに計算には
     # 使っていなかった)。未知の表記/欠損時は1.0(無補正)にフォールバックする。
@@ -153,6 +163,10 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
             dash_rival_sat=DASH_RIVAL_SAT, is_chute_start=apply_chute,
             chute_dash_frac=CHUTE_DASH_FRAC, d_scale=d_scale,
             solo_ease_scale=solo_ease_scale, ease_rival_sat=EASE_RIVAL_SAT,
+            pace_noise_sigma=pace_noise_sigma, pace_bias=pace_bias,
+            dash_cap_m=dash_cap_for(surface, race["distance"]),
+            dash_window_m=(dash_window_for(surface, race["distance"])
+                           if has_corners else None),
             slope_zones=slope_zones, k_slope=0.0, dt=0.5,
             track_cond_factor=track_cond_factor,
             seed=seed * 1_000_003 + k, record_snapshots=True,

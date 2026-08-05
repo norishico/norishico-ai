@@ -10,8 +10,13 @@ n_sim回(既定10,000)のモンテカルロシミュレーションからペー�
     python predict_race_pace.py --venue 東京 --surface 芝 --distance 1600 \
         --track-cond 良 --nige 1 --senko 3 --sashi 4 --oikomi 4
 
-較正済みパラメータ(mc_dyn_engine.pyのモジュール既定値、2026-08-01時点でPhase2
-3ゲート全合格: 相関0.829/新潟H率91.7%/単騎S5.2%>複数S3.6%)をそのまま使用する。
+較正済みパラメータ(mc_dyn_engine.pyのモジュール既定値)をそのまま使用する。
+2026-08-05時点でPhase2 3ゲート全合格(gate1相関0.906/gate2新潟H率91.7%/
+gate3新基準3a+33.6pt・3bバイアス+0.4pt・3c +5.4pt)。単騎逃げイージング(solo_ease)、
+ダッシュ窓距離テーパー(dash_cap_for)+芝のd_c1非依存化(dash_window_for、直線コース除外)、
+レースレベルのペース意図ノイズ(pace_noise)、レース属性ペースバイアス(pace_bias v2、
+クラス×距離帯交互作用+頭数+直線長[262-526mクリップ]を距離帯別応答係数で変換 —
+--race-classで指定、検証会場OOSで|bias|14.2→11.3pt改善)を含む。
 """
 import argparse
 import random
@@ -21,7 +26,9 @@ from mc_dyn_engine import (
     anchor_v_base, simulate_field, build_slope_zones, TRACK_COND_V_FACTOR,
     KAPPA_PRESS_DIRT, KAPPA_PRESS_TURF, RHO_SAVE, A_LAT, K0, PHI_FADE,
     DASH_MIN_FRAC, DASH_RIVAL_SAT, CHUTE_DASH_FRAC, D_SCALE_TURF,
-    SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT, EASE_RIVAL_SAT,
+    SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT, EASE_RIVAL_SAT, dash_cap_for,
+    PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
+    dash_window_for, pace_bias_for, pace_cls_group,
 )
 from calibrate_mc_dyn_phase2 import (
     get_par_time, get_course_geometry, get_slope_defs, compute_q_star,
@@ -33,7 +40,10 @@ STYLES = ["逃げ", "先行", "差し", "追い込み"]
 
 
 def predict(conn, venue, surface, distance, track_cond, style_counts, n_sim=10000,
-            dt=0.5, horse_noise_sd=3.0, seed_base=0):
+            dt=0.5, horse_noise_sd=3.0, seed_base=0, race_class=None):
+    """race_class(2026-08-05追加): '新馬'/'未勝利'/'勝上'のクラス群、またはレース名文字列
+    (pace_cls_groupで判定)。None=勝上扱い。頭数はstyle_countsの合計から自動算出し、
+    直線長はコース幾何から取得して、レース属性ペースバイアスに反映する。"""
     par_time = get_par_time(conn, venue, surface, distance)
     if par_time is None:
         raise ValueError(f"par_time取得不可: {venue}{surface}{distance}m")
@@ -49,6 +59,9 @@ def predict(conn, venue, surface, distance, track_cond, style_counts, n_sim=1000
     # 構成依存イージング(単騎逃げの余裕、2026-08-04追加・較正済み)。逃げ馬頭数が
     # 少ないほどスローペースになりやすい実測傾向(芝: 単騎S率47.1% vs 複数20.0%)を反映。
     solo_ease_scale = SOLO_EASE_SCALE_DIRT if surface == "ダ" else SOLO_EASE_SCALE_TURF
+    # レースレベルのペース意図ノイズ(2026-08-05追加・較正済み)。実測の前後半バランス
+    # ばらつき(観測可能な事前情報では説明できないレース固有変動、std0.31-0.46)を再現する。
+    pace_noise_sigma = PACE_NOISE_SIGMA_DIRT if surface == "ダ" else PACE_NOISE_SIGMA_TURF
     apply_chute_boost = bool(geometry.get("is_chute", False)) and surface == "ダ"
     track_cond_factor = TRACK_COND_V_FACTOR.get(surface, {}).get(track_cond, 1.0)
 
@@ -62,6 +75,14 @@ def predict(conn, venue, surface, distance, track_cond, style_counts, n_sim=1000
         styles.extend([style] * c)
     if len(styles) < 2:
         raise ValueError("出走頭数は2頭以上必要")
+
+    # レース属性ペースバイアス(2026-08-05追加・較正済み)。クラス(新馬/未勝利/勝上)・
+    # 頭数・直線長から先頭馬の巡航速度シフトを計算(会場名は不使用の一般則)。
+    # コーナー無しコース(新潟芝1000等)は対象外(has_corners=False→0)。
+    cls_group = pace_cls_group(race_class) if race_class else "勝上"
+    has_corners = bool(geometry["corner_zones"])
+    pace_bias = pace_bias_for(surface, cls_group, len(styles), geometry.get("straight_home"),
+                              distance=distance, has_corners=has_corners)
 
     rng = random.Random(seed_base)
     counts = {"H": 0, "M": 0, "S": 0, "none": 0}
@@ -80,6 +101,9 @@ def predict(conn, venue, surface, distance, track_cond, style_counts, n_sim=1000
             is_chute_start=apply_chute_boost, chute_dash_frac=CHUTE_DASH_FRAC,
             d_scale=d_scale, slope_zones=slope_zones, k_slope=0.0,
             solo_ease_scale=solo_ease_scale, ease_rival_sat=EASE_RIVAL_SAT,
+            pace_noise_sigma=pace_noise_sigma, pace_bias=pace_bias,
+            dash_cap_m=dash_cap_for(surface, distance),
+            dash_window_m=dash_window_for(surface, distance) if has_corners else None,
             track_cond_factor=track_cond_factor,
             dt=dt, seed=seed_base * 1_000_003 + i,
         )
@@ -125,6 +149,8 @@ def main():
     ap.add_argument("--sashi", type=int, default=4)
     ap.add_argument("--oikomi", type=int, default=4)
     ap.add_argument("--n-sim", type=int, default=10000)
+    ap.add_argument("--race-class", default=None,
+                    help="クラス群(新馬/未勝利/勝上)またはレース名。省略時は勝上扱い")
     args = ap.parse_args()
 
     style_counts = {"逃げ": args.nige, "先行": args.senko, "差し": args.sashi, "追い込み": args.oikomi}
@@ -132,7 +158,7 @@ def main():
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA cache_size=-65536")
     result = predict(conn, args.venue, args.surface, args.distance, args.track_cond,
-                      style_counts, n_sim=args.n_sim)
+                      style_counts, n_sim=args.n_sim, race_class=args.race_class)
     conn.close()
 
     print(f"{result['venue']}{result['surface']}{result['distance']}m  "

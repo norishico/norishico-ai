@@ -30,6 +30,9 @@ from mc_dyn_engine import (
     KAPPA_PRESS_DIRT, KAPPA_PRESS_TURF, D_SCALE_TURF,
     build_slope_zones, K_SLOPE,
     SOLO_EASE_SCALE, EASE_RIVAL_SAT, SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT,
+    DASH_CAP_M, dash_cap_for, dash_window_for,
+    PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
+    pace_bias_for, pace_cls_group,
 )
 from fetch_laps import calc_derived
 from calibrate_mc_dyn_phase1 import get_par_time
@@ -179,22 +182,29 @@ def sample_real_field_compositions(conn, venue, surface, distance, max_races=500
     """実際の(venue,surface,distance)のレースから、脚質構成(頭数×脚質カウント)を
     実測サンプリングする(Phase2仕様: '各セル50-100回、リーダーのラップ列を...'に
     使う疑似フィールドの生成元。ランダムな仮想馬ではなく実在した構成を使うことで
-    現実的な逃げ馬数の分布を再現する)。"""
+    現実的な逃げ馬数の分布を再現する)。
+    【2026-08-05追加】ペース意図バイアス(pace_bias)用にクラス群("cls")も添付する。
+    レース単位の属性追加のみで、構成リストの順序・サンプリングの乱数消費は不変
+    (pace_bias_scale=0.0なら従来動作とビット単位一致)。"""
     rows = conn.execute("""
-        SELECT race_id, pos4, num_horses FROM results
+        SELECT race_id, pos4, num_horses, race_name FROM results
         WHERE venue=? AND surface=? AND distance=? AND pos4 IS NOT NULL
               AND num_horses > 1 AND finish < 90
     """, (venue, surface, distance)).fetchall()
     races = defaultdict(list)
-    for race_id, pos4, n in rows:
+    race_names = {}
+    for race_id, pos4, n, rname in rows:
         races[race_id].append((pos4, n))
+        if race_id not in race_names:
+            race_names[race_id] = rname
     comps = []
     for race_id, lst in races.items():
         n = lst[0][1]
         counts = {"逃げ": 0, "先行": 0, "差し": 0, "追い込み": 0}
         for pos4, nh in lst:
             counts[classify_style_simple(pos4, nh)] += 1
-        comps.append({"num_horses": n, "counts": counts})
+        comps.append({"num_horses": n, "counts": counts,
+                      "cls": pace_cls_group(race_names.get(race_id))})
     if max_races and len(comps) > max_races:
         # 【2026-08-01修正】共有のグローバルrandom.sample()を使うと、このセルより前に
         # 呼ばれたsample_real_field_compositions()の回数(座標降下法の試行回数など、
@@ -285,6 +295,16 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
                                  else "solo_ease_scale_turf", SOLO_EASE_SCALE)
     ease_rival_sat = params.get("ease_rival_sat", EASE_RIVAL_SAT)
 
+    # 【2026-08-05追加】ペース意図バイアス(クラス・頭数・直線長 → 先頭馬巡航シフト)。
+    # pace_bias_scale=0.0(レガシー)で完全無効。係数の出典はmc_dyn_engine.pyの
+    # PACE_BIAS_*(訓練会場=東京/中山/京都/小倉/福島の実データ回帰から導出、
+    # 検証会場=函館/札幌/阪神/中京は係数決定に不使用)。
+    pace_bias_scale = params.get("pace_bias_scale", 0.0)
+    straight_home_m = geometry.get("straight_home")
+    # コーナー無しコース(新潟芝1000等の直線競走)は新機構(pace_bias/dash窓固定)の
+    # 対象外(レガシー挙動)。コーナー前提の回帰・設計を直線競走に外挿しない一般則。
+    has_corners = bool(geometry["corner_zones"])
+
     rng = random.Random(seed_base)
     counts_h = counts_m = counts_s = counts_none = 0
     records = []
@@ -293,6 +313,10 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
         styles = _styles_from_counts(comp["counts"])
         if len(styles) < 2:
             continue
+        pace_bias = pace_bias_scale * pace_bias_for(
+            surface, comp.get("cls"), comp.get("num_horses"), straight_home_m,
+            distance=distance, has_corners=has_corners) \
+            if pace_bias_scale else 0.0
         horses = [{"style": st,
                    "spd": 80.0 + rng.gauss(0, horse_noise_sd),
                    "spr": 80.0 + rng.gauss(0, horse_noise_sd),
@@ -308,6 +332,24 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
             chute_dash_frac=params.get("chute_dash_frac", CHUTE_DASH_FRAC),
             d_scale=d_scale,
             solo_ease_scale=solo_ease_scale, ease_rival_sat=ease_rival_sat,
+            # レースレベルのペース意図ノイズ(2026-08-05追加、既定0.0=レガシー互換)。
+            # kappa_press等と同じ表面分離(実測stdの再現に必要な量が芝0.7/ダ0.9と異なる、
+            # 表面別のstd検証はB4スイープ参照)。単一キーpace_noise_sigmaはフォールバック。
+            pace_noise_sigma=params.get(
+                "pace_noise_sigma_dirt" if surface == "ダ" else "pace_noise_sigma_turf",
+                params.get("pace_noise_sigma", 0.0)),
+            pace_bias=pace_bias,
+            # dash_cap_m: paramsに明示指定があればそれを使い(スイープ・レガシー再現用)、
+            # なければ距離テーパー(dash_cap_for、2026-08-04採用)を適用する。
+            dash_cap_m=params.get("dash_cap_m") or dash_cap_for(surface, distance),
+            # 芝ダッシュ窓のd_c1非依存化(2026-08-05追加)。False(既定)でレガシー。
+            # コーナー無しコース(直線競走)は対象外(has_corners参照)。
+            dash_window_m=(dash_window_for(surface, distance)
+                           if params.get("dash_window_turf_fixed") and has_corners else None),
+            # 【検証済み・不採用 2026-08-05】仕掛け長の距離比例化(kick_start=min(800,
+            # frac*distance)、芝のみ)を1600m単騎S過大の対策としてfrac={0.5,0.45,0.42}で
+            # スイープしたが、gate1が0.906→0.845-0.847に崩壊(芝短距離のH構造を破壊)し
+            # 3aもほぼ不動(+33.6→+31.6)のため採用しない。再挑戦時はこの記録を参照。
             slope_zones=slope_zones, k_slope=k_slope,
             dt=dt, seed=seed_base * 100003 + i,
         )
@@ -413,10 +455,87 @@ def gate3_nige_ordering(results, exclude_chute=True):
     return s_rate_single, s_rate_multi, len(single), len(multi)
 
 
+# --- ゲート3 新基準(2026-08-04、絶対水準版) -----------------------------------
+# 【経緯】従来の「単騎S% > 複数S%(方向のみ、全表面プール)」は、S質量がほぼ生成されない
+# 状態(レガシー: 4.7% vs 3.5%、差1.2pt)でも合格してしまう甘い基準だった。実測では
+# 単騎逃げ→スローの効果は芝で差27.3pt(レースプール)/19.4pt(セル等重み)と桁違いに
+# 大きく、ダートは5.8pt/3.8ptと小さい(いずれもtop60セル・引込線発走セル除外・
+# 2026-08-04時点のkeiba.db実測)。表面で必要な水準が大きく異なるため表面別に分離する。
+# 【閾値の導出(sim値への後付けではなく実測から設計)】
+#   3a 芝効果量: シミュ芝プールの単騎S%-複数S% >= 10pt。
+#      実測リファレンスのうち保守的な方(セル等重み19.4pt)の半分= 9.7pt を丸めた値。
+#      「実効果の半分未満しか捕捉しないモデルを落とす」バー。レガシーは差1pt未満で明確にNG。
+#   3b 芝絶対水準: |芝セル平均シミュS率 - 芝セル平均実測S率| <= 10pt。
+#      実測水準30.5%の約1/3。S質量そのものの欠落(方向だけ合って絶対値が桁違い)を検知する。
+#      こちらは引込線含む全芝セルのセル平均(sim_s_rate/real_s_rateはセル単位で対応が取れるため)。
+#   3c ダート方向性: シミュダプールの単騎S% >= 複数S% - 1.0pt(サンプリングノイズ許容、
+#      群n≈500-900・S率1%前後での2se≈1.2ptに基づく)。ダートのS生成機構は未実装のため
+#      効果量基準は現段階では課さない — 機構が入った時点で実測差(5.8pt)の半分≈3ptへ
+#      引き上げること。
+GATE3A_TURF_DIFF_MIN = 0.10   # 3a: 芝 単騎-複数 S率差の下限
+GATE3B_TURF_BIAS_MAX = 0.10   # 3b: 芝セル平均S率バイアスの上限(絶対値)
+GATE3C_DIRT_TOL = 0.01        # 3c: ダート方向性のノイズ許容
+
+
+def gate3_stats(results, exclude_chute=True):
+    """新ゲート3用の表面別統計。戻り値dict:
+    turf_s_single/turf_s_multi/turf_n_single/turf_n_multi (芝プール、chute除外),
+    dirt_s_single/dirt_s_multi/dirt_n_single/dirt_n_multi (ダプール、chute除外),
+    turf_sim_s_mean/turf_real_s_mean/turf_bias (芝セル平均、全セル),
+    legacy_s_single/legacy_s_multi (旧基準の全表面プール、参考表示用)"""
+    pool = {"芝": {"s1": 0, "n1": 0, "s2": 0, "n2": 0},
+            "ダ": {"s1": 0, "n1": 0, "s2": 0, "n2": 0}}
+    turf_sim_s, turf_real_s = [], []
+    for r in results:
+        surf = r["surface"]
+        if surf == "芝":
+            turf_sim_s.append(r["sim_s_rate"])
+            turf_real_s.append(r["real_s_rate"])
+        if surf not in pool:
+            continue
+        for rec in r["records"]:
+            if rec["pace_type"] is None:
+                continue
+            if exclude_chute and rec.get("is_chute"):
+                continue
+            is_s = 1 if rec["pace_type"] == "S" else 0
+            if rec["nige_count"] == 1:
+                pool[surf]["n1"] += 1
+                pool[surf]["s1"] += is_s
+            elif rec["nige_count"] >= 2:
+                pool[surf]["n2"] += 1
+                pool[surf]["s2"] += is_s
+    out = {}
+    for surf, key in [("芝", "turf"), ("ダ", "dirt")]:
+        p = pool[surf]
+        out[f"{key}_s_single"] = p["s1"] / p["n1"] if p["n1"] else None
+        out[f"{key}_s_multi"] = p["s2"] / p["n2"] if p["n2"] else None
+        out[f"{key}_n_single"] = p["n1"]
+        out[f"{key}_n_multi"] = p["n2"]
+    out["turf_sim_s_mean"] = sum(turf_sim_s) / len(turf_sim_s) if turf_sim_s else None
+    out["turf_real_s_mean"] = sum(turf_real_s) / len(turf_real_s) if turf_real_s else None
+    out["turf_bias"] = (out["turf_sim_s_mean"] - out["turf_real_s_mean"]
+                        if turf_sim_s else None)
+    legacy_s1, legacy_s2, _, _ = gate3_nige_ordering(results, exclude_chute=exclude_chute)
+    out["legacy_s_single"], out["legacy_s_multi"] = legacy_s1, legacy_s2
+    return out
+
+
+def gate3_pass(g3):
+    """新ゲート3の合否判定(3a/3b/3cの個別bool + 総合)。データ不足の項目はNG扱い。"""
+    ok_a = (g3["turf_s_single"] is not None and g3["turf_s_multi"] is not None
+            and g3["turf_s_single"] - g3["turf_s_multi"] >= GATE3A_TURF_DIFF_MIN)
+    ok_b = g3["turf_bias"] is not None and abs(g3["turf_bias"]) <= GATE3B_TURF_BIAS_MAX
+    ok_c = (g3["dirt_s_single"] is not None and g3["dirt_s_multi"] is not None
+            and g3["dirt_s_single"] >= g3["dirt_s_multi"] - GATE3C_DIRT_TOL)
+    return ok_a, ok_b, ok_c, (ok_a and ok_b and ok_c)
+
+
 def print_gates(results, tag=""):
     corr, n_cells = gate1_correlation(results)
     niigata_h = gate2_niigata(results)
-    s_single, s_multi, n_single, n_multi = gate3_nige_ordering(results)
+    g3 = gate3_stats(results)
+    ok_a, ok_b, ok_c, ok_all = gate3_pass(g3)
     print(f"\n{'='*70}\nゲート判定 {tag}\n{'='*70}")
     print(f"ゲート1: 上位{n_cells}セルの実測H率 vs シミュH率 相関 = {corr:.3f}  "
           f"{'OK(>=0.7)' if corr >= 0.7 else 'NG'}")
@@ -425,17 +544,44 @@ def print_gates(results, tag=""):
               f"{'OK(>=90%)' if niigata_h >= 0.90 else 'NG'}")
     else:
         print("ゲート2: 新潟ダ1200 データなし(SKIP対象だった可能性)")
-    if s_single is not None and s_multi is not None:
-        print(f"ゲート3(引込線発走除く): 単騎逃げS率={s_single*100:.1f}%(n={n_single}) vs "
-              f"複数逃げS率={s_multi*100:.1f}%(n={n_multi})  "
-              f"{'OK(単騎>複数)' if s_single > s_multi else 'NG'}")
+    # ゲート3(2026-08-04新基準: 表面別・絶対水準。導出はGATE3A/3B/3C定数のコメント参照)
+    if g3["turf_s_single"] is not None and g3["turf_s_multi"] is not None:
+        diff = g3["turf_s_single"] - g3["turf_s_multi"]
+        print(f"ゲート3a(芝効果量): 単騎S={g3['turf_s_single']*100:.1f}%(n={g3['turf_n_single']}) - "
+              f"複数S={g3['turf_s_multi']*100:.1f}%(n={g3['turf_n_multi']}) = {diff*100:+.1f}pt  "
+              f"{'OK' if ok_a else 'NG'}(>= {GATE3A_TURF_DIFF_MIN*100:.0f}pt、実測19.4-27.3pt)")
     else:
-        print(f"ゲート3: サンプル不足(単騎n={n_single}, 複数n={n_multi})")
+        print("ゲート3a: 芝サンプル不足 NG")
+    if g3["turf_bias"] is not None:
+        print(f"ゲート3b(芝絶対水準): 芝セル平均S率 シミュ{g3['turf_sim_s_mean']*100:.1f}% vs "
+              f"実測{g3['turf_real_s_mean']*100:.1f}% (バイアス{g3['turf_bias']*100:+.1f}pt)  "
+              f"{'OK' if ok_b else 'NG'}(|バイアス|<= {GATE3B_TURF_BIAS_MAX*100:.0f}pt)")
+    else:
+        print("ゲート3b: 芝セルなし NG")
+    if g3["dirt_s_single"] is not None and g3["dirt_s_multi"] is not None:
+        print(f"ゲート3c(ダ方向性): 単騎S={g3['dirt_s_single']*100:.1f}%(n={g3['dirt_n_single']}) vs "
+              f"複数S={g3['dirt_s_multi']*100:.1f}%(n={g3['dirt_n_multi']})  "
+              f"{'OK' if ok_c else 'NG'}(単騎>=複数-{GATE3C_DIRT_TOL*100:.0f}pt。S生成機構未実装のため方向のみ、"
+              f"機構実装後は実測差5.8ptの半分へ引き上げ)")
+    else:
+        print("ゲート3c: ダサンプル不足 NG")
+    print(f"ゲート3総合: {'OK' if ok_all else 'NG'}  "
+          f"(参考・旧基準の全表面プール: 単騎{(g3['legacy_s_single'] or 0)*100:.1f}% vs "
+          f"複数{(g3['legacy_s_multi'] or 0)*100:.1f}%)")
     return {
         "gate1_corr": corr, "gate1_n_cells": n_cells,
         "gate2_niigata_h_rate": niigata_h,
-        "gate3_s_single": s_single, "gate3_s_multi": s_multi,
-        "gate3_n_single": n_single, "gate3_n_multi": n_multi,
+        # 旧キー(JSON継続性のため残す。値は旧基準=全表面プール)
+        "gate3_s_single": g3["legacy_s_single"], "gate3_s_multi": g3["legacy_s_multi"],
+        # 新基準(2026-08-04)
+        "gate3_turf_s_single": g3["turf_s_single"], "gate3_turf_s_multi": g3["turf_s_multi"],
+        "gate3_turf_n_single": g3["turf_n_single"], "gate3_turf_n_multi": g3["turf_n_multi"],
+        "gate3_turf_sim_s_mean": g3["turf_sim_s_mean"],
+        "gate3_turf_real_s_mean": g3["turf_real_s_mean"],
+        "gate3_turf_bias": g3["turf_bias"],
+        "gate3_dirt_s_single": g3["dirt_s_single"], "gate3_dirt_s_multi": g3["dirt_s_multi"],
+        "gate3_pass_a": ok_a, "gate3_pass_b": ok_b, "gate3_pass_c": ok_c,
+        "gate3_pass": ok_all,
     }
 
 
@@ -459,7 +605,13 @@ CALIB_CANDIDATES = {
     # 構成依存イージング(2026-08-04追加、単騎逃げ→スローペースの再現用)
     "solo_ease_scale_turf": [0.0, 0.4, 0.55, 0.7, 0.85, 1.0],
     "solo_ease_scale_dirt": [0.0, 0.1, 0.2, 0.3],
-    "ease_rival_sat": [2.0, 3.0, 4.0],
+    "ease_rival_sat": [4.0, 8.0, 12.0],
+    # P0ダッシュ窓キャップ(2026-08-04パラメータ化。従来は400ハードコード)
+    "dash_cap_m": [250.0, 300.0, 350.0, 400.0],
+    # レースレベルのペース意図ノイズ(2026-08-05追加。実測balance stdの再現が本来の
+    # 較正基準なのでB4スイープを優先し、座標降下法ではゲート指標を壊さない範囲の微調整のみ)
+    "pace_noise_sigma_turf": [0.0, 0.5, 0.7, 0.9],
+    "pace_noise_sigma_dirt": [0.0, 0.5, 0.7, 0.9, 1.1],
 }
 
 
@@ -475,12 +627,19 @@ def _score_for_calib(conn, params, calib_cells, q_star, n_sim, dt):
     corr, _ = gate1_correlation(results)
     niigata_h = gate2_niigata(results)
     niigata_score = -abs((niigata_h or 0.0) - 0.90)
-    s_single, s_multi, n_single, n_multi = gate3_nige_ordering(results)
-    if s_single is not None and s_multi is not None:
-        # 単騎が複数を上回る差分をそのままスコア化(スケールを他項目と揃えるため5倍)。
-        gate3_score = (s_single - s_multi) * 5.0
-    else:
-        gate3_score = 0.0
+    # 【2026-08-04変更】ゲート3の新基準(表面別・絶対水準)に合わせてスコアも再設計:
+    #  - 芝効果量: 実測セル等重み差(19.4pt)でキャップ — 実効果を超えて差を伸ばしても加点しない
+    #    (旧スコアはキャップなしで、差を過剰に伸ばす方向へ較正が暴走し得た)
+    #  - 芝絶対水準: セル平均バイアスをペナルティ化
+    #  - ダ方向性: 許容(1pt)を超える逆転のみペナルティ
+    g3 = gate3_stats(results)
+    gate3_score = 0.0
+    if g3["turf_s_single"] is not None and g3["turf_s_multi"] is not None:
+        gate3_score += 2.5 * min(g3["turf_s_single"] - g3["turf_s_multi"], 0.194)
+    if g3["turf_bias"] is not None:
+        gate3_score -= 2.5 * abs(g3["turf_bias"])
+    if g3["dirt_s_single"] is not None and g3["dirt_s_multi"] is not None:
+        gate3_score -= 2.5 * max(0.0, (g3["dirt_s_multi"] - g3["dirt_s_single"]) - GATE3C_DIRT_TOL)
     return corr + niigata_score + gate3_score, results
 
 
@@ -555,6 +714,20 @@ def main():
         "solo_ease_scale_turf": SOLO_EASE_SCALE_TURF,
         "solo_ease_scale_dirt": SOLO_EASE_SCALE_DIRT,
         "ease_rival_sat": EASE_RIVAL_SAT,
+        # None = 距離テーパー(dash_cap_for)を適用(2026-08-04採用の既定)。
+        # 数値を入れると全セル一律のキャップになる(スイープ・レガシー再現用)。
+        "dash_cap_m": None,
+        # レースレベルのペース意図ノイズ(2026-08-05追加・較正済み)。値の出典は
+        # mc_dyn_engine.pyのPACE_NOISE_SIGMA_TURF/DIRT(較正のたびにエンジン側定数を
+        # 更新すること — JSON保存だけして既定値に反映し忘れる過去の不具合の再発防止)。
+        "pace_noise_sigma_turf": PACE_NOISE_SIGMA_TURF,
+        "pace_noise_sigma_dirt": PACE_NOISE_SIGMA_DIRT,
+        # レース属性ペース意図バイアス(2026-08-05追加・採用)。1.0=有効(係数は
+        # mc_dyn_engine.pyのPACE_BIAS_*)、0.0でレガシー再現。
+        "pace_bias_scale": 1.0,
+        # 芝dash窓のd_c1非依存化(2026-08-05採用)。False+pace_bias_scale=0+
+        # ease_rival_sat=4.0で旧状態(gate1=0.904のB修正時点)を再現できる。
+        "dash_window_turf_fixed": True,
     }
     if args.kappa_press is not None:
         params["kappa_press"] = args.kappa_press

@@ -218,7 +218,60 @@ K_GAP = 0.05              # 車間維持のゲイン(/s)
 RHO_SAVE = 1.3            # 先頭馬が脚を溜める減速量(m/s、2026-08-01較正済み値)
 A_LAT = 2.1               # コーナー横加速度上限(m/s^2、2026-08-01較正済み値)
 
-# --- 位置取り競合(kappa_press)の作用距離キャップ(2026-08-02追加) -----------------
+# --- P0スタートダッシュの作用距離キャップ(2026-08-04パラメータ化) -----------------
+# 従来はsimulate_field内に400.0がハードコードされていた(dash_end=min(d_c1,400.0))。
+# 【発見】単騎逃げイージング(comp_ease)が東京だけ効かない(芝1800単騎S率5.8% vs 実測
+# 62.9%)原因を反実仮想実験で切り分けたところ、会場固有の問題ではなく「d_c1が長い
+# コースはダッシュ窓がこのキャップ(400m)まで張り付き、前半が構造的に速くなりすぎる」
+# という全会場共通の仮定の問題だった。証拠(2026-08-04、n=500/条件):
+#   東京芝1800: 窓400m→S=5.8% / 300m→21.2% / 275m→34.2% / 200m→81.4%(実測62.9%)
+#   対称チェック 中京芝2000(実窓274.5m、S=74.2%正常)を窓400mに伸ばすと13.8%に崩壊
+#   東京芝2000: 窓400m→S=16.2% / 275m→77.2%(実測72.6%)
+# 実際の発馬ダッシュは200-300m程度で落ち着き、コーナーが遠いからといって400mまで
+# 全開が続くわけではない、という物理的解釈とも整合する。
+DASH_CAP_M = 400.0        # P0ダッシュが働く距離の上限(m)。座標降下法で調整対象
+# 【2026-08-04採用: 距離テーパー】ただし一律のキャップ短縮はトレードオフになることも
+# 同日のフルゲート実験で確認済み: cap=300一律はゲート1相関0.885→0.813に悪化(犠牲は
+# 芝スプリント: 札幌/小倉/函館/福島芝1200の実測H60-79%がsim20%台に崩壊)、cap=250は
+# ゲート2も崩す(88.3%)。つまりダッシュ窓は(1)発馬ダッシュと(2)短距離戦の持続的な
+# 速い前半、の二役を担っており、識別変数は会場ではなく距離。芝の1400m以下は400mが
+# 必要で、1400m超は300mが適正(ダートは④診断でH経済が別問題と判明しており400のまま)。
+# 距離2段階テーパー(値はスイープ済み{400,300}のみ、閾値1400はセル別デルタ診断で
+# 悪化セルが全て<=1400・改善セルが>=1800だったことに基づく)のフルゲート:
+# ゲート1=0.888(一律400の0.885からさらに改善)/ゲート2=91.7%不変/ゲート3全OK
+# (3a+41.0pt/3b+2.2pt)。東京芝1600のS率1.7%→41.7%(実測39.1%)等、d_c1が長い東京の
+# セルの詰まりも大幅改善。注意: 閾値・値の選択は同じ60セルデータに基づく(真のOOSは
+# 将来年度データ待ち)。
+DASH_CAP_TURF_LONG_M = 300.0   # 芝・distance>1400m向けダッシュ窓キャップ
+DASH_CAP_TAPER_DIST = 1400     # この距離(m)以下は従来のDASH_CAP_M(400)を使う
+
+
+def dash_cap_for(surface, distance):
+    """表面×距離からP0ダッシュ窓キャップを返す(採用済みの距離2段階テーパー)。
+    呼び出し側(calibrate_mc_dyn_phase2.run_cell / predict_race_pace / predict_race_formation)
+    がsimulate_field(dash_cap_m=...)に渡す。simulate_field自体の既定値はDASH_CAP_M=400
+    (レガシー互換)のまま変えない。"""
+    if surface == "芝" and distance and distance > DASH_CAP_TAPER_DIST:
+        return DASH_CAP_TURF_LONG_M
+    return DASH_CAP_M
+
+
+# --- 芝ダッシュ窓のd_c1非依存化(2026-08-05追加) --------------------------------
+# 【背景】会場バイアス調査で、芝ルートセルのシミュS率のセル間変動がほぼ
+# dash_end=min(d_c1, cap)のd_c1成分だけで決まっており(窓±100mでS率40-70pt動く)、
+# それが実測の駆動因子(クラス・頭数・コース規模)と無関係な軸=JRAコース在庫のd_c1の
+# 偶然の分布(ローカル=短い/東京=長い)でセルごとのS率を歪めていたことが判明
+# (セル横断でシミュS率と実測S率がcorr=-0.18と逆向き)。発馬ダッシュの長さは
+# 「最初のコーナーの位置」ではなく発走そのものの性質(距離テーパー済みcap)で決まる、
+# という一般則に変更する(会場名不使用)。ダートはkappa_press(押し合い)の作用窓が
+# d_c1に結び付いており独立の較正体系のため従来のmin(d_c1, cap)を維持。
+# 検証: 窓のみの変更はS絶対水準を下げすぎるため(gate3b +2.2→-9.6pt)、レース属性
+# ペースバイアス(pace_bias)+イージング再較正(訓練セルのみ)とセットで採用する。
+def dash_window_for(surface, distance):
+    """simulate_fieldのdash_window_mに渡す値。芝=cap固定(d_c1非依存)、ダート=None(レガシー)。"""
+    if surface == "芝":
+        return dash_cap_for(surface, distance)
+    return None
 # 【発見】kick_trigger修正(コーナー入口→出口)後も東京だけ誤差が残存(1800m/2000m等、
 # 会場を問わずkick_trigger位置が同一になる距離帯で顕著)。原因はd_c1(発走〜第1コーナー)
 # そのものの長さ: 東京は1800mでd_c1=719.9m(レースの40%)に対し小倉は172.8m(9.6%)と、
@@ -246,7 +299,14 @@ TARGET_GAP_M = 3.0        # P2追走時の目標車間(m、おおよそ1馬身)
 # (浮動小数点演算・乱数消費とも不変)。表面別の較正値はcalibrate_mc_dyn_phase2.py側で
 # solo_ease_scale_turf / solo_ease_scale_dirt として選択して渡す(kappa_pressと同じ分離方式)。
 SOLO_EASE_SCALE = 0.0     # simulate_field()の既定値=無効(レガシー互換)。呼び出し側が表面別較正値を渡す
-EASE_RIVAL_SAT = 4.0      # 逃げ馬ライバルがこの頭数で構成依存イージングが完全消滅(2026-08-04較正済み値)
+EASE_RIVAL_SAT = 12.0     # 逃げ馬ライバルがこの頭数で構成依存イージングが完全消滅
+# 【2026-08-05更新: 4.0→12.0】芝dash窓のd_c1非依存化(dash_window_for)+レース属性
+# ペースバイアス(pace_bias)の採用に伴い、訓練セル(東京/中山/京都/小倉/福島の芝
+# ≥1600、検証会場は不使用)のみのグリッドサーチ{scale 0.6-0.9}×{sat 4/6/8/12}で
+# 再較正した値(旧4.0は旧dash窓体系とセットの較正値で、窓固定後は複数逃げのS率が
+# 過小になるため減衰を緩めた)。検証会場(函館/札幌/阪神/中京)での事後確認:
+# 全|bias| 14.2→12.2pt/単騎15.6→11.1pt/複数13.4→12.8ptと全て改善し汎化を確認。
+# ダートはsolo_ease_scale_dirt=0.0のためこの値の影響なし。
 # 【2026-08-04較正結果】表面別グリッドサーチ(芝4セル×逃げ頭数3バケット、実測構成
 # サンプリング、n_sim=250/バケット)で芝はscale=0.7/sat=4が最良。ダートはscale=0〜0.3の
 # いずれでもシミュS率がほぼ動かず(実測の単騎S率8.1%を再現できない)、scale=0.3は
@@ -256,6 +316,118 @@ EASE_RIVAL_SAT = 4.0      # 逃げ馬ライバルがこの頭数で構成依存�
 # 芝10会場全てOK。
 SOLO_EASE_SCALE_TURF = 0.7   # 芝向け較正済み値(calibrate_mc_dyn_phase2.py/predict_race_pace.pyが使用)
 SOLO_EASE_SCALE_DIRT = 0.0   # ダート向け(構成依存イージングでは実測S率を再現できず、レガシー維持)
+# --- レースレベルのペース意図ノイズ(2026-08-05追加、既定0.0=無効) --------------
+# 【発見】実測の前後半バランス(front_avg-back_avg)のレース間stdは会場×距離を問わず
+# ほぼ一様に0.31-0.46あるのに対し、シミュは0.215-0.347しかなく、特にダート中距離・
+# 芝ルートで大幅に不足する(阪神ダ1800単騎: 実測0.419 vs シミュ0.217)。実データ検証で
+# この不足分は「実力差(オッズ)・騎手傾向・先行頭数・馬場・クラス・日単位の共通要因
+# (ICC=0.026)・風(r=-0.02)のいずれでも説明できない」(多変量OLSでもR²≈0.05-0.13)
+# レース固有の変動と判明した。つまり「同じ構成でも日によって速い/遅い両方が起きる」
+# のは観測可能な事前情報では予測できない先頭馬のペース裁量そのもの。
+# 対策: 1レースにつき1回抽選するゼロ平均ノイズを、P2巡航フェーズの先頭馬のみに加算する。
+# 巡航が長いレース(中距離)ほど自動的に効きが大きく、巡航がほぼ無い短距離Hアンカー
+# (新潟ダ1200等、実測stdも最小)には自動的にほぼ効かない — セル別調整が不要な一般機構。
+# pace_noise_sigma=0.0(既定)では乱数を消費せず、従来動作とビット単位で一致する。
+PACE_NOISE_SIGMA = 0.0    # simulate_field()の既定値=無効(レガシー互換)。呼び出し側が表面別較正値を渡す
+# 【2026-08-05較正結果】表面別の必要量を実測balance stdの再現で決定(スイープ値
+# {0.0,0.3,0.5,0.7,0.9}、B4計測: 芝は0.7で実測とほぼ一致(函館芝1800: sim0.375 vs
+# 実測0.374、中京芝2000: 0.424 vs 0.404)、0.9では過剰(東京芝1600: 0.496 vs 0.391)。
+# ダートは0.9で一致(阪神ダ1800: 0.410 vs 0.404)、0.7では不足(0.330))。
+# フルゲートへの影響: gate1相関0.888→0.904(改善)、gate2新潟ダ1200 H率91.7%(不変)、
+# gate3a +41.0→+25.9pt(実測リファレンス19.4-27.3ptの帯内に接近)、gate3b +2.2→+2.6pt、
+# gate3c ダ単騎S 0.3%→10.7% vs 複数5.3%(差+5.4pt、実測差5.8ptとほぼ整合し、機構実装後の
+# 引き上げ基準3ptもクリア)。ダート60セル平均S率バイアス-4.4pt→+0.1ptに解消。
+PACE_NOISE_SIGMA_TURF = 0.7   # 芝向け較正済み値(calibrate_mc_dyn_phase2.py/predict系が使用)
+PACE_NOISE_SIGMA_DIRT = 0.9   # ダート向け較正済み値(同上)
+
+# --- レース属性によるペース意図バイアス(2026-08-05追加、既定0.0=無効) ----------
+# 【背景】会場バイアス調査(2026-08-05)で、実測の単騎/複数逃げS率のセル間変動は
+# (1)クラス(単騎S率: 新馬82.0% vs 未勝利45.2%、37pt差) (2)頭数(勝上・芝1800-2200:
+# ≤9頭67.4% vs 13+頭39.9%) (3)クラス×頭数×距離調整後の残差が直線長とr=+0.66、の
+# 3因子で駆動されるのに対し、シミュはどれも入力に持たずdash_end(d_c1依存)だけで
+# セル間変動を作っており、実測と逆向き(セル横断corr=-0.18)だったことが判明。
+# 対策: レース属性(クラス群・頭数・直線長)から先頭馬の巡航速度シフト(m/s)を計算し、
+# pace_noiseと同じ作用点(P2巡航の先頭馬)に加算する。会場名は一切使わない一般則。
+# 【係数の出典=実データ回帰(シミュへのフィッティングではない)】訓練会場(東京/中山/
+# 京都/小倉/福島)の芝≥1600レースのみで balance ~ 新馬 + 未勝利 + 頭数 + 直線長
+# (距離帯・逃げ頭数バケットは交絡制御として回帰に含めるが輸出しない)を推定し、
+# balance係数(秒/200m)をシミュ応答係数g(pace_bias 1m/sあたりのbalance変化、訓練
+# セルで実測)で除して速度単位に変換した。検証会場(函館/札幌/阪神/中京)は係数決定に
+# 一切使用していない。値はc1_fit_pace_bias.py(scratchpad)の出力を転記。
+# 【2026-08-05導出値、同日v2: balance空間モデル+距離帯別g変換に再構成】
+# 訓練回帰(訓練会場の芝≥1600、n=3,795、交互作用込み): 新馬+0.388(t=+17.4)/
+# 未勝利-0.013(t=-0.9)/頭数-0.0365per頭(t=-9.6)/直線+0.00074per m(t=+11.6)/
+# 新馬×1600 -0.125(t=-2.9)/未勝利×1600 -0.094(t=-2.7)。逃げ頭数ダミーはt≤0.5
+# (既存solo_ease機構と直交=二重計上なし)。係数はbalance単位(秒/200m)で保持し、
+# 距離帯別のシミュ応答係数G_BAND(pace_bias 1m/sあたりのbalance変化、D2アーキテクチャ
+# 下で訓練セルのみで計測)で除して速度単位に変換する。
+# 【v2の経緯】初版はグローバルg=-0.357で一律変換していたが、1600帯は応答が35%強い
+# (-0.443)ため属性効果が過大に出る副作用(芝1600セルでS率+20-30pt過大)が発生。
+# 距離帯別gは「フィッティングの追加自由度」ではなく変換精度の計測値である点に注意。
+PACE_BAL_CLS = {"新馬": +0.388, "未勝利": -0.013}   # クラス群のbalanceオフセット(秒/200m、勝上=0基準)
+PACE_BAL_CLS_1600 = {"新馬": -0.125, "未勝利": -0.094}  # 1600帯(distance<1800)の交互作用加算
+PACE_BAL_K_NH = -0.0365          # 頭数1頭あたりのbalance(秒/200m)
+PACE_BIAS_NH_REF = 13.3          # 頭数の基準点(訓練プール平均)
+PACE_BAL_K_STRAIGHT = +0.00074   # 直線長1mあたりのbalance(秒/200m)
+PACE_BIAS_STRAIGHT_REF = 402.0   # 直線長の基準点(m、訓練プール平均)
+# 直線長入力のサポート範囲クリップ: 係数が推定(訓練会場292-526m)+独立検証(検証会場
+# 262-474mで同符号・同水準の係数を確認)された範囲[262, 526]の外には外挿しない。
+# 新潟芝(DBのcourse_layoutが外回り直線658.7mの単一variantで、内回り実走の距離にも
+# 適用されてしまう)での暴走(新潟芝1400のH率が実測68.7%に対し35%まで低下)への
+# 一般則としての対処(会場名は使わない)。
+PACE_BIAS_STRAIGHT_MIN = 262.0
+PACE_BIAS_STRAIGHT_MAX = 526.0
+G_BAND = {"1600": -0.443, "1800": -0.327, "2000+": -0.392}  # 距離帯別シミュ応答係数(計測値)
+PACE_BIAS_CAP = 1.2              # 安全上限(m/s)。複合極端例(新馬×少頭数×長直線等)の外挿暴走防止
+
+
+def pace_cls_group(race_name):
+    """race_name文字列からペースバイアス用のクラス群を返す(新馬/未勝利/勝上)。
+    build_class_par.classify_class()の先頭2ルールと同一の判定(このモジュールは
+    依存を持たない方針のため文字列判定のみ複製。旧表記500万下等は全て勝上側で、
+    ペースバイアス上は区別不要)。"""
+    rn = str(race_name or "")
+    if "新馬" in rn:
+        return "新馬"
+    if "未勝利" in rn:
+        return "未勝利"
+    return "勝上"
+
+
+def pace_bias_for(surface, cls_group=None, num_horses=None, straight_home_m=None,
+                  distance=None, has_corners=True):
+    """レース属性からペース意図バイアス(m/s)を計算する。
+    balance空間の実測回帰モデル(クラス+交互作用/頭数/直線長)を距離帯別の
+    シミュ応答係数G_BANDで速度単位に変換する。
+    - ダートは今回未較正のため0(実測の頭数効果はダートにも存在(r=-0.15〜-0.28)するが、
+      会場バイアス問題が診断されたのは芝であり、較正済みのダートS水準を乱さないため
+      意図的にスコープ外)。
+    - has_corners=False(新潟芝1000等の直線コース)は対象外(0を返す)。コーナーを前提と
+      した通常コースの回帰から導いた効果を、構造の全く異なる直線競走に外挿しない。
+    """
+    if surface != "芝" or not has_corners:
+        return 0.0
+    is_1600 = bool(distance) and distance < 1800
+    bal = 0.0
+    if cls_group:
+        bal += PACE_BAL_CLS.get(cls_group, 0.0)
+        if is_1600:
+            bal += PACE_BAL_CLS_1600.get(cls_group, 0.0)
+    if num_horses:
+        bal += PACE_BAL_K_NH * (num_horses - PACE_BIAS_NH_REF)
+    if straight_home_m:
+        s = max(PACE_BIAS_STRAIGHT_MIN, min(PACE_BIAS_STRAIGHT_MAX, straight_home_m))
+        bal += PACE_BAL_K_STRAIGHT * (s - PACE_BIAS_STRAIGHT_REF)
+    if not distance:
+        band = "1800"
+    elif distance < 1800:
+        band = "1600"
+    elif distance < 2000:
+        band = "1800"
+    else:
+        band = "2000+"
+    b = bal / G_BAND[band]
+    return max(-PACE_BIAS_CAP, min(PACE_BIAS_CAP, b))
 OVERTAKE_PENALTY_SEC = 0.05   # 直線での追い越しタイムロス(秒)
 CONGESTION_TIME_GAP_S = 0.4   # 混雑判定の到達時間差閾値(秒)
 LEADER_THREAT_TIME_S = 0.3    # 単騎逃げ馬が「詰められた」と判断する時間差閾値(秒)
@@ -379,7 +551,7 @@ def v_corner_max(R, a_lat=A_LAT):
 def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                     k0=K0, phi_fade=PHI_FADE,
                     kappa_press=KAPPA_PRESS, k_gap=K_GAP, rho_save=RHO_SAVE, a_lat=A_LAT,
-                    press_cap_m=PRESS_CAP_M,
+                    press_cap_m=PRESS_CAP_M, dash_cap_m=DASH_CAP_M, dash_window_m=None,
                     target_gap_m=TARGET_GAP_M, d_scale=D_SCALE,
                     dash_min_frac=DASH_MIN_FRAC, dash_rival_sat=DASH_RIVAL_SAT,
                     is_chute_start=False, chute_dash_frac=CHUTE_DASH_FRAC,
@@ -388,6 +560,7 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                     leader_threat_s=LEADER_THREAT_TIME_S,
                     follower_ease_s=FOLLOWER_EASE_TIME_S,
                     solo_ease_scale=SOLO_EASE_SCALE, ease_rival_sat=EASE_RIVAL_SAT,
+                    pace_noise_sigma=PACE_NOISE_SIGMA, pace_bias=0.0,
                     start_noise_sigma=START_NOISE_SIGMA,
                     kick_start_m=KICK_START_M_P2,
                     slope_zones=None, k_slope=K_SLOPE, track_cond_factor=1.0,
@@ -420,7 +593,12 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
 
     d_c1 = d_c1 or 0.0
     final_corner = corner_zones[-1] if corner_zones else None
-    dash_end = min(d_c1, 400.0)
+    # dash_window_m(2026-08-05追加): Noneならレガシー(第1コーナーとcapの近い方で
+    # ダッシュ終了)、数値なら d_c1非依存の固定窓(芝で採用、dash_window_for()参照)。
+    if dash_window_m is None:
+        dash_end = min(d_c1, dash_cap_m)
+    else:
+        dash_end = min(float(distance), dash_window_m)
     # 【2026-08-02修正】最終コーナー「入口(start)」ではなく「出口(end)」を仕掛けトリガーの
     # 代替条件にする。のりお指摘で発覚: 東京は最終コーナー+直線の合計距離が実距離として
     # ほぼ一定(残り1,000m前後)なため、短距離レースほどレース全体に占めるこの絶対距離の
@@ -488,6 +666,13 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
         _solo_f = 0.0
     comp_ease = rho_save * solo_ease_scale * _solo_f
 
+    # レースレベルのペース意図ノイズ(1レース1回抽選、P2巡航の先頭馬にのみ加算)。
+    # sigma=0.0(既定)では抽選せず乱数ストリームを消費しない=レガシーとビット単位一致。
+    # pace_bias(2026-08-05追加): レース属性(クラス・頭数・直線長)由来の決定論的シフト。
+    # 呼び出し側がpace_bias_for()で計算して渡す。既定0.0でレガシーとビット単位一致
+    # (float加算 x+0.0 はビットパターン不変)。
+    pace_noise = (rng.gauss(0.0, pace_noise_sigma) if pace_noise_sigma > 0 else 0.0) + pace_bias
+
     n_seg = max(3, round(distance / 200))
     seg_lens = segment_lengths(n_seg, distance)
     markers = []
@@ -530,7 +715,8 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                             gap_s = 999.0
                         # gap基準の脚溜め(レガシー)と構成依存イージングの大きい方を適用
                         gap_ease = 0.0 if gap_s < follower_ease_s else rho_save
-                        v_des = v_flat - (gap_ease if gap_ease >= comp_ease else comp_ease)
+                        v_des = v_flat - (gap_ease if gap_ease >= comp_ease else comp_ease) \
+                            + pace_noise
                     else:
                         ahead_idx = order_idx[r - 1]
                         gap_m = state[ahead_idx]["pos"] - pos

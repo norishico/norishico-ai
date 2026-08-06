@@ -428,7 +428,7 @@ def pace_bias_for(surface, cls_group=None, num_horses=None, straight_home_m=None
         band = "2000+"
     b = bal / G_BAND[band]
     return max(-PACE_BIAS_CAP, min(PACE_BIAS_CAP, b))
-OVERTAKE_PENALTY_SEC = 0.05   # 直線での追い越しタイムロス(秒)
+OVERTAKE_PENALTY_SEC = 0.05   # 直線での追い越しタイムロス(秒/イベント1回。2026-08-06に毎ステップ加算バグを修正、simulate_fieldパス2参照)
 CONGESTION_TIME_GAP_S = 0.4   # 混雑判定の到達時間差閾値(秒)
 LEADER_THREAT_TIME_S = 0.3    # 単騎逃げ馬が「詰められた」と判断する時間差閾値(秒)
 FOLLOWER_EASE_TIME_S = 0.5    # 先頭馬が脚を溜めてよいと判断する後続との時間差閾値(秒)
@@ -682,6 +682,10 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
         markers.append(acc)
     marker_hit_times = [None] * len(markers)
 
+    # 追い越しペナルティの課金済みペア(i→jで1回課金したら再課金しない。パス4参照、
+    # 2026-08-06追加)。ペナルティ無効(=0)なら確保しない。
+    passed_already = [set() for _ in range(n)] if overtake_penalty_sec else None
+
     max_steps = int(max_time / dt) + 1
     for _ in range(max_steps):
         if all(s["finished"] for s in state):
@@ -757,7 +761,17 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
 
             v_des_list[i] = max(v_des, MIN_V)
 
-        # --- パス2: 混雑・追い越し(直前馬との到達時間差<0.4秒) ------------------
+        # --- パス2: 混雑(直前馬との到達時間差<0.4秒、コーナー内は前が壁) ---------
+        # 【2026-08-06修正】旧実装はこのパスの直線分岐で s["t"] += overtake_penalty_sec を
+        # 毎ステップ加算していた。渋滞条件(gap_s<congestion_gap_s)はP2追走コントローラが
+        # 車間をtarget_gap_m=3.0m≈0.18秒<0.4秒に収束させるため慢性的に成立し続け、
+        # 0.5秒刻みの全ステップで0.05秒が課金され続けていた(1レース約500回)。この結果、
+        # (1)ペナルティ総量がステップ数∝1/dtに比例し、シミュレーションがdtに収束しない
+        # (2)スタミナ増で隊列内滞在が延びてかえって遅くなる逆符号の挙動
+        # (3)s["t"]汚染がmarker_hit_times経由でpace_type判定まで歪める、という3つの
+        # 不具合が発生していた。修正後、追い越しペナルティは「実際に追い抜きが完了した
+        # イベント」に対して1回だけ課金する方式(パス4、位置更新後の交差検出)に移した。
+        # このパスに残るのはコーナー内の「前が壁」(速度キャップ)のみ(従来と同一)。
         for i, s in enumerate(state):
             if s["finished"] or v_des_list[i] is None:
                 continue
@@ -774,8 +788,10 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                 zone = find_zone_at(corner_zones, s["pos"])
                 if zone is not None:
                     v_des_list[i] = min(v_des_list[i], state[ahead_idx]["v"])
-                else:
-                    s["t"] += overtake_penalty_sec
+
+        # 追い越し検出(パス4)用の移動前位置スナップショット。ペナルティ無効(=0)なら
+        # 記録もペア走査も行わない(コスト・挙動ともレガシーのpen=0.0と完全一致)。
+        pos_before = [s["pos"] for s in state] if overtake_penalty_sec else None
 
         # --- パス3: 位置・エネルギー更新 ----------------------------------------
         for i, s in enumerate(state):
@@ -818,6 +834,41 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                             cross_times[i][ci] = _t_before + (cd - _pos_before) / v
                         else:
                             cross_times[i][ci] = s["t"]
+
+        # --- パス4: 追い越しイベント検出・ペナルティ(2026-08-06追加、パス2のコメント参照) ---
+        # 「追い越しイベント1回につき1回」の課金。移動前後の位置比較で実際に追い抜きが
+        # 完了したペア(軌道の交差)を検出し、同一ペア(i→j)への課金は1レース1回までとする。
+        # 【設計の経緯(いずれも検証済み)】
+        #  - 旧実装(渋滞中毎ステップ課金): ペナルティ総量∝1/dtでdt非収束(本修正の対象バグ)
+        #  - 中間案1(渋滞突入時に1回のフラグ方式): dtが細かいほど順位入れ替わりの検知が
+        #    細粒度になり「ブロック相手の変化」イベント数が膨らむ残留dt依存で不採用
+        #  - 中間案2(交差1回ごとに課金・ペアメモリなし): kappa_pressの逃げライバル
+        #    ブースト(先頭でない逃げ馬に+kappa)がon/off制御のため、押し合い区間で
+        #    隣接ペアがチャタリング(抜く→ブースト消滅→抜き返される→...)を起こし、
+        #    交差回数そのものが連続極限で発散する(ダートのNG12/HS18でdt=0.5→0.125の
+        #    H率が99→76%等)ため不採用。ペアメモリで「デュエルの入れ替わり往復」を
+        #    1イベントに正規化するとdt収束する。
+        # 順位入れ替わりが無いステップはソート1回の比較だけでスキップする(大半のステップ)。
+        # コーナー内で完了した追い抜き(パス2の壁により原則発生しないが、2つ以上前の馬への
+        # 多段追い抜きで稀に起きる)は従来仕様(直線のみ課金)を踏襲し課金しない
+        # (課金しなかったペアはpassed_alreadyに登録せず、後で直線で改めて抜けば課金される)。
+        if overtake_penalty_sec:
+            order_after = sorted(range(n), key=lambda k: -state[k]["pos"])
+            if order_after != order_idx:
+                for i, s in enumerate(state):
+                    pb_i, pa_i = pos_before[i], s["pos"]
+                    if pa_i <= pb_i:
+                        continue   # このステップで前進していない(既ゴール等)
+                    newly = [j for j in range(n)
+                             if j != i and pos_before[j] > pb_i and state[j]["pos"] < pa_i
+                             and j not in passed_already[i]]
+                    if newly:
+                        # 交差地点の代表として自馬の移動区間中点で直線/コーナーを判定
+                        if find_zone_at(corner_zones, (pb_i + pa_i) / 2) is None:
+                            passed_already[i].update(newly)
+                            s["t"] += overtake_penalty_sec * len(newly)
+                            if s["finished"]:
+                                s["finish_time"] = s["t"]
 
     finish_times = [s["finish_time"] if s["finish_time"] is not None else s["t"] for s in state]
     order = sorted(range(n), key=lambda i: finish_times[i])

@@ -30,6 +30,7 @@ from mc_dyn_engine import (
     KAPPA_PRESS_DIRT, KAPPA_PRESS_TURF, D_SCALE_TURF,
     build_slope_zones, K_SLOPE, K_SLOPE_DIRT,
     slope_intent_bias, SLOPE_INTENT_COEF_DIRT, SLOPE_INTENT_COEF_TURF,
+    dirt_phase_cap, DIRT_PHASE_FLOOR_M, PRESS_CAP_M,
     SOLO_EASE_SCALE, EASE_RIVAL_SAT, SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT,
     NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT,
     DASH_CAP_M, dash_cap_for, dash_window_for,
@@ -320,6 +321,17 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
     # 対象外(レガシー挙動)。コーナー前提の回帰・設計を直線競走に外挿しない一般則。
     has_corners = bool(geometry["corner_zones"])
 
+    # 【2026-08-07追加】ダート版フェーズ構造: 全力区間(dash+press)を道中の上り坂の入口で
+    # 打ち切る(mc_dyn_engine.dirt_phase_cap参照)。dirt_phase_slope_cut=False(既定)で
+    # レガシー完全互換。press窓も連動して縮める(dashだけだと逆反応、engineコメント参照)。
+    eff_dash_cap = params.get("dash_cap_m") or dash_cap_for(surface, distance)
+    eff_press_cap = PRESS_CAP_M
+    if surface == "ダ" and params.get("dirt_phase_slope_cut"):
+        _cut = dirt_phase_cap(distance, eff_dash_cap, slope_zones,
+                              params.get("dirt_phase_floor_m"))
+        eff_dash_cap = min(eff_dash_cap, _cut)
+        eff_press_cap = min(eff_press_cap, _cut)
+
     rng = random.Random(seed_base)
     counts_h = counts_m = counts_s = counts_none = 0
     records = []
@@ -357,7 +369,9 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
             pace_bias=pace_bias,
             # dash_cap_m: paramsに明示指定があればそれを使い(スイープ・レガシー再現用)、
             # なければ距離テーパー(dash_cap_for、2026-08-04採用)を適用する。
-            dash_cap_m=params.get("dash_cap_m") or dash_cap_for(surface, distance),
+            # eff_dash_cap/eff_press_capはダート版フェーズ構造(2026-08-07)適用後の値
+            # (dirt_phase_slope_cut無効時は従来と同値)。
+            dash_cap_m=eff_dash_cap, press_cap_m=eff_press_cap,
             # 芝ダッシュ窓のd_c1非依存化(2026-08-05追加)。False(既定)でレガシー。
             # コーナー無しコース(直線競走)は対象外(has_corners参照)。
             dash_window_m=(dash_window_for(surface, distance)
@@ -728,6 +742,9 @@ def main():
         # 道中上り坂のペース意図シフト(2026-08-07追加、値の正はエンジン側定数)
         "slope_intent_coef_dirt": SLOPE_INTENT_COEF_DIRT,
         "slope_intent_coef_turf": SLOPE_INTENT_COEF_TURF,
+        # ダート版フェーズ構造(2026-08-07追加): 全力区間を道中上り坂の入口で打ち切る
+        "dirt_phase_slope_cut": True,
+        "dirt_phase_floor_m": DIRT_PHASE_FLOOR_M,
         # 構成依存イージング(2026-08-04追加・較正済み)。値の出典はmc_dyn_engine.pyの
         # SOLO_EASE_SCALE_TURF/DIRT(較正するたびにエンジン側定数を更新すること —
         # 較正結果をJSON保存だけして既定値に反映し忘れる過去の不具合の再発防止)。

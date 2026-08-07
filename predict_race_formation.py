@@ -47,6 +47,7 @@ from mc_dyn_engine import (
     PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
     NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT, K_SLOPE, K_SLOPE_DIRT,
     slope_intent_bias, SLOPE_INTENT_COEF_DIRT, SLOPE_INTENT_COEF_TURF,
+    dirt_phase_cap, PRESS_CAP_M,
     dash_window_for, pace_bias_for, pace_cls_group,
 )
 from calibrate_mc_dyn_phase2 import (
@@ -167,6 +168,14 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
     # 使っていなかった)。未知の表記/欠損時は1.0(無補正)にフォールバックする。
     track_cond_factor = TRACK_COND_V_FACTOR.get(surface, {}).get(race.get("track_cond"), 1.0)
 
+    # ダート版フェーズ構造(2026-08-07採用、predict_race_pace.pyと同一配線)
+    eff_dash_cap = dash_cap_for(surface, race["distance"])
+    eff_press_cap = PRESS_CAP_M
+    if surface == "ダ":
+        _cut = dirt_phase_cap(race["distance"], eff_dash_cap, slope_zones)
+        eff_dash_cap = min(eff_dash_cap, _cut)
+        eff_press_cap = min(eff_press_cap, _cut)
+
     n = len(horses)
     rng = random.Random(seed)
     rank_sums = defaultdict(lambda: [0.0] * n)
@@ -186,7 +195,8 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
             solo_ease_scale=solo_ease_scale, ease_rival_sat=EASE_RIVAL_SAT,
             nige_settle_prob=nige_settle_prob,
             pace_noise_sigma=pace_noise_sigma, pace_bias=pace_bias,
-            dash_cap_m=dash_cap_for(surface, race["distance"]),
+            # ダート版フェーズ構造(2026-08-07採用、predict_race_pace.pyと同一配線)
+            dash_cap_m=eff_dash_cap, press_cap_m=eff_press_cap,
             dash_window_m=(dash_window_for(surface, race["distance"])
                            if has_corners else None),
             slope_zones=slope_zones,

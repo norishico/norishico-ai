@@ -30,6 +30,7 @@ from mc_dyn_engine import (
     PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
     NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT, K_SLOPE, K_SLOPE_DIRT,
     slope_intent_bias, SLOPE_INTENT_COEF_DIRT, SLOPE_INTENT_COEF_TURF,
+    dirt_phase_cap, PRESS_CAP_M,
     dash_window_for, pace_bias_for, pace_cls_group,
 )
 from calibrate_mc_dyn_phase2 import (
@@ -93,6 +94,14 @@ def predict(conn, venue, surface, distance, track_cond, style_counts, n_sim=1000
         + slope_intent_bias(slope_zones, distance,
                             SLOPE_INTENT_COEF_DIRT if surface == "ダ" else SLOPE_INTENT_COEF_TURF)
 
+    # ダート版フェーズ構造(2026-08-07採用、calibrate_mc_dyn_phase2.run_cellと同一配線)
+    eff_dash_cap = dash_cap_for(surface, distance)
+    eff_press_cap = PRESS_CAP_M
+    if surface == "ダ":
+        _cut = dirt_phase_cap(distance, eff_dash_cap, slope_zones)
+        eff_dash_cap = min(eff_dash_cap, _cut)
+        eff_press_cap = min(eff_press_cap, _cut)
+
     rng = random.Random(seed_base)
     counts = {"H": 0, "M": 0, "S": 0, "none": 0}
     lap_sums, lap_counts = [], []
@@ -114,7 +123,9 @@ def predict(conn, venue, surface, distance, track_cond, style_counts, n_sim=1000
             solo_ease_scale=solo_ease_scale, ease_rival_sat=EASE_RIVAL_SAT,
             nige_settle_prob=nige_settle_prob,
             pace_noise_sigma=pace_noise_sigma, pace_bias=pace_bias,
-            dash_cap_m=dash_cap_for(surface, distance),
+            # ダート版フェーズ構造(2026-08-07採用): 全力区間(dash+press)を道中上り坂の
+            # 入口で打ち切る(dirt_phase_cap参照。press窓も連動、片方だけだと逆反応)
+            dash_cap_m=eff_dash_cap, press_cap_m=eff_press_cap,
             dash_window_m=dash_window_for(surface, distance) if has_corners else None,
             track_cond_factor=track_cond_factor,
             dt=dt, seed=seed_base * 1_000_003 + i,

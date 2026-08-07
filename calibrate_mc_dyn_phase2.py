@@ -28,7 +28,7 @@ from mc_dyn_engine import (
     classify_style_simple, KAPPA_PRESS, K_GAP, RHO_SAVE, A_LAT,
     DASH_MIN_FRAC, DASH_RIVAL_SAT, CHUTE_DASH_FRAC,
     KAPPA_PRESS_DIRT, KAPPA_PRESS_TURF, D_SCALE_TURF,
-    build_slope_zones, K_SLOPE,
+    build_slope_zones, K_SLOPE, K_SLOPE_DIRT,
     SOLO_EASE_SCALE, EASE_RIVAL_SAT, SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT,
     NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT,
     DASH_CAP_M, dash_cap_for, dash_window_for,
@@ -248,7 +248,10 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
     # (アンカーとフィールドシミュレーションで坂の扱いに矛盾が生じる)ため。
     slope_defs = get_slope_defs(conn, venue, surface)
     slope_zones = build_slope_zones(distance, slope_defs)
-    k_slope = params.get("k_slope", K_SLOPE)
+    # 【2026-08-07】k_slopeを表面別に選択。芝=0(二重計上のため無効、K_SLOPEのコメント参照)、
+    # ダート=K_SLOPE_DIRT(道中勾配ゾーン込みで較正、mc_dyn_engine.K_SLOPE_DIRTのコメント参照)。
+    k_slope = params.get("k_slope_dirt", K_SLOPE_DIRT) if surface == "ダ" \
+        else params.get("k_slope", K_SLOPE)
 
     v_base, _ = anchor_v_base(distance, par_time, k0=params["k0"], phi_fade=params["phi_fade"],
                                accel_frac=params["accel_frac"],
@@ -715,6 +718,7 @@ def main():
         "chute_dash_frac": CHUTE_DASH_FRAC,
         "d_scale_turf": D_SCALE_TURF,
         "k_slope": K_SLOPE,
+        "k_slope_dirt": K_SLOPE_DIRT,   # ダート道中勾配(2026-08-07追加)
         # 構成依存イージング(2026-08-04追加・較正済み)。値の出典はmc_dyn_engine.pyの
         # SOLO_EASE_SCALE_TURF/DIRT(較正するたびにエンジン側定数を更新すること —
         # 較正結果をJSON保存だけして既定値に反映し忘れる過去の不具合の再発防止)。

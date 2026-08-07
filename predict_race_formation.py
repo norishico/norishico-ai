@@ -45,7 +45,7 @@ from mc_dyn_engine import (
     TRACK_COND_V_FACTOR,
     SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT, EASE_RIVAL_SAT, dash_cap_for,
     PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
-    NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT,
+    NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT, K_SLOPE, K_SLOPE_DIRT,
     dash_window_for, pace_bias_for, pace_cls_group,
 )
 from calibrate_mc_dyn_phase2 import (
@@ -86,7 +86,9 @@ def get_course_bundle(conn, venue, surface, distance):
     slope_defs = get_slope_defs(conn, venue, surface)
     slope_zones = build_slope_zones(distance, slope_defs)
     v_base, _ = anchor_v_base(distance, par_time, k0=K0, phi_fade=PHI_FADE,
-                              slope_zones=slope_zones, k_slope=0.0)
+                              slope_zones=slope_zones,
+                              # k_slope表面別選択(2026-08-07、predict_race_pace.pyと同一配線)
+                              k_slope=K_SLOPE_DIRT if surface == "ダ" else K_SLOPE)
     bundle = {"v_base": v_base, "geometry": geometry, "slope_zones": slope_zones}
     _COURSE_CACHE[key] = bundle
     return bundle
@@ -184,7 +186,8 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
             dash_cap_m=dash_cap_for(surface, race["distance"]),
             dash_window_m=(dash_window_for(surface, race["distance"])
                            if has_corners else None),
-            slope_zones=slope_zones, k_slope=0.0, dt=0.5,
+            slope_zones=slope_zones,
+            k_slope=K_SLOPE_DIRT if surface == "ダ" else K_SLOPE, dt=0.5,
             track_cond_factor=track_cond_factor,
             seed=seed * 1_000_003 + k, record_snapshots=True,
         )

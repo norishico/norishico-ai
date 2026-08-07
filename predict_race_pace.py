@@ -28,7 +28,7 @@ from mc_dyn_engine import (
     DASH_MIN_FRAC, DASH_RIVAL_SAT, CHUTE_DASH_FRAC, D_SCALE_TURF,
     SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT, EASE_RIVAL_SAT, dash_cap_for,
     PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
-    NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT,
+    NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT, K_SLOPE, K_SLOPE_DIRT,
     dash_window_for, pace_bias_for, pace_cls_group,
 )
 from calibrate_mc_dyn_phase2 import (
@@ -70,7 +70,9 @@ def predict(conn, venue, surface, distance, track_cond, style_counts, n_sim=1000
     track_cond_factor = TRACK_COND_V_FACTOR.get(surface, {}).get(track_cond, 1.0)
 
     v_base, _ = anchor_v_base(distance, par_time, k0=K0, phi_fade=PHI_FADE,
-                               slope_zones=slope_zones, k_slope=0.0)
+                               slope_zones=slope_zones,
+                               # アンカーもシミュ本体と同一のk_slopeを使う(不一致だと坂分だけ総時間がずれる)
+                               k_slope=K_SLOPE_DIRT if surface == "ダ" else K_SLOPE)
 
     q_star, _ = compute_q_star(conn)
 
@@ -103,7 +105,9 @@ def predict(conn, venue, surface, distance, track_cond, style_counts, n_sim=1000
             kappa_press=kappa_press, rho_save=RHO_SAVE, a_lat=A_LAT,
             dash_min_frac=DASH_MIN_FRAC, dash_rival_sat=DASH_RIVAL_SAT,
             is_chute_start=apply_chute_boost, chute_dash_frac=CHUTE_DASH_FRAC,
-            d_scale=d_scale, slope_zones=slope_zones, k_slope=0.0,
+            d_scale=d_scale, slope_zones=slope_zones,
+            # k_slope表面別選択(2026-08-07): 芝=K_SLOPE(0)、ダ=K_SLOPE_DIRT(道中勾配較正済み)
+            k_slope=K_SLOPE_DIRT if surface == "ダ" else K_SLOPE,
             solo_ease_scale=solo_ease_scale, ease_rival_sat=EASE_RIVAL_SAT,
             nige_settle_prob=nige_settle_prob,
             pace_noise_sigma=pace_noise_sigma, pace_bias=pace_bias,

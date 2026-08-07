@@ -30,6 +30,7 @@ from mc_dyn_engine import (
     KAPPA_PRESS_DIRT, KAPPA_PRESS_TURF, D_SCALE_TURF,
     build_slope_zones, K_SLOPE,
     SOLO_EASE_SCALE, EASE_RIVAL_SAT, SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT,
+    NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT,
     DASH_CAP_M, dash_cap_for, dash_window_for,
     PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
     pace_bias_for, pace_cls_group,
@@ -295,6 +296,11 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
                                  else "solo_ease_scale_turf", SOLO_EASE_SCALE)
     ease_rival_sat = params.get("ease_rival_sat", EASE_RIVAL_SAT)
 
+    # 【2026-08-07追加】複数逃げの先導権決着(レースレベルの戦術的裁量)。表面別選択は
+    # kappa_press等と同一方式。既定0.0でレガシー互換(mc_dyn_engine.NIGE_SETTLE_PROB参照)。
+    nige_settle_prob = params.get("nige_settle_prob_dirt" if surface == "ダ"
+                                  else "nige_settle_prob_turf", 0.0)
+
     # 【2026-08-05追加】ペース意図バイアス(クラス・頭数・直線長 → 先頭馬巡航シフト)。
     # pace_bias_scale=0.0(レガシー)で完全無効。係数の出典はmc_dyn_engine.pyの
     # PACE_BIAS_*(訓練会場=東京/中山/京都/小倉/福島の実データ回帰から導出、
@@ -332,6 +338,7 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
             chute_dash_frac=params.get("chute_dash_frac", CHUTE_DASH_FRAC),
             d_scale=d_scale,
             solo_ease_scale=solo_ease_scale, ease_rival_sat=ease_rival_sat,
+            nige_settle_prob=nige_settle_prob,
             # レースレベルのペース意図ノイズ(2026-08-05追加、既定0.0=レガシー互換)。
             # kappa_press等と同じ表面分離(実測stdの再現に必要な量が芝0.7/ダ0.9と異なる、
             # 表面別のstd検証はB4スイープ参照)。単一キーpace_noise_sigmaはフォールバック。
@@ -714,6 +721,9 @@ def main():
         "solo_ease_scale_turf": SOLO_EASE_SCALE_TURF,
         "solo_ease_scale_dirt": SOLO_EASE_SCALE_DIRT,
         "ease_rival_sat": EASE_RIVAL_SAT,
+        # 複数逃げの先導権決着(2026-08-07追加・較正値はエンジン側定数が正)
+        "nige_settle_prob_turf": NIGE_SETTLE_PROB_TURF,
+        "nige_settle_prob_dirt": NIGE_SETTLE_PROB_DIRT,
         # None = 距離テーパー(dash_cap_for)を適用(2026-08-04採用の既定)。
         # 数値を入れると全セル一律のキャップになる(スイープ・レガシー再現用)。
         "dash_cap_m": None,

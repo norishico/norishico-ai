@@ -326,6 +326,32 @@ EASE_RIVAL_SAT = 16.0     # 逃げ馬ライバルがこの頭数で構成依存�
 SOLO_EASE_SCALE_TURF = 0.6   # 芝向け較正済み値(calibrate_mc_dyn_phase2.py/predict_race_pace.pyが使用。
                               # 2026-08-07再較正で0.7→0.6、EASE_RIVAL_SATのコメント参照)
 SOLO_EASE_SCALE_DIRT = 0.0   # ダート向け(構成依存イージングでは実測S率を再現できず、レガシー維持)
+
+# --- 複数逃げの先導権決着(レースレベルの戦術的裁量、2026-08-07追加) --------------
+# 【背景】gate3a超過(+29.2pt)の原因分析で「複数逃げレースのS率がsolo_ease系の全較正点で
+# 約8pt過小(=実際よりハイペース寄り)」という構造的不足を確認。芝はkappa_press_turf=0の
+# ためP1の逃げ牽制ブースト(len(nige_idxs)>=2分岐)は芝では死んでおり、過熱の実体は
+# (1)P0ダッシュ: 逃げ分類馬が増えるほどD_STYLE=1.6のフルダッシュ馬が増え、leader_laps
+# (各マーカー最速到達のmax統計)の前半が確実に速くなる (2)単騎なら発動し得るgap_ease
+# (逃げ馬が後続を0.5秒以上離した時のrho_saveフル脚溜め)が、2頭目の逃げ馬が直後にいる
+# ため封殺される、の2経路。つまり「過去走ベースで逃げに分類された馬は全レースで必ず
+# 全力で先頭を主張する」という暗黙の仮定が実戦(騎手判断で一方が譲る・控えるのが常態)
+# より強すぎた。
+# 【機構】レース開始時に1回だけ「先導権が序盤で決着するか」を抽選し、決着した場合は
+# 逃げ馬のうちランダムに選んだ1頭を残して、他の逃げ馬を戦術的に「先行」として扱う
+# (P0ダッシュ強度・ライバル数contest・comp_easeのn_nige・P1の逃げ判定・q_star目標の全て。
+# 出力のstylesは入力の脚質のまま保持)。当該レースの実結果(pos4等)は一切使わない
+# (入力の過去走ベース脚質+レースレベル乱数のみで構成。循環参照なし)。
+# nige_settle_prob=0.0(既定)では抽選せず乱数を消費しない=レガシーとビット単位一致。
+# 単騎レース(逃げ0-1頭)でも消費しないため、単騎バケットの挙動はprobに完全不変。
+NIGE_SETTLE_PROB = 0.0       # simulate_field()の既定値=無効(レガシー互換)
+# 【2026-08-07較正】1次元スイープ{0,0.15,0.3,0.45,0.6,1.0}(訓練会場の芝≥1600・非chuteの
+# 単騎/複数バケット実測S率再現、scale=0.6/sat=16固定、n_sim=200)でp=0.6がtrain|e|最小
+# (13.6→13.4pt)。複数バケットのバイアスは訓練-7.9→-2.7pt、検証会場でも-4.5→+0.2ptと
+# 符号まで解消し汎化確認。単騎バケットは全p点で不変(+1.4pt、設計どおり)。
+# 手順: scratchpad/nige_settle_sweep.py
+NIGE_SETTLE_PROB_TURF = 0.6  # 芝向け較正済み値(calibrate/predict系が使用)
+NIGE_SETTLE_PROB_DIRT = 0.0  # ダートは対象外(実測の単騎/複数S率差自体が小さくS生成機構未実装のため)
 # --- レースレベルのペース意図ノイズ(2026-08-05追加、既定0.0=無効) --------------
 # 【発見】実測の前後半バランス(front_avg-back_avg)のレース間stdは会場×距離を問わず
 # ほぼ一様に0.31-0.46あるのに対し、シミュは0.215-0.347しかなく、特にダート中距離・
@@ -579,6 +605,7 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
                     leader_threat_s=LEADER_THREAT_TIME_S,
                     follower_ease_s=FOLLOWER_EASE_TIME_S,
                     solo_ease_scale=SOLO_EASE_SCALE, ease_rival_sat=EASE_RIVAL_SAT,
+                    nige_settle_prob=NIGE_SETTLE_PROB,
                     pace_noise_sigma=PACE_NOISE_SIGMA, pace_bias=0.0,
                     start_noise_sigma=START_NOISE_SIGMA,
                     kick_start_m=KICK_START_M_P2,
@@ -645,19 +672,37 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
         st = h.get("style", "先行")
         style_counts[st] = style_counts.get(st, 0) + 1
 
+    # --- 複数逃げの先導権決着(2026-08-07追加、NIGE_SETTLE_PROBのコメント参照) -------
+    # 決着した場合、残す1頭以外の逃げ馬を「戦術脚質=先行」として扱う(tact_styles)。
+    # 以降の戦術ロジック(ダッシュ・ライバル数・nige_idxs・P1・q_star目標)は全て
+    # tact_stylesを参照し、出力のstylesのみ入力の脚質を保持する。
+    # 乱数消費: prob=0または逃げ<2頭では一切消費しない(レガシーとビット単位一致)。
+    # prob>0かつ逃げ>=2頭では決着の成否に関わらず常に2回消費する(random+randrange)
+    # ことで、較正スイープでprobだけを変えても馬能力・ペースノイズがCRNで固定される。
+    tact_styles = [h.get("style", "先行") for h in horses]
+    if nige_settle_prob > 0:
+        _nige_in = [i for i, st in enumerate(tact_styles) if st == "逃げ"]
+        if len(_nige_in) >= 2:
+            _settle = rng.random() < nige_settle_prob
+            _keep = _nige_in[rng.randrange(len(_nige_in))]
+            if _settle:
+                tact_styles = [("先行" if (st == "逃げ" and i != _keep) else st)
+                               for i, st in enumerate(tact_styles)]
+
     state = []
-    for h in horses:
+    for idx, h in enumerate(horses):
         spd_res = h.get("spd", 80.0) - 80.0
         spr_res = h.get("spr", 80.0) - 80.0
         sta_res = h.get("sta", 75.0) - 75.0
-        style = h.get("style", "先行")
+        style = tact_styles[idx]
         e_max = E0 + BE * sta_res
 
         # ダッシュの競争依存スケール: 同格以上に積極的な脚質のライバル数(自分を除く)を数え、
         # 0(単騎)ならdash_min_frac、dash_rival_sat以上でフル(1.0)に線形補間する。
+        # (2026-08-07以降は戦術脚質tact_stylesで数える。prob=0なら入力脚質と同一)
         my_agg = STYLE_AGGRESSION.get(style, 1)
-        n_rivals = sum(1 for h2 in horses if h2 is not h
-                       and STYLE_AGGRESSION.get(h2.get("style", "先行"), 1) <= my_agg)
+        n_rivals = sum(1 for j2 in range(n) if j2 != idx
+                       and STYLE_AGGRESSION.get(tact_styles[j2], 1) <= my_agg)
         contest = min(1.0, n_rivals / dash_rival_sat) if dash_rival_sat > 0 else 1.0
         dash_frac = dash_min_frac + (1.0 - dash_min_frac) * contest
         if is_chute_start:
@@ -906,7 +951,9 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
         "leader_laps": leader_laps,
         "seg_lens": seg_lens,
         "leader_total_time": marker_hit_times[-1] if marker_hit_times and marker_hit_times[-1] is not None else prev,
-        "styles": [s["style"] for s in state],
+        # 出力は入力の脚質を保持する(先導権決着の戦術脚質tact_stylesは内部処理のみ。
+        # prob=0ならtact_styles==入力脚質なので従来と同一)。
+        "styles": [h.get("style", "先行") for h in horses],
     }
     if record_snapshots:
         ranks = {}

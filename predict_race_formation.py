@@ -45,6 +45,7 @@ from mc_dyn_engine import (
     TRACK_COND_V_FACTOR,
     SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT, EASE_RIVAL_SAT, dash_cap_for,
     PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
+    NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT,
     dash_window_for, pace_bias_for, pace_cls_group,
 )
 from calibrate_mc_dyn_phase2 import (
@@ -148,6 +149,8 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
     solo_ease_scale = SOLO_EASE_SCALE_DIRT if surface == "ダ" else SOLO_EASE_SCALE_TURF
     # レースレベルのペース意図ノイズ(2026-08-05追加・較正済み、predict_race_pace.pyと同一配線)
     pace_noise_sigma = PACE_NOISE_SIGMA_DIRT if surface == "ダ" else PACE_NOISE_SIGMA_TURF
+    # 複数逃げの先導権決着(2026-08-07追加・較正済み、predict_race_pace.pyと同一配線)
+    nige_settle_prob = NIGE_SETTLE_PROB_DIRT if surface == "ダ" else NIGE_SETTLE_PROB_TURF
     # レース属性ペースバイアス(2026-08-05追加): クラス(race_nameから判定)・頭数・直線長。
     # コーナー無しコース(直線競走)は対象外。
     has_corners = bool(geometry["corner_zones"])
@@ -176,6 +179,7 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
             dash_rival_sat=DASH_RIVAL_SAT, is_chute_start=apply_chute,
             chute_dash_frac=CHUTE_DASH_FRAC, d_scale=d_scale,
             solo_ease_scale=solo_ease_scale, ease_rival_sat=EASE_RIVAL_SAT,
+            nige_settle_prob=nige_settle_prob,
             pace_noise_sigma=pace_noise_sigma, pace_bias=pace_bias,
             dash_cap_m=dash_cap_for(surface, race["distance"]),
             dash_window_m=(dash_window_for(surface, race["distance"])

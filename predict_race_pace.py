@@ -28,6 +28,7 @@ from mc_dyn_engine import (
     DASH_MIN_FRAC, DASH_RIVAL_SAT, CHUTE_DASH_FRAC, D_SCALE_TURF,
     SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT, EASE_RIVAL_SAT, dash_cap_for,
     PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
+    NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT,
     dash_window_for, pace_bias_for, pace_cls_group,
 )
 from calibrate_mc_dyn_phase2 import (
@@ -62,6 +63,9 @@ def predict(conn, venue, surface, distance, track_cond, style_counts, n_sim=1000
     # レースレベルのペース意図ノイズ(2026-08-05追加・較正済み)。実測の前後半バランス
     # ばらつき(観測可能な事前情報では説明できないレース固有変動、std0.31-0.46)を再現する。
     pace_noise_sigma = PACE_NOISE_SIGMA_DIRT if surface == "ダ" else PACE_NOISE_SIGMA_TURF
+    # 複数逃げの先導権決着(2026-08-07追加・較正済み)。「逃げ分類が複数いても実戦では
+    # 一方が譲る」戦術的裁量をレースレベル抽選で表現(mc_dyn_engine.NIGE_SETTLE_PROB参照)。
+    nige_settle_prob = NIGE_SETTLE_PROB_DIRT if surface == "ダ" else NIGE_SETTLE_PROB_TURF
     apply_chute_boost = bool(geometry.get("is_chute", False)) and surface == "ダ"
     track_cond_factor = TRACK_COND_V_FACTOR.get(surface, {}).get(track_cond, 1.0)
 
@@ -101,6 +105,7 @@ def predict(conn, venue, surface, distance, track_cond, style_counts, n_sim=1000
             is_chute_start=apply_chute_boost, chute_dash_frac=CHUTE_DASH_FRAC,
             d_scale=d_scale, slope_zones=slope_zones, k_slope=0.0,
             solo_ease_scale=solo_ease_scale, ease_rival_sat=EASE_RIVAL_SAT,
+            nige_settle_prob=nige_settle_prob,
             pace_noise_sigma=pace_noise_sigma, pace_bias=pace_bias,
             dash_cap_m=dash_cap_for(surface, distance),
             dash_window_m=dash_window_for(surface, distance) if has_corners else None,

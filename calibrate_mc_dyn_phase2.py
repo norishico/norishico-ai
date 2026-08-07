@@ -29,6 +29,7 @@ from mc_dyn_engine import (
     DASH_MIN_FRAC, DASH_RIVAL_SAT, CHUTE_DASH_FRAC,
     KAPPA_PRESS_DIRT, KAPPA_PRESS_TURF, D_SCALE_TURF,
     build_slope_zones, K_SLOPE, K_SLOPE_DIRT,
+    slope_intent_bias, SLOPE_INTENT_COEF_DIRT, SLOPE_INTENT_COEF_TURF,
     SOLO_EASE_SCALE, EASE_RIVAL_SAT, SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT,
     NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT,
     DASH_CAP_M, dash_cap_for, dash_window_for,
@@ -310,6 +311,11 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
     # 検証会場=函館/札幌/阪神/中京は係数決定に不使用)。
     pace_bias_scale = params.get("pace_bias_scale", 0.0)
     straight_home_m = geometry.get("straight_home")
+    # 【2026-08-07追加】道中の上り坂によるペース意図シフト(レース定数、pace_biasに加算)。
+    # mc_dyn_engine.slope_intent_bias参照。coef=0.0(既定)で完全レガシー互換。
+    slope_intent = slope_intent_bias(
+        slope_zones, distance,
+        params.get("slope_intent_coef_dirt" if surface == "ダ" else "slope_intent_coef_turf", 0.0))
     # コーナー無しコース(新潟芝1000等の直線競走)は新機構(pace_bias/dash窓固定)の
     # 対象外(レガシー挙動)。コーナー前提の回帰・設計を直線競走に外挿しない一般則。
     has_corners = bool(geometry["corner_zones"])
@@ -322,10 +328,10 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
         styles = _styles_from_counts(comp["counts"])
         if len(styles) < 2:
             continue
-        pace_bias = pace_bias_scale * pace_bias_for(
+        pace_bias = (pace_bias_scale * pace_bias_for(
             surface, comp.get("cls"), comp.get("num_horses"), straight_home_m,
-            distance=distance, has_corners=has_corners) \
-            if pace_bias_scale else 0.0
+            distance=distance, has_corners=has_corners)
+            if pace_bias_scale else 0.0) + slope_intent
         horses = [{"style": st,
                    "spd": 80.0 + rng.gauss(0, horse_noise_sd),
                    "spr": 80.0 + rng.gauss(0, horse_noise_sd),
@@ -718,7 +724,10 @@ def main():
         "chute_dash_frac": CHUTE_DASH_FRAC,
         "d_scale_turf": D_SCALE_TURF,
         "k_slope": K_SLOPE,
-        "k_slope_dirt": K_SLOPE_DIRT,   # ダート道中勾配(2026-08-07追加)
+        "k_slope_dirt": K_SLOPE_DIRT,   # ダート道中勾配(2026-08-07追加、不採用=0)
+        # 道中上り坂のペース意図シフト(2026-08-07追加、値の正はエンジン側定数)
+        "slope_intent_coef_dirt": SLOPE_INTENT_COEF_DIRT,
+        "slope_intent_coef_turf": SLOPE_INTENT_COEF_TURF,
         # 構成依存イージング(2026-08-04追加・較正済み)。値の出典はmc_dyn_engine.pyの
         # SOLO_EASE_SCALE_TURF/DIRT(較正するたびにエンジン側定数を更新すること —
         # 較正結果をJSON保存だけして既定値に反映し忘れる過去の不具合の再発防止)。

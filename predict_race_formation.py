@@ -46,6 +46,7 @@ from mc_dyn_engine import (
     SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT, EASE_RIVAL_SAT, dash_cap_for,
     PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
     NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT, K_SLOPE, K_SLOPE_DIRT,
+    slope_intent_bias, SLOPE_INTENT_COEF_DIRT, SLOPE_INTENT_COEF_TURF,
     dash_window_for, pace_bias_for, pace_cls_group,
 )
 from calibrate_mc_dyn_phase2 import (
@@ -158,7 +159,9 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
     has_corners = bool(geometry["corner_zones"])
     pace_bias = pace_bias_for(surface, pace_cls_group(race.get("race_name")),
                               len(horses), geometry.get("straight_home"),
-                              distance=race["distance"], has_corners=has_corners)
+                              distance=race["distance"], has_corners=has_corners) \
+        + slope_intent_bias(slope_zones, race["distance"],
+                            SLOPE_INTENT_COEF_DIRT if surface == "ダ" else SLOPE_INTENT_COEF_TURF)
     # 【2026-08-04修正】track_cond_factorが未配線でmc_dynのTRACK_COND_V_FACTORが
     # 一切反映されていなかったバグを修正(画面には「馬場=良」等と表示するのに計算には
     # 使っていなかった)。未知の表記/欠損時は1.0(無補正)にフォールバックする。

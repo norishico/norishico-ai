@@ -29,6 +29,7 @@ from mc_dyn_engine import (
     SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT, EASE_RIVAL_SAT, dash_cap_for,
     PACE_NOISE_SIGMA_TURF, PACE_NOISE_SIGMA_DIRT,
     NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT, K_SLOPE, K_SLOPE_DIRT,
+    slope_intent_bias, SLOPE_INTENT_COEF_DIRT, SLOPE_INTENT_COEF_TURF,
     dash_window_for, pace_bias_for, pace_cls_group,
 )
 from calibrate_mc_dyn_phase2 import (
@@ -88,7 +89,9 @@ def predict(conn, venue, surface, distance, track_cond, style_counts, n_sim=1000
     cls_group = pace_cls_group(race_class) if race_class else "勝上"
     has_corners = bool(geometry["corner_zones"])
     pace_bias = pace_bias_for(surface, cls_group, len(styles), geometry.get("straight_home"),
-                              distance=distance, has_corners=has_corners)
+                              distance=distance, has_corners=has_corners) \
+        + slope_intent_bias(slope_zones, distance,
+                            SLOPE_INTENT_COEF_DIRT if surface == "ダ" else SLOPE_INTENT_COEF_TURF)
 
     rng = random.Random(seed_base)
     counts = {"H": 0, "M": 0, "S": 0, "none": 0}

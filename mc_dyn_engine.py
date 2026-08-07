@@ -514,6 +514,58 @@ def pace_bias_for(surface, cls_group=None, num_horses=None, straight_home_m=None
         band = "2000+"
     b = bal / G_BAND[band]
     return max(-PACE_BIAS_CAP, min(PACE_BIAS_CAP, b))
+
+
+# --- 道中の上り坂によるペース意図シフト(2026-08-07追加、既定0.0=無効) ------------
+# 【背景】ダート短距離セルの実測H率差調査(2026-08-07)で「道中(向正面〜3-4角)に上り坂が
+# ある会場(京都・東京)だけ実測H率が低い」と判明。直接物理(k_slope_dirt: 坂の位置で
+# 速度を加減算)は上り→下り対の寄与が前後半バランスで相殺され距離で符号が割れて不採用
+# (K_SLOPE_DIRTのコメント参照)。本機構はその再設計: 「騎手が道中の上りを見越して
+# そもそも控えめに入る」という意図の変化として、pace_bias(先頭馬のP2巡航シフト)と
+# 同じ作用点に、レース定数のシフトを加算する。位置依存の物理減速はしない。
+# 【設計】道中の上り = 残り SLOPE_INTENT_REMAINING_MIN(500m)以上の地点で「終わる」
+# 上り坂ゾーン(course_slope由来)。最終直線の坂(中山/阪神/中京/東京/小倉の既存収録、
+# 残り0-520m)は除外 — 最終直線の急坂を持つ中山・阪神の実測H率はむしろ高く、
+# 「ゴール前の坂」は序盤の意図を抑えないため。下り坂も含めない — 道中下りの中山で
+# ダ1200(実測99.3%)とダ1800(実測35.9%)の方向が割れており「下り=速い意図」は
+# データに支持されないため(この2つのスコープ判断は2026-08-07の実測調査の知見に
+# 基づく。較正時の係数決定には実測H率を使わない)。
+# シフト量 = -coef × (道中上りの総上昇量m)。coef=0.0(既定)で完全レガシー互換。
+# 【2026-08-07較正結果: 不採用=0.0維持(直接物理k_slope_dirtに続き2案連続の負の結果)】
+# スイープ{0,0.1,0.2,0.3,0.4,0.5}(訓練15ダートセル、n_sim=300、scratchpad/
+# slope_intent_sweep.py)で訓練mean|simH-realH|が15.17→19.00ptと単調悪化。
+# 【最重要の発見=不発の構造的理由】狙いの京都ダ1200は全係数で100%のまま完全不変だった。
+# ダート短距離はdash窓=min(d_c1,400)とkick_trigger=distance-800がほぼ接するため
+# P2巡航フェーズが存在せず、pace_bias/pace_noise系(P2巡航の先頭馬に作用)の意図経路が
+# 構造的に届かない(pace_noiseが新潟ダ1200に効かないのと同じ機構)。一方、意図が作用する
+# 中距離では京都ダ1400(86.7→65.3%、実測92.5%)・京都ダ1800(32.0→3.0%、実測52.4%)と
+# シミュが既に冷えすぎのセルをさらに悪化させる(必要な符号が逆)。検証会場は道中上り
+# ゾーン非保有で構造的不変、gate2(新潟)も全点不変を確認。
+# 【結論】京都/東京ダート短距離の過大Hを直すには、意図系でも位置物理でもなく
+# 「ダッシュ/キックフェーズ構造そのもの」(dash窓のd_c1依存・kick開始点)に手を入れる
+# 必要がある — d_c1反実仮想(kyoto_da1200_probe.py: 阪神のd_c1移植でH98.3→79.3%)とも
+# 整合する帰結。機構はcoef=0.0で完全no-opのため配線ごと温存する。
+SLOPE_INTENT_COEF_DIRT = 0.0   # ダート向け係数(m/s per 上昇1m、2026-08-07スイープの結果不採用=0.0)
+SLOPE_INTENT_COEF_TURF = 0.0   # 芝向け(未較正・無効。芝のペース系は較正済みのため対象外)
+SLOPE_INTENT_REMAINING_MIN = 500.0   # 「道中」判定: 残りこの距離以上で終わる上りのみ算入
+SLOPE_INTENT_CAP = 1.2         # 安全上限(m/s)。PACE_BIAS_CAPと同思想
+
+
+def slope_intent_bias(slope_zones, distance, coef):
+    """道中の上り坂に対する先頭馬のペース意図シフト(m/s、負=控えめに入る)。
+    slope_zones: build_slope_zones()の戻り値(絶対位置)。coef=0または坂なしで0.0。
+    呼び出し側(calibrate_mc_dyn_phase2.run_cell / predict系)がpace_biasに加算して
+    simulate_field(pace_bias=...)へ渡す(simulate_field自体は無変更)。"""
+    if not coef or not slope_zones:
+        return 0.0
+    climb = 0.0
+    for z in slope_zones:
+        if z["grade"] > 0 and (distance - z["end"]) >= SLOPE_INTENT_REMAINING_MIN:
+            climb += z["grade"] * (z["end"] - z["start"])
+    if climb <= 0:
+        return 0.0
+    b = -coef * climb
+    return max(-SLOPE_INTENT_CAP, min(SLOPE_INTENT_CAP, b))
 OVERTAKE_PENALTY_SEC = 0.05   # 直線での追い越しタイムロス(秒/イベント1回。2026-08-06に毎ステップ加算バグを修正、simulate_fieldパス2参照)
 CONGESTION_TIME_GAP_S = 0.4   # 混雑判定の到達時間差閾値(秒)
 LEADER_THREAT_TIME_S = 0.3    # 単騎逃げ馬が「詰められた」と判断する時間差閾値(秒)

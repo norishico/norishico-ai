@@ -30,7 +30,7 @@ from mc_dyn_engine import (
     KAPPA_PRESS_DIRT, KAPPA_PRESS_TURF, D_SCALE_TURF,
     build_slope_zones, K_SLOPE, K_SLOPE_DIRT,
     slope_intent_bias, SLOPE_INTENT_COEF_DIRT, SLOPE_INTENT_COEF_TURF,
-    dirt_phase_cap, DIRT_PHASE_FLOOR_M, PRESS_CAP_M,
+    dirt_phase_cap, DIRT_PHASE_FLOOR_M, PRESS_CAP_M, TARGET_GAP_M,
     SOLO_EASE_SCALE, EASE_RIVAL_SAT, SOLO_EASE_SCALE_TURF, SOLO_EASE_SCALE_DIRT,
     NIGE_SETTLE_PROB_TURF, NIGE_SETTLE_PROB_DIRT,
     DASH_CAP_M, dash_cap_for, dash_window_for,
@@ -352,6 +352,8 @@ def run_cell(conn, cell, params, q_star, n_sim=60, dt=0.5, seed_base=0, horse_no
             distance, v_base, geometry["d_c1"], geometry["corner_zones"], horses, q_star,
             k0=params["k0"], phi_fade=params["phi_fade"],
             kappa_press=kappa_press, k_gap=params.get("k_gap", K_GAP),
+            # target_gap_m: 2026-08-07監査M5対応でパススルー化(未指定なら従来既定3.0)
+            target_gap_m=params.get("target_gap_m", TARGET_GAP_M),
             rho_save=params["rho_save"], a_lat=params["a_lat"],
             dash_min_frac=params.get("dash_min_frac", DASH_MIN_FRAC),
             dash_rival_sat=params.get("dash_rival_sat", DASH_RIVAL_SAT),

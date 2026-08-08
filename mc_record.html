@@ -607,32 +607,156 @@ const STORAGE_KEY = 'mc_keiba_v2';
 // ── Race data ──
 const RACES = [
   {
+    id: "20260809_中京_1", date: "2026-08-09", venue: "中京", rno: 1,
+    rname: "3歳未勝利", dst: 2000, cnt: 16,
+    start_time: "09:50", nk_id: "202607020601",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:4, name:"マイコンプリート", style:"先行", jockey:"西塚", mc:0.51 },
+        aite: [
+          { no:14, name:"フィンガーレイクス", style:"差し", jockey:"富田", mc:0.4 },
+          { no:1, name:"ラピス", style:"差し", jockey:"団野", mc:0.4 },
+          { no:13, name:"チュオンソン", style:"差し", jockey:"酒井", mc:0.35 }
+        ]
+      },
+      "重": {
+        jiku: { no:4, name:"マイコンプリート", style:"先行", jockey:"西塚", mc:0.61 },
+        aite: [
+          { no:2, name:"レイアン", style:"先行", jockey:"西村淳", mc:0.39 },
+          { no:1, name:"ラピス", style:"差し", jockey:"団野", mc:0.37 },
+          { no:14, name:"フィンガーレイクス", style:"差し", jockey:"富田", mc:0.36 }
+        ]
+      },
+      "不良": {
+        jiku: { no:4, name:"マイコンプリート", style:"先行", jockey:"西塚", mc:0.63 },
+        aite: [
+          { no:2, name:"レイアン", style:"先行", jockey:"西村淳", mc:0.42 },
+          { no:13, name:"チュオンソン", style:"差し", jockey:"酒井", mc:0.34 },
+          { no:1, name:"ラピス", style:"差し", jockey:"団野", mc:0.31 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_中京_4", date: "2026-08-09", venue: "中京", rno: 4,
+    rname: "3歳未勝利", dst: 1800, cnt: 16,
+    start_time: "11:20", nk_id: "202607020604",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:9, name:"グランセンチュリ", style:"先行", jockey:"中井", mc:0.54 },
+        aite: [
+          { no:6, name:"アラムシャピラス", style:"逃げ", jockey:"川田", mc:0.41 },
+          { no:4, name:"スパルタンエックス", style:"逃げ", jockey:"富田", mc:0.35 },
+          { no:2, name:"アルヴァルディ", style:"差し", jockey:"▲川端", mc:0.35 }
+        ]
+      },
+      "重": {
+        jiku: { no:9, name:"グランセンチュリ", style:"先行", jockey:"中井", mc:0.63 },
+        aite: [
+          { no:6, name:"アラムシャピラス", style:"逃げ", jockey:"川田", mc:0.48 },
+          { no:4, name:"スパルタンエックス", style:"逃げ", jockey:"富田", mc:0.45 },
+          { no:5, name:"アイゼンハイム", style:"先行", jockey:"コレット", mc:0.35 }
+        ]
+      },
+      "不良": {
+        jiku: { no:9, name:"グランセンチュリ", style:"先行", jockey:"中井", mc:0.63 },
+        aite: [
+          { no:6, name:"アラムシャピラス", style:"逃げ", jockey:"川田", mc:0.53 },
+          { no:4, name:"スパルタンエックス", style:"逃げ", jockey:"富田", mc:0.5 },
+          { no:5, name:"アイゼンハイム", style:"先行", jockey:"コレット", mc:0.37 }
+        ]
+      }
+    }
+  },
+  {
     id: "20260809_中京_5", date: "2026-08-09", venue: "中京", rno: 5,
     rname: "3歳以上1勝クラス", dst: 1400, cnt: 16,
     start_time: "11:50", nk_id: "202607020605",
     patterns: {
       "良・稍重": {
-        jiku: { no:7, name:"ジャスティンルマン", style:"先行", jockey:"コレット", mc:0.5 },
+        jiku: { no:7, name:"ジャスティンルマン", style:"先行", jockey:"コレット", mc:0.51 },
         aite: [
           { no:1, name:"ショウナンラウール", style:"差し", jockey:"◇永島", mc:0.43 },
-          { no:6, name:"カレンパンピナップ", style:"先行", jockey:"松若", mc:0.35 },
-          { no:8, name:"リアライズブライト", style:"差し", jockey:"▲森田", mc:0.35 }
+          { no:8, name:"リアライズブライト", style:"差し", jockey:"▲森田", mc:0.35 },
+          { no:6, name:"カレンパンピナップ", style:"先行", jockey:"松若", mc:0.32 }
         ]
       },
       "重": {
-        jiku: { no:7, name:"ジャスティンルマン", style:"先行", jockey:"コレット", mc:0.6 },
+        jiku: { no:7, name:"ジャスティンルマン", style:"先行", jockey:"コレット", mc:0.58 },
         aite: [
-          { no:6, name:"カレンパンピナップ", style:"先行", jockey:"松若", mc:0.39 },
-          { no:1, name:"ショウナンラウール", style:"差し", jockey:"◇永島", mc:0.38 },
-          { no:13, name:"オンザノアール", style:"先行", jockey:"幸", mc:0.29 }
+          { no:6, name:"カレンパンピナップ", style:"先行", jockey:"松若", mc:0.41 },
+          { no:1, name:"ショウナンラウール", style:"差し", jockey:"◇永島", mc:0.36 },
+          { no:8, name:"リアライズブライト", style:"差し", jockey:"▲森田", mc:0.3 }
         ]
       },
       "不良": {
-        jiku: { no:7, name:"ジャスティンルマン", style:"先行", jockey:"コレット", mc:0.63 },
+        jiku: { no:7, name:"ジャスティンルマン", style:"先行", jockey:"コレット", mc:0.62 },
         aite: [
-          { no:6, name:"カレンパンピナップ", style:"先行", jockey:"松若", mc:0.49 },
-          { no:13, name:"オンザノアール", style:"先行", jockey:"幸", mc:0.36 },
-          { no:1, name:"ショウナンラウール", style:"差し", jockey:"◇永島", mc:0.31 }
+          { no:6, name:"カレンパンピナップ", style:"先行", jockey:"松若", mc:0.48 },
+          { no:13, name:"オンザノアール", style:"先行", jockey:"幸", mc:0.33 },
+          { no:1, name:"ショウナンラウール", style:"差し", jockey:"◇永島", mc:0.32 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_中京_6", date: "2026-08-09", venue: "中京", rno: 6,
+    rname: "浜名湖特別", dst: 2000, cnt: 7,
+    start_time: "15:10", nk_id: "202607020606",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:1, name:"マイバレンタイン", style:"差し", jockey:"田口", mc:0.71 },
+        aite: [
+          { no:3, name:"カレントゥルーシー", style:"逃げ", jockey:"松山", mc:0.65 },
+          { no:4, name:"ダイヤモンドハンズ", style:"差し", jockey:"西村淳", mc:0.46 },
+          { no:2, name:"サトノアイボリー", style:"差し", jockey:"コレット", mc:0.43 }
+        ]
+      },
+      "重": {
+        jiku: { no:3, name:"カレントゥルーシー", style:"逃げ", jockey:"松山", mc:0.71 },
+        aite: [
+          { no:1, name:"マイバレンタイン", style:"差し", jockey:"田口", mc:0.7 },
+          { no:4, name:"ダイヤモンドハンズ", style:"差し", jockey:"西村淳", mc:0.45 },
+          { no:2, name:"サトノアイボリー", style:"差し", jockey:"コレット", mc:0.41 }
+        ]
+      },
+      "不良": {
+        jiku: { no:3, name:"カレントゥルーシー", style:"逃げ", jockey:"松山", mc:0.78 },
+        aite: [
+          { no:1, name:"マイバレンタイン", style:"差し", jockey:"田口", mc:0.71 },
+          { no:4, name:"ダイヤモンドハンズ", style:"差し", jockey:"西村淳", mc:0.47 },
+          { no:2, name:"サトノアイボリー", style:"差し", jockey:"コレット", mc:0.37 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_中京_7", date: "2026-08-09", venue: "中京", rno: 7,
+    rname: "CBC賞", dst: 1200, cnt: 18,
+    start_time: "15:45", nk_id: "202607020607",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:6, name:"レッドエヴァンス", style:"差し", jockey:"西村淳", mc:0.32 },
+        aite: [
+          { no:2, name:"フロムダスク", style:"差し", jockey:"中井", mc:0.3 },
+          { no:17, name:"タマモイカロス", style:"差し", jockey:"西塚", mc:0.29 },
+          { no:10, name:"ナムラローズマリー", style:"差し", jockey:"幸", mc:0.24 }
+        ]
+      },
+      "重": {
+        jiku: { no:2, name:"フロムダスク", style:"差し", jockey:"中井", mc:0.25 },
+        aite: [
+          { no:6, name:"レッドエヴァンス", style:"差し", jockey:"西村淳", mc:0.25 },
+          { no:17, name:"タマモイカロス", style:"差し", jockey:"西塚", mc:0.23 },
+          { no:11, name:"タマモブラックタイ", style:"先行", jockey:"角田和", mc:0.23 }
+        ]
+      },
+      "不良": {
+        jiku: { no:2, name:"フロムダスク", style:"差し", jockey:"中井", mc:0.24 },
+        aite: [
+          { no:17, name:"タマモイカロス", style:"差し", jockey:"西塚", mc:0.24 },
+          { no:6, name:"レッドエヴァンス", style:"差し", jockey:"西村淳", mc:0.23 },
+          { no:11, name:"タマモブラックタイ", style:"先行", jockey:"角田和", mc:0.23 }
         ]
       }
     }
@@ -643,27 +767,27 @@ const RACES = [
     start_time: "16:20", nk_id: "202607020608",
     patterns: {
       "良・稍重": {
-        jiku: { no:11, name:"リベッチオ", style:"先行", jockey:"川田", mc:0.47 },
+        jiku: { no:11, name:"リベッチオ", style:"先行", jockey:"川田", mc:0.43 },
         aite: [
-          { no:5, name:"クロノスバレット", style:"差し", jockey:"松山", mc:0.45 },
-          { no:10, name:"シュヴァルツリーベ", style:"差し", jockey:"藤懸", mc:0.35 },
-          { no:9, name:"ハイディージェン", style:"差し", jockey:"西塚", mc:0.35 }
+          { no:5, name:"クロノスバレット", style:"差し", jockey:"松山", mc:0.41 },
+          { no:10, name:"シュヴァルツリーベ", style:"差し", jockey:"藤懸", mc:0.36 },
+          { no:9, name:"ハイディージェン", style:"差し", jockey:"西塚", mc:0.34 }
         ]
       },
       "重": {
-        jiku: { no:11, name:"リベッチオ", style:"先行", jockey:"川田", mc:0.57 },
+        jiku: { no:11, name:"リベッチオ", style:"先行", jockey:"川田", mc:0.59 },
         aite: [
           { no:5, name:"クロノスバレット", style:"差し", jockey:"松山", mc:0.38 },
-          { no:6, name:"ジェシーテソーロ", style:"先行", jockey:"富田", mc:0.37 },
+          { no:6, name:"ジェシーテソーロ", style:"先行", jockey:"富田", mc:0.36 },
           { no:9, name:"ハイディージェン", style:"差し", jockey:"西塚", mc:0.35 }
         ]
       },
       "不良": {
-        jiku: { no:11, name:"リベッチオ", style:"先行", jockey:"川田", mc:0.63 },
+        jiku: { no:11, name:"リベッチオ", style:"先行", jockey:"川田", mc:0.66 },
         aite: [
           { no:6, name:"ジェシーテソーロ", style:"先行", jockey:"富田", mc:0.42 },
-          { no:5, name:"クロノスバレット", style:"差し", jockey:"松山", mc:0.36 },
-          { no:9, name:"ハイディージェン", style:"差し", jockey:"西塚", mc:0.33 }
+          { no:5, name:"クロノスバレット", style:"差し", jockey:"松山", mc:0.38 },
+          { no:10, name:"シュヴァルツリーベ", style:"差し", jockey:"藤懸", mc:0.31 }
         ]
       }
     }
@@ -674,27 +798,182 @@ const RACES = [
     start_time: "17:30", nk_id: "202607020610",
     patterns: {
       "良・稍重": {
-        jiku: { no:11, name:"アメリカンビヨンド", style:"先行", jockey:"西塚", mc:0.46 },
+        jiku: { no:11, name:"アメリカンビヨンド", style:"先行", jockey:"西塚", mc:0.45 },
         aite: [
-          { no:12, name:"アイファーモービル", style:"追い込み", jockey:"藤懸", mc:0.38 },
+          { no:12, name:"アイファーモービル", style:"追い込み", jockey:"藤懸", mc:0.36 },
           { no:2, name:"ラヴネヴァーダイズ", style:"先行", jockey:"松山", mc:0.34 },
-          { no:13, name:"ヴォンドゥ", style:"差し", jockey:"▲森田", mc:0.28 }
+          { no:13, name:"ヴォンドゥ", style:"差し", jockey:"▲森田", mc:0.29 }
         ]
       },
       "重": {
         jiku: { no:11, name:"アメリカンビヨンド", style:"先行", jockey:"西塚", mc:0.54 },
         aite: [
-          { no:2, name:"ラヴネヴァーダイズ", style:"先行", jockey:"松山", mc:0.45 },
-          { no:12, name:"アイファーモービル", style:"追い込み", jockey:"藤懸", mc:0.33 },
-          { no:14, name:"リーグナイト", style:"先行", jockey:"幸", mc:0.3 }
+          { no:2, name:"ラヴネヴァーダイズ", style:"先行", jockey:"松山", mc:0.42 },
+          { no:14, name:"リーグナイト", style:"先行", jockey:"幸", mc:0.35 },
+          { no:12, name:"アイファーモービル", style:"追い込み", jockey:"藤懸", mc:0.29 }
         ]
       },
       "不良": {
-        jiku: { no:11, name:"アメリカンビヨンド", style:"先行", jockey:"西塚", mc:0.58 },
+        jiku: { no:11, name:"アメリカンビヨンド", style:"先行", jockey:"西塚", mc:0.59 },
         aite: [
-          { no:2, name:"ラヴネヴァーダイズ", style:"先行", jockey:"松山", mc:0.47 },
-          { no:14, name:"リーグナイト", style:"先行", jockey:"幸", mc:0.35 },
-          { no:12, name:"アイファーモービル", style:"追い込み", jockey:"藤懸", mc:0.29 }
+          { no:2, name:"ラヴネヴァーダイズ", style:"先行", jockey:"松山", mc:0.49 },
+          { no:14, name:"リーグナイト", style:"先行", jockey:"幸", mc:0.36 },
+          { no:12, name:"アイファーモービル", style:"追い込み", jockey:"藤懸", mc:0.27 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_中京_11", date: "2026-08-09", venue: "中京", rno: 11,
+    rname: "3歳以上1勝クラス", dst: 1200, cnt: 18,
+    start_time: "18:00", nk_id: "202607020611",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:1, name:"フロムレイブン", style:"先行", jockey:"横山武", mc:0.28 },
+        aite: [
+          { no:13, name:"ベランジェール", style:"追い込み", jockey:"酒井", mc:0.26 },
+          { no:7, name:"セクシーマージュ", style:"先行", jockey:"川須", mc:0.22 },
+          { no:10, name:"アウクソー", style:"先行", jockey:"秋山稔", mc:0.22 }
+        ]
+      },
+      "重": {
+        jiku: { no:1, name:"フロムレイブン", style:"先行", jockey:"横山武", mc:0.33 },
+        aite: [
+          { no:10, name:"アウクソー", style:"先行", jockey:"秋山稔", mc:0.31 },
+          { no:14, name:"マーゴットミスト", style:"先行", jockey:"松山", mc:0.27 },
+          { no:7, name:"セクシーマージュ", style:"先行", jockey:"川須", mc:0.24 }
+        ]
+      },
+      "不良": {
+        jiku: { no:1, name:"フロムレイブン", style:"先行", jockey:"横山武", mc:0.35 },
+        aite: [
+          { no:10, name:"アウクソー", style:"先行", jockey:"秋山稔", mc:0.29 },
+          { no:14, name:"マーゴットミスト", style:"先行", jockey:"松山", mc:0.29 },
+          { no:7, name:"セクシーマージュ", style:"先行", jockey:"川須", mc:0.27 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_中京_12", date: "2026-08-09", venue: "中京", rno: 12,
+    rname: "3歳未勝利", dst: 1600, cnt: 16,
+    start_time: "18:30", nk_id: "202607020612",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:4, name:"カステッロトゥーレ", style:"追い込み", jockey:"長岡", mc:0.24 },
+        aite: [
+          { no:5, name:"ウォータールスール", style:"先行", jockey:"富田", mc:0.23 },
+          { no:1, name:"プリュスエクラ", style:"差し", jockey:"団野", mc:0.23 },
+          { no:10, name:"ブランチアウト", style:"逃げ", jockey:"幸", mc:0.22 }
+        ]
+      },
+      "重": {
+        jiku: { no:5, name:"ウォータールスール", style:"先行", jockey:"富田", mc:0.28 },
+        aite: [
+          { no:10, name:"ブランチアウト", style:"逃げ", jockey:"幸", mc:0.27 },
+          { no:2, name:"ローズラフィネ", style:"先行", jockey:"西塚", mc:0.25 },
+          { no:9, name:"ネッカーズルム", style:"先行", jockey:"横山武", mc:0.23 }
+        ]
+      },
+      "不良": {
+        jiku: { no:5, name:"ウォータールスール", style:"先行", jockey:"富田", mc:0.3 },
+        aite: [
+          { no:2, name:"ローズラフィネ", style:"先行", jockey:"西塚", mc:0.3 },
+          { no:10, name:"ブランチアウト", style:"逃げ", jockey:"幸", mc:0.29 },
+          { no:9, name:"ネッカーズルム", style:"先行", jockey:"横山武", mc:0.28 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_新潟_1", date: "2026-08-09", venue: "新潟", rno: 1,
+    rname: "2歳未勝利", dst: 2000, cnt: 16,
+    start_time: "09:40", nk_id: "202604020601",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:8, name:"ラガリーガ", style:"先行", jockey:"坂井", mc:0.35 },
+        aite: [
+          { no:9, name:"セイウンオオゾラ", style:"先行", jockey:"大野", mc:0.34 },
+          { no:6, name:"アオイノリプー", style:"先行", jockey:"田辺", mc:0.24 },
+          { no:7, name:"コスモフラムオット", style:"先行", jockey:"武藤", mc:0.23 }
+        ]
+      },
+      "重": {
+        jiku: { no:8, name:"ラガリーガ", style:"先行", jockey:"坂井", mc:0.37 },
+        aite: [
+          { no:9, name:"セイウンオオゾラ", style:"先行", jockey:"大野", mc:0.32 },
+          { no:6, name:"アオイノリプー", style:"先行", jockey:"田辺", mc:0.23 },
+          { no:5, name:"マイホームパパ", style:"先行", jockey:"江田照", mc:0.23 }
+        ]
+      },
+      "不良": {
+        jiku: { no:8, name:"ラガリーガ", style:"先行", jockey:"坂井", mc:0.37 },
+        aite: [
+          { no:9, name:"セイウンオオゾラ", style:"先行", jockey:"大野", mc:0.33 },
+          { no:6, name:"アオイノリプー", style:"先行", jockey:"田辺", mc:0.23 },
+          { no:7, name:"コスモフラムオット", style:"先行", jockey:"武藤", mc:0.23 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_新潟_3", date: "2026-08-09", venue: "新潟", rno: 3,
+    rname: "3歳未勝利", dst: 1200, cnt: 15,
+    start_time: "10:40", nk_id: "202604020603",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:9, name:"ビューティドリーム", style:"先行", jockey:"△石神道", mc:0.48 },
+        aite: [
+          { no:8, name:"テリオスレイ", style:"先行", jockey:"坂井", mc:0.48 },
+          { no:2, name:"クツワエターナル", style:"先行", jockey:"▲佐藤", mc:0.45 },
+          { no:4, name:"エコロセレナ", style:"先行", jockey:"岩田望", mc:0.29 }
+        ]
+      },
+      "重": {
+        jiku: { no:2, name:"クツワエターナル", style:"先行", jockey:"▲佐藤", mc:0.53 },
+        aite: [
+          { no:8, name:"テリオスレイ", style:"先行", jockey:"坂井", mc:0.49 },
+          { no:9, name:"ビューティドリーム", style:"先行", jockey:"△石神道", mc:0.49 },
+          { no:4, name:"エコロセレナ", style:"先行", jockey:"岩田望", mc:0.28 }
+        ]
+      },
+      "不良": {
+        jiku: { no:9, name:"ビューティドリーム", style:"先行", jockey:"△石神道", mc:0.56 },
+        aite: [
+          { no:2, name:"クツワエターナル", style:"先行", jockey:"▲佐藤", mc:0.52 },
+          { no:8, name:"テリオスレイ", style:"先行", jockey:"坂井", mc:0.5 },
+          { no:4, name:"エコロセレナ", style:"先行", jockey:"岩田望", mc:0.3 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_新潟_4", date: "2026-08-09", venue: "新潟", rno: 4,
+    rname: "3歳未勝利", dst: 1800, cnt: 15,
+    start_time: "11:10", nk_id: "202604020604",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:15, name:"カノープス", style:"先行", jockey:"▲石田", mc:0.54 },
+        aite: [
+          { no:13, name:"クィーンズウィンク", style:"先行", jockey:"吉村", mc:0.52 },
+          { no:10, name:"モンスターラッシュ", style:"先行", jockey:"石川", mc:0.33 },
+          { no:6, name:"ユイノスレチガイ", style:"追い込み", jockey:"△石神道", mc:0.31 }
+        ]
+      },
+      "重": {
+        jiku: { no:13, name:"クィーンズウィンク", style:"先行", jockey:"吉村", mc:0.55 },
+        aite: [
+          { no:15, name:"カノープス", style:"先行", jockey:"▲石田", mc:0.54 },
+          { no:10, name:"モンスターラッシュ", style:"先行", jockey:"石川", mc:0.39 },
+          { no:6, name:"ユイノスレチガイ", style:"追い込み", jockey:"△石神道", mc:0.27 }
+        ]
+      },
+      "不良": {
+        jiku: { no:13, name:"クィーンズウィンク", style:"先行", jockey:"吉村", mc:0.59 },
+        aite: [
+          { no:15, name:"カノープス", style:"先行", jockey:"▲石田", mc:0.58 },
+          { no:10, name:"モンスターラッシュ", style:"先行", jockey:"石川", mc:0.39 },
+          { no:6, name:"ユイノスレチガイ", style:"追い込み", jockey:"△石神道", mc:0.24 }
         ]
       }
     }
@@ -705,27 +984,58 @@ const RACES = [
     start_time: "11:40", nk_id: "202604020605",
     patterns: {
       "良・稍重": {
-        jiku: { no:13, name:"タイセイブルーム", style:"先行", jockey:"原", mc:0.35 },
+        jiku: { no:13, name:"タイセイブルーム", style:"先行", jockey:"原", mc:0.33 },
         aite: [
+          { no:9, name:"アンバサダネージュ", style:"先行", jockey:"▲佐藤", mc:0.27 },
           { no:8, name:"プルシャプラ", style:"差し", jockey:"☆田山", mc:0.27 },
-          { no:9, name:"アンバサダネージュ", style:"先行", jockey:"▲佐藤", mc:0.26 },
-          { no:3, name:"サトノエスケープ", style:"差し", jockey:"田辺", mc:0.26 }
+          { no:3, name:"サトノエスケープ", style:"差し", jockey:"田辺", mc:0.25 }
         ]
       },
       "重": {
         jiku: { no:13, name:"タイセイブルーム", style:"先行", jockey:"原", mc:0.38 },
         aite: [
-          { no:9, name:"アンバサダネージュ", style:"先行", jockey:"▲佐藤", mc:0.29 },
-          { no:11, name:"ゼファーテソーロ", style:"先行", jockey:"菊沢", mc:0.26 },
-          { no:1, name:"ブリングライト", style:"追い込み", jockey:"木幡巧", mc:0.24 }
+          { no:9, name:"アンバサダネージュ", style:"先行", jockey:"▲佐藤", mc:0.3 },
+          { no:11, name:"ゼファーテソーロ", style:"先行", jockey:"菊沢", mc:0.27 },
+          { no:12, name:"シュヴァルツシルト", style:"逃げ", jockey:"戸崎圭", mc:0.23 }
         ]
       },
       "不良": {
-        jiku: { no:13, name:"タイセイブルーム", style:"先行", jockey:"原", mc:0.44 },
+        jiku: { no:13, name:"タイセイブルーム", style:"先行", jockey:"原", mc:0.41 },
         aite: [
-          { no:9, name:"アンバサダネージュ", style:"先行", jockey:"▲佐藤", mc:0.32 },
-          { no:11, name:"ゼファーテソーロ", style:"先行", jockey:"菊沢", mc:0.3 },
+          { no:9, name:"アンバサダネージュ", style:"先行", jockey:"▲佐藤", mc:0.34 },
+          { no:11, name:"ゼファーテソーロ", style:"先行", jockey:"菊沢", mc:0.28 },
           { no:12, name:"シュヴァルツシルト", style:"逃げ", jockey:"戸崎圭", mc:0.24 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_新潟_6", date: "2026-08-09", venue: "新潟", rno: 6,
+    rname: "佐渡S", dst: 1800, cnt: 13,
+    start_time: "15:00", nk_id: "202604020606",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:4, name:"ガジュノリ", style:"差し", jockey:"田辺", mc:0.39 },
+        aite: [
+          { no:7, name:"モズロックンロール", style:"差し", jockey:"吉村", mc:0.35 },
+          { no:3, name:"カニキュル", style:"差し", jockey:"杉原", mc:0.28 },
+          { no:10, name:"エラン", style:"差し", jockey:"田山", mc:0.28 }
+        ]
+      },
+      "重": {
+        jiku: { no:4, name:"ガジュノリ", style:"差し", jockey:"田辺", mc:0.37 },
+        aite: [
+          { no:7, name:"モズロックンロール", style:"差し", jockey:"吉村", mc:0.35 },
+          { no:2, name:"コルレオニス", style:"差し", jockey:"Ｍデムーロ", mc:0.29 },
+          { no:1, name:"ライヒスアドラー", style:"差し", jockey:"佐々木", mc:0.29 }
+        ]
+      },
+      "不良": {
+        jiku: { no:7, name:"モズロックンロール", style:"差し", jockey:"吉村", mc:0.37 },
+        aite: [
+          { no:4, name:"ガジュノリ", style:"差し", jockey:"田辺", mc:0.35 },
+          { no:1, name:"ライヒスアドラー", style:"差し", jockey:"佐々木", mc:0.3 },
+          { no:10, name:"エラン", style:"差し", jockey:"田山", mc:0.28 }
         ]
       }
     }
@@ -736,27 +1046,58 @@ const RACES = [
     start_time: "15:35", nk_id: "202604020607",
     patterns: {
       "良・稍重": {
-        jiku: { no:9, name:"ショウナンバンライ", style:"先行", jockey:"田山", mc:0.5 },
+        jiku: { no:9, name:"ショウナンバンライ", style:"先行", jockey:"田山", mc:0.49 },
         aite: [
-          { no:4, name:"チェリヴェント", style:"先行", jockey:"吉村", mc:0.38 },
-          { no:5, name:"マクリール", style:"先行", jockey:"戸崎圭", mc:0.35 },
-          { no:8, name:"テンカムテキ", style:"先行", jockey:"石川", mc:0.27 }
+          { no:4, name:"チェリヴェント", style:"先行", jockey:"吉村", mc:0.35 },
+          { no:5, name:"マクリール", style:"先行", jockey:"戸崎圭", mc:0.33 },
+          { no:2, name:"ファイアマン", style:"追い込み", jockey:"原", mc:0.25 }
         ]
       },
       "重": {
-        jiku: { no:9, name:"ショウナンバンライ", style:"先行", jockey:"田山", mc:0.54 },
+        jiku: { no:9, name:"ショウナンバンライ", style:"先行", jockey:"田山", mc:0.53 },
         aite: [
-          { no:4, name:"チェリヴェント", style:"先行", jockey:"吉村", mc:0.4 },
-          { no:5, name:"マクリール", style:"先行", jockey:"戸崎圭", mc:0.35 },
-          { no:8, name:"テンカムテキ", style:"先行", jockey:"石川", mc:0.3 }
+          { no:5, name:"マクリール", style:"先行", jockey:"戸崎圭", mc:0.37 },
+          { no:4, name:"チェリヴェント", style:"先行", jockey:"吉村", mc:0.36 },
+          { no:8, name:"テンカムテキ", style:"先行", jockey:"石川", mc:0.28 }
         ]
       },
       "不良": {
         jiku: { no:9, name:"ショウナンバンライ", style:"先行", jockey:"田山", mc:0.56 },
         aite: [
-          { no:4, name:"チェリヴェント", style:"先行", jockey:"吉村", mc:0.4 },
-          { no:5, name:"マクリール", style:"先行", jockey:"戸崎圭", mc:0.38 },
+          { no:4, name:"チェリヴェント", style:"先行", jockey:"吉村", mc:0.39 },
+          { no:5, name:"マクリール", style:"先行", jockey:"戸崎圭", mc:0.37 },
           { no:3, name:"ヒシアムルーズ", style:"先行", jockey:"佐々木", mc:0.29 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_新潟_8", date: "2026-08-09", venue: "新潟", rno: 8,
+    rname: "驀進特別", dst: 1000, cnt: 17,
+    start_time: "16:10", nk_id: "202604020608",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:2, name:"ラヴェンデル", style:"差し", jockey:"坂井", mc:0.46 },
+        aite: [
+          { no:12, name:"レジーナローズ", style:"差し", jockey:"津村", mc:0.41 },
+          { no:14, name:"ラブディーヴァ", style:"差し", jockey:"石田", mc:0.32 },
+          { no:8, name:"カレンデュラ", style:"先行", jockey:"江田照", mc:0.27 }
+        ]
+      },
+      "重": {
+        jiku: { no:2, name:"ラヴェンデル", style:"差し", jockey:"坂井", mc:0.41 },
+        aite: [
+          { no:8, name:"カレンデュラ", style:"先行", jockey:"江田照", mc:0.37 },
+          { no:12, name:"レジーナローズ", style:"差し", jockey:"津村", mc:0.35 },
+          { no:14, name:"ラブディーヴァ", style:"差し", jockey:"石田", mc:0.31 }
+        ]
+      },
+      "不良": {
+        jiku: { no:2, name:"ラヴェンデル", style:"差し", jockey:"坂井", mc:0.4 },
+        aite: [
+          { no:8, name:"カレンデュラ", style:"先行", jockey:"江田照", mc:0.39 },
+          { no:12, name:"レジーナローズ", style:"差し", jockey:"津村", mc:0.35 },
+          { no:13, name:"ロードトレゾール", style:"先行", jockey:"吉村", mc:0.28 }
         ]
       }
     }
@@ -767,27 +1108,306 @@ const RACES = [
     start_time: "16:45", nk_id: "202604020609",
     patterns: {
       "良・稍重": {
-        jiku: { no:7, name:"シャンハイナイト", style:"差し", jockey:"大野", mc:0.31 },
+        jiku: { no:14, name:"ピコテンダー", style:"差し", jockey:"荻野極", mc:0.31 },
         aite: [
+          { no:7, name:"シャンハイナイト", style:"差し", jockey:"大野", mc:0.28 },
           { no:3, name:"フォンメイリー", style:"先行", jockey:"菊沢一樹", mc:0.28 },
-          { no:14, name:"ピコテンダー", style:"差し", jockey:"荻野極", mc:0.28 },
-          { no:13, name:"アルジェンタージョ", style:"差し", jockey:"▲佐藤", mc:0.24 }
+          { no:13, name:"アルジェンタージョ", style:"差し", jockey:"▲佐藤", mc:0.25 }
         ]
       },
       "重": {
-        jiku: { no:3, name:"フォンメイリー", style:"先行", jockey:"菊沢一樹", mc:0.4 },
+        jiku: { no:3, name:"フォンメイリー", style:"先行", jockey:"菊沢一樹", mc:0.37 },
         aite: [
           { no:4, name:"ダズリングダンス", style:"先行", jockey:"木幡巧", mc:0.32 },
-          { no:5, name:"アスタールフナ", style:"先行", jockey:"岩田望", mc:0.3 },
-          { no:14, name:"ピコテンダー", style:"差し", jockey:"荻野極", mc:0.27 }
+          { no:5, name:"アスタールフナ", style:"先行", jockey:"岩田望", mc:0.29 },
+          { no:7, name:"シャンハイナイト", style:"差し", jockey:"大野", mc:0.25 }
         ]
       },
       "不良": {
-        jiku: { no:3, name:"フォンメイリー", style:"先行", jockey:"菊沢一樹", mc:0.48 },
+        jiku: { no:3, name:"フォンメイリー", style:"先行", jockey:"菊沢一樹", mc:0.44 },
         aite: [
-          { no:4, name:"ダズリングダンス", style:"先行", jockey:"木幡巧", mc:0.39 },
-          { no:5, name:"アスタールフナ", style:"先行", jockey:"岩田望", mc:0.38 },
-          { no:14, name:"ピコテンダー", style:"差し", jockey:"荻野極", mc:0.25 }
+          { no:4, name:"ダズリングダンス", style:"先行", jockey:"木幡巧", mc:0.34 },
+          { no:5, name:"アスタールフナ", style:"先行", jockey:"岩田望", mc:0.34 },
+          { no:14, name:"ピコテンダー", style:"差し", jockey:"荻野極", mc:0.24 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_新潟_10", date: "2026-08-09", venue: "新潟", rno: 10,
+    rname: "3歳以上1勝クラス", dst: 2000, cnt: 7,
+    start_time: "17:20", nk_id: "202604020610",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:6, name:"オプレントジュエル", style:"先行", jockey:"三浦", mc:0.62 },
+        aite: [
+          { no:7, name:"ウップヘリーア", style:"差し", jockey:"戸崎圭", mc:0.55 },
+          { no:5, name:"モートンアイランド", style:"差し", jockey:"津村", mc:0.48 },
+          { no:2, name:"ミッドセンチュリー", style:"差し", jockey:"杉原", mc:0.45 }
+        ]
+      },
+      "重": {
+        jiku: { no:6, name:"オプレントジュエル", style:"先行", jockey:"三浦", mc:0.77 },
+        aite: [
+          { no:7, name:"ウップヘリーア", style:"差し", jockey:"戸崎圭", mc:0.57 },
+          { no:2, name:"ミッドセンチュリー", style:"差し", jockey:"杉原", mc:0.42 },
+          { no:5, name:"モートンアイランド", style:"差し", jockey:"津村", mc:0.42 }
+        ]
+      },
+      "不良": {
+        jiku: { no:6, name:"オプレントジュエル", style:"先行", jockey:"三浦", mc:0.76 },
+        aite: [
+          { no:7, name:"ウップヘリーア", style:"差し", jockey:"戸崎圭", mc:0.55 },
+          { no:5, name:"モートンアイランド", style:"差し", jockey:"津村", mc:0.46 },
+          { no:2, name:"ミッドセンチュリー", style:"差し", jockey:"杉原", mc:0.45 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_新潟_11", date: "2026-08-09", venue: "新潟", rno: 11,
+    rname: "3歳未勝利", dst: 1600, cnt: 18,
+    start_time: "17:50", nk_id: "202604020611",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:5, name:"フーディエラン", style:"差し", jockey:"江田照", mc:0.26 },
+        aite: [
+          { no:8, name:"ガミーヌ", style:"差し", jockey:"武藤", mc:0.23 },
+          { no:4, name:"フジサン", style:"差し", jockey:"大野", mc:0.21 },
+          { no:10, name:"ダノンドナウ", style:"先行", jockey:"菊沢", mc:0.2 }
+        ]
+      },
+      "重": {
+        jiku: { no:13, name:"リーゼントモニカ", style:"先行", jockey:"▲石田", mc:0.29 },
+        aite: [
+          { no:10, name:"ダノンドナウ", style:"先行", jockey:"菊沢", mc:0.26 },
+          { no:14, name:"ゲンパチロマン", style:"先行", jockey:"佐々木", mc:0.24 },
+          { no:5, name:"フーディエラン", style:"差し", jockey:"江田照", mc:0.21 }
+        ]
+      },
+      "不良": {
+        jiku: { no:10, name:"ダノンドナウ", style:"先行", jockey:"菊沢", mc:0.31 },
+        aite: [
+          { no:13, name:"リーゼントモニカ", style:"先行", jockey:"▲石田", mc:0.28 },
+          { no:14, name:"ゲンパチロマン", style:"先行", jockey:"佐々木", mc:0.27 },
+          { no:15, name:"フルールロイヤル", style:"先行", jockey:"岩田望", mc:0.22 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_新潟_12", date: "2026-08-09", venue: "新潟", rno: 12,
+    rname: "3歳未勝利", dst: 1200, cnt: 18,
+    start_time: "18:20", nk_id: "202604020612",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:10, name:"オンナキュヌヴィ", style:"差し", jockey:"津村", mc:0.34 },
+        aite: [
+          { no:6, name:"セリエンクーニゲン", style:"差し", jockey:"坂井", mc:0.34 },
+          { no:9, name:"サンロード", style:"先行", jockey:"木幡初", mc:0.34 },
+          { no:14, name:"ココソラーレ", style:"追い込み", jockey:"▲上里", mc:0.31 }
+        ]
+      },
+      "重": {
+        jiku: { no:9, name:"サンロード", style:"先行", jockey:"木幡初", mc:0.42 },
+        aite: [
+          { no:7, name:"ルナーファントム", style:"先行", jockey:"石川", mc:0.32 },
+          { no:6, name:"セリエンクーニゲン", style:"差し", jockey:"坂井", mc:0.28 },
+          { no:10, name:"オンナキュヌヴィ", style:"差し", jockey:"津村", mc:0.27 }
+        ]
+      },
+      "不良": {
+        jiku: { no:9, name:"サンロード", style:"先行", jockey:"木幡初", mc:0.43 },
+        aite: [
+          { no:7, name:"ルナーファントム", style:"先行", jockey:"石川", mc:0.36 },
+          { no:16, name:"ラルルジェンヌ", style:"先行", jockey:"戸崎圭", mc:0.27 },
+          { no:2, name:"ウィズアツインクル", style:"先行", jockey:"木幡巧", mc:0.25 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_札幌_1", date: "2026-08-09", venue: "札幌", rno: 1,
+    rname: "2歳未勝利", dst: 1700, cnt: 12,
+    start_time: "10:00", nk_id: "202601010601",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:9, name:"ハイビスカス", style:"先行", jockey:"☆舟山", mc:0.5 },
+        aite: [
+          { no:2, name:"マーズエクレール", style:"先行", jockey:"岩田康", mc:0.48 },
+          { no:1, name:"ベイビーブラザー", style:"先行", jockey:"吉田隼", mc:0.43 },
+          { no:3, name:"シンゼンノト", style:"先行", jockey:"▲遠藤", mc:0.41 }
+        ]
+      },
+      "重": {
+        jiku: { no:2, name:"マーズエクレール", style:"先行", jockey:"岩田康", mc:0.49 },
+        aite: [
+          { no:9, name:"ハイビスカス", style:"先行", jockey:"☆舟山", mc:0.48 },
+          { no:3, name:"シンゼンノト", style:"先行", jockey:"▲遠藤", mc:0.43 },
+          { no:1, name:"ベイビーブラザー", style:"先行", jockey:"吉田隼", mc:0.41 }
+        ]
+      },
+      "不良": {
+        jiku: { no:9, name:"ハイビスカス", style:"先行", jockey:"☆舟山", mc:0.48 },
+        aite: [
+          { no:2, name:"マーズエクレール", style:"先行", jockey:"岩田康", mc:0.47 },
+          { no:3, name:"シンゼンノト", style:"先行", jockey:"▲遠藤", mc:0.46 },
+          { no:1, name:"ベイビーブラザー", style:"先行", jockey:"吉田隼", mc:0.42 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_札幌_2", date: "2026-08-09", venue: "札幌", rno: 2,
+    rname: "3歳未勝利", dst: 1000, cnt: 12,
+    start_time: "10:30", nk_id: "202601010602",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:5, name:"スイーヴル", style:"先行", jockey:"斎藤", mc:0.52 },
+        aite: [
+          { no:6, name:"カッサンドラ", style:"差し", jockey:"横山琉", mc:0.43 },
+          { no:9, name:"マーゴットオネイロ", style:"先行", jockey:"▲小林美", mc:0.42 },
+          { no:4, name:"メイヨシュア", style:"先行", jockey:"小沢", mc:0.32 }
+        ]
+      },
+      "重": {
+        jiku: { no:5, name:"スイーヴル", style:"先行", jockey:"斎藤", mc:0.56 },
+        aite: [
+          { no:9, name:"マーゴットオネイロ", style:"先行", jockey:"▲小林美", mc:0.44 },
+          { no:7, name:"ラブデウザ", style:"先行", jockey:"★河原田", mc:0.35 },
+          { no:4, name:"メイヨシュア", style:"先行", jockey:"小沢", mc:0.35 }
+        ]
+      },
+      "不良": {
+        jiku: { no:5, name:"スイーヴル", style:"先行", jockey:"斎藤", mc:0.58 },
+        aite: [
+          { no:9, name:"マーゴットオネイロ", style:"先行", jockey:"▲小林美", mc:0.45 },
+          { no:7, name:"ラブデウザ", style:"先行", jockey:"★河原田", mc:0.39 },
+          { no:4, name:"メイヨシュア", style:"先行", jockey:"小沢", mc:0.36 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_札幌_3", date: "2026-08-09", venue: "札幌", rno: 3,
+    rname: "3歳以上1勝クラス", dst: 2000, cnt: 10,
+    start_time: "11:00", nk_id: "202601010603",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:7, name:"ストラニエーロ", style:"差し", jockey:"▲小林美", mc:0.46 },
+        aite: [
+          { no:9, name:"エイカイコバチ", style:"先行", jockey:"小沢", mc:0.39 },
+          { no:4, name:"レジェンドシップ", style:"先行", jockey:"浜中", mc:0.34 },
+          { no:8, name:"ピティロディア", style:"差し", jockey:"池添", mc:0.32 }
+        ]
+      },
+      "重": {
+        jiku: { no:9, name:"エイカイコバチ", style:"先行", jockey:"小沢", mc:0.55 },
+        aite: [
+          { no:4, name:"レジェンドシップ", style:"先行", jockey:"浜中", mc:0.51 },
+          { no:7, name:"ストラニエーロ", style:"差し", jockey:"▲小林美", mc:0.4 },
+          { no:8, name:"ピティロディア", style:"差し", jockey:"池添", mc:0.3 }
+        ]
+      },
+      "不良": {
+        jiku: { no:4, name:"レジェンドシップ", style:"先行", jockey:"浜中", mc:0.55 },
+        aite: [
+          { no:9, name:"エイカイコバチ", style:"先行", jockey:"小沢", mc:0.54 },
+          { no:7, name:"ストラニエーロ", style:"差し", jockey:"▲小林美", mc:0.42 },
+          { no:8, name:"ピティロディア", style:"差し", jockey:"池添", mc:0.3 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_札幌_4", date: "2026-08-09", venue: "札幌", rno: 4,
+    rname: "3歳未勝利", dst: 1700, cnt: 14,
+    start_time: "11:30", nk_id: "202601010604",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:8, name:"メイショウノヴァス", style:"差し", jockey:"小沢", mc:0.61 },
+        aite: [
+          { no:5, name:"サクセスブルー", style:"差し", jockey:"☆舟山", mc:0.51 },
+          { no:1, name:"ロジクリスエス", style:"追い込み", jockey:"黛", mc:0.4 },
+          { no:4, name:"マイネルトレマーズ", style:"先行", jockey:"☆長浜", mc:0.35 }
+        ]
+      },
+      "重": {
+        jiku: { no:8, name:"メイショウノヴァス", style:"差し", jockey:"小沢", mc:0.55 },
+        aite: [
+          { no:5, name:"サクセスブルー", style:"差し", jockey:"☆舟山", mc:0.49 },
+          { no:4, name:"マイネルトレマーズ", style:"先行", jockey:"☆長浜", mc:0.45 },
+          { no:1, name:"ロジクリスエス", style:"追い込み", jockey:"黛", mc:0.42 }
+        ]
+      },
+      "不良": {
+        jiku: { no:8, name:"メイショウノヴァス", style:"差し", jockey:"小沢", mc:0.52 },
+        aite: [
+          { no:4, name:"マイネルトレマーズ", style:"先行", jockey:"☆長浜", mc:0.51 },
+          { no:5, name:"サクセスブルー", style:"差し", jockey:"☆舟山", mc:0.47 },
+          { no:1, name:"ロジクリスエス", style:"追い込み", jockey:"黛", mc:0.38 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_札幌_6", date: "2026-08-09", venue: "札幌", rno: 6,
+    rname: "3歳未勝利", dst: 2600, cnt: 14,
+    start_time: "12:50", nk_id: "202601010606",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:11, name:"ドンテスタマスター", style:"差し", jockey:"斎藤", mc:0.4 },
+        aite: [
+          { no:3, name:"エコロゼルダ", style:"先行", jockey:"▲和田陽", mc:0.36 },
+          { no:7, name:"ヘイジュード", style:"差し", jockey:"浜中", mc:0.32 },
+          { no:6, name:"ハバタクジユウニ", style:"先行", jockey:"川又", mc:0.31 }
+        ]
+      },
+      "重": {
+        jiku: { no:3, name:"エコロゼルダ", style:"先行", jockey:"▲和田陽", mc:0.47 },
+        aite: [
+          { no:6, name:"ハバタクジユウニ", style:"先行", jockey:"川又", mc:0.37 },
+          { no:9, name:"フォーチュンローズ", style:"先行", jockey:"古川吉", mc:0.35 },
+          { no:11, name:"ドンテスタマスター", style:"差し", jockey:"斎藤", mc:0.32 }
+        ]
+      },
+      "不良": {
+        jiku: { no:3, name:"エコロゼルダ", style:"先行", jockey:"▲和田陽", mc:0.47 },
+        aite: [
+          { no:1, name:"ダイナソーコー", style:"先行", jockey:"横山和", mc:0.38 },
+          { no:6, name:"ハバタクジユウニ", style:"先行", jockey:"川又", mc:0.37 },
+          { no:9, name:"フォーチュンローズ", style:"先行", jockey:"古川吉", mc:0.35 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_札幌_7", date: "2026-08-09", venue: "札幌", rno: 7,
+    rname: "3歳未勝利", dst: 2000, cnt: 16,
+    start_time: "13:20", nk_id: "202601010607",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:2, name:"オートカリテ", style:"先行", jockey:"☆長浜", mc:0.38 },
+        aite: [
+          { no:1, name:"グランフルス", style:"差し", jockey:"☆舟山", mc:0.36 },
+          { no:14, name:"メイショウハーブス", style:"先行", jockey:"横山琉", mc:0.3 },
+          { no:7, name:"メイショウローゼ", style:"追い込み", jockey:"池添", mc:0.29 }
+        ]
+      },
+      "重": {
+        jiku: { no:2, name:"オートカリテ", style:"先行", jockey:"☆長浜", mc:0.45 },
+        aite: [
+          { no:14, name:"メイショウハーブス", style:"先行", jockey:"横山琉", mc:0.39 },
+          { no:12, name:"ピースフルマインド", style:"先行", jockey:"北村友", mc:0.35 },
+          { no:1, name:"グランフルス", style:"差し", jockey:"☆舟山", mc:0.26 }
+        ]
+      },
+      "不良": {
+        jiku: { no:2, name:"オートカリテ", style:"先行", jockey:"☆長浜", mc:0.48 },
+        aite: [
+          { no:14, name:"メイショウハーブス", style:"先行", jockey:"横山琉", mc:0.44 },
+          { no:12, name:"ピースフルマインド", style:"先行", jockey:"北村友", mc:0.38 },
+          { no:1, name:"グランフルス", style:"差し", jockey:"☆舟山", mc:0.28 }
         ]
       }
     }
@@ -798,27 +1418,58 @@ const RACES = [
     start_time: "13:50", nk_id: "202601010608",
     patterns: {
       "良・稍重": {
-        jiku: { no:9, name:"クラウンアールシー", style:"先行", jockey:"松本", mc:0.59 },
+        jiku: { no:9, name:"クラウンアールシー", style:"先行", jockey:"松本", mc:0.57 },
         aite: [
           { no:4, name:"ホノボノ", style:"差し", jockey:"☆長浜", mc:0.51 },
-          { no:8, name:"テイクオンミー", style:"先行", jockey:"☆舟山", mc:0.31 },
+          { no:8, name:"テイクオンミー", style:"先行", jockey:"☆舟山", mc:0.33 },
           { no:10, name:"サンデーパーティー", style:"差し", jockey:"横山琉", mc:0.3 }
         ]
       },
       "重": {
-        jiku: { no:9, name:"クラウンアールシー", style:"先行", jockey:"松本", mc:0.66 },
+        jiku: { no:9, name:"クラウンアールシー", style:"先行", jockey:"松本", mc:0.65 },
         aite: [
-          { no:4, name:"ホノボノ", style:"差し", jockey:"☆長浜", mc:0.42 },
-          { no:8, name:"テイクオンミー", style:"先行", jockey:"☆舟山", mc:0.38 },
-          { no:5, name:"メイショウコシュウ", style:"先行", jockey:"浜中", mc:0.35 }
+          { no:4, name:"ホノボノ", style:"差し", jockey:"☆長浜", mc:0.4 },
+          { no:8, name:"テイクオンミー", style:"先行", jockey:"☆舟山", mc:0.39 },
+          { no:5, name:"メイショウコシュウ", style:"先行", jockey:"浜中", mc:0.31 }
         ]
       },
       "不良": {
-        jiku: { no:9, name:"クラウンアールシー", style:"先行", jockey:"松本", mc:0.7 },
+        jiku: { no:9, name:"クラウンアールシー", style:"先行", jockey:"松本", mc:0.65 },
         aite: [
-          { no:8, name:"テイクオンミー", style:"先行", jockey:"☆舟山", mc:0.39 },
+          { no:8, name:"テイクオンミー", style:"先行", jockey:"☆舟山", mc:0.41 },
           { no:4, name:"ホノボノ", style:"差し", jockey:"☆長浜", mc:0.37 },
-          { no:6, name:"ポンピエ", style:"先行", jockey:"斎藤", mc:0.35 }
+          { no:5, name:"メイショウコシュウ", style:"先行", jockey:"浜中", mc:0.37 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_札幌_9", date: "2026-08-09", venue: "札幌", rno: 9,
+    rname: "3歳以上1勝クラス", dst: 1200, cnt: 16,
+    start_time: "14:20", nk_id: "202601010609",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:11, name:"ウィングブルー", style:"逃げ", jockey:"斎藤", mc:0.36 },
+        aite: [
+          { no:3, name:"アイアムステキ", style:"差し", jockey:"浜中", mc:0.33 },
+          { no:2, name:"ニシノサリーナ", style:"逃げ", jockey:"池添", mc:0.24 },
+          { no:14, name:"トレヴィ", style:"先行", jockey:"岩田康", mc:0.23 }
+        ]
+      },
+      "重": {
+        jiku: { no:11, name:"ウィングブルー", style:"逃げ", jockey:"斎藤", mc:0.4 },
+        aite: [
+          { no:2, name:"ニシノサリーナ", style:"逃げ", jockey:"池添", mc:0.31 },
+          { no:14, name:"トレヴィ", style:"先行", jockey:"岩田康", mc:0.29 },
+          { no:3, name:"アイアムステキ", style:"差し", jockey:"浜中", mc:0.26 }
+        ]
+      },
+      "不良": {
+        jiku: { no:11, name:"ウィングブルー", style:"逃げ", jockey:"斎藤", mc:0.44 },
+        aite: [
+          { no:2, name:"ニシノサリーナ", style:"逃げ", jockey:"池添", mc:0.35 },
+          { no:14, name:"トレヴィ", style:"先行", jockey:"岩田康", mc:0.3 },
+          { no:3, name:"アイアムステキ", style:"差し", jockey:"浜中", mc:0.26 }
         ]
       }
     }
@@ -829,27 +1480,89 @@ const RACES = [
     start_time: "14:50", nk_id: "202601010610",
     patterns: {
       "良・稍重": {
-        jiku: { no:8, name:"ベラジオワールド", style:"差し", jockey:"横山和", mc:0.42 },
+        jiku: { no:8, name:"ベラジオワールド", style:"差し", jockey:"横山和", mc:0.46 },
         aite: [
           { no:9, name:"レディゴディヴァ", style:"先行", jockey:"川又", mc:0.37 },
-          { no:10, name:"リメンバーヒム", style:"差し", jockey:"小沢", mc:0.36 },
-          { no:13, name:"タガノエルー", style:"先行", jockey:"古川吉", mc:0.33 }
+          { no:13, name:"タガノエルー", style:"先行", jockey:"古川吉", mc:0.34 },
+          { no:1, name:"マーゴットサンズ", style:"先行", jockey:"古川奈", mc:0.32 }
         ]
       },
       "重": {
         jiku: { no:9, name:"レディゴディヴァ", style:"先行", jockey:"川又", mc:0.42 },
         aite: [
-          { no:13, name:"タガノエルー", style:"先行", jockey:"古川吉", mc:0.38 },
-          { no:1, name:"マーゴットサンズ", style:"先行", jockey:"古川奈", mc:0.37 },
-          { no:8, name:"ベラジオワールド", style:"差し", jockey:"横山和", mc:0.36 }
+          { no:13, name:"タガノエルー", style:"先行", jockey:"古川吉", mc:0.4 },
+          { no:1, name:"マーゴットサンズ", style:"先行", jockey:"古川奈", mc:0.35 },
+          { no:8, name:"ベラジオワールド", style:"差し", jockey:"横山和", mc:0.34 }
         ]
       },
       "不良": {
-        jiku: { no:9, name:"レディゴディヴァ", style:"先行", jockey:"川又", mc:0.48 },
+        jiku: { no:9, name:"レディゴディヴァ", style:"先行", jockey:"川又", mc:0.45 },
         aite: [
-          { no:13, name:"タガノエルー", style:"先行", jockey:"古川吉", mc:0.41 },
-          { no:2, name:"テイエムゴッホ", style:"逃げ", jockey:"舟山", mc:0.39 },
+          { no:13, name:"タガノエルー", style:"先行", jockey:"古川吉", mc:0.43 },
+          { no:2, name:"テイエムゴッホ", style:"逃げ", jockey:"舟山", mc:0.42 },
           { no:1, name:"マーゴットサンズ", style:"先行", jockey:"古川奈", mc:0.39 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_札幌_11", date: "2026-08-09", venue: "札幌", rno: 11,
+    rname: "UHB賞", dst: 1200, cnt: 16,
+    start_time: "15:25", nk_id: "202601010611",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:16, name:"ロードフォアエース", style:"先行", jockey:"岩田康", mc:0.24 },
+        aite: [
+          { no:15, name:"ウインアイオライト", style:"差し", jockey:"黛", mc:0.23 },
+          { no:10, name:"ナムラクララ", style:"差し", jockey:"浜中", mc:0.22 },
+          { no:9, name:"カンティーユ", style:"逃げ", jockey:"横山和", mc:0.21 }
+        ]
+      },
+      "重": {
+        jiku: { no:16, name:"ロードフォアエース", style:"先行", jockey:"岩田康", mc:0.3 },
+        aite: [
+          { no:9, name:"カンティーユ", style:"逃げ", jockey:"横山和", mc:0.3 },
+          { no:3, name:"ブラックチャリス", style:"先行", jockey:"吉田隼", mc:0.26 },
+          { no:13, name:"ルシード", style:"先行", jockey:"北村友", mc:0.24 }
+        ]
+      },
+      "不良": {
+        jiku: { no:16, name:"ロードフォアエース", style:"先行", jockey:"岩田康", mc:0.35 },
+        aite: [
+          { no:9, name:"カンティーユ", style:"逃げ", jockey:"横山和", mc:0.34 },
+          { no:3, name:"ブラックチャリス", style:"先行", jockey:"吉田隼", mc:0.28 },
+          { no:14, name:"マーブルパレス", style:"先行", jockey:"斎藤", mc:0.27 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260809_札幌_12", date: "2026-08-09", venue: "札幌", rno: 12,
+    rname: "石狩特別", dst: 1800, cnt: 8,
+    start_time: "16:00", nk_id: "202601010612",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:8, name:"ヴァロアーク", style:"先行", jockey:"北村友", mc:0.69 },
+        aite: [
+          { no:4, name:"グレーヌドジョワ", style:"先行", jockey:"荻野琢", mc:0.55 },
+          { no:5, name:"グランセゾン", style:"先行", jockey:"舟山", mc:0.43 },
+          { no:7, name:"ディーリライズ", style:"差し", jockey:"浜中", mc:0.33 }
+        ]
+      },
+      "重": {
+        jiku: { no:8, name:"ヴァロアーク", style:"先行", jockey:"北村友", mc:0.79 },
+        aite: [
+          { no:4, name:"グレーヌドジョワ", style:"先行", jockey:"荻野琢", mc:0.58 },
+          { no:5, name:"グランセゾン", style:"先行", jockey:"舟山", mc:0.49 },
+          { no:2, name:"ロングミックス", style:"先行", jockey:"横山典", mc:0.34 }
+        ]
+      },
+      "不良": {
+        jiku: { no:8, name:"ヴァロアーク", style:"先行", jockey:"北村友", mc:0.81 },
+        aite: [
+          { no:4, name:"グレーヌドジョワ", style:"先行", jockey:"荻野琢", mc:0.65 },
+          { no:5, name:"グランセゾン", style:"先行", jockey:"舟山", mc:0.53 },
+          { no:2, name:"ロングミックス", style:"先行", jockey:"横山典", mc:0.38 }
         ]
       }
     }

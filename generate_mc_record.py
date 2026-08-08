@@ -172,27 +172,21 @@ def build_races(conn, horse_hist):
     print(f'発走時刻マップ: {len(st_map)}件 (this_week_races.json)')
 
     # this_week_races.jsonから当日出走馬を取得（出走前でも使えるように）
+    # 2026-08-09: AYOkeiba側の対象範囲(芝・ダート全レース、新馬・障害のみ除外)に合わせて
+    # ウィジェット(widget_data.json)の対象レースも展開予想/MC123タブと同じ範囲に統一
     p = Path('this_week_races.json')
     all_json = json.load(open(p, encoding='utf-8')) if p.exists() else []
     json_races = [r for r in all_json
-                  if r.get('date') == TARGET_DATE and r.get('surface') == 'ダ']
+                  if r.get('date') == TARGET_DATE and r.get('surface') in ('芝', 'ダ')]
 
     def is_valid_race(r):
         rname = r.get('race_name') or ''
-        if '新馬' in rname or '未勝利' in rname:
-            return False
-        ages = []
-        for h in r.get('horses', []):
-            m = re.search(r'\d+', h.get('age', '') or '')
-            if m:
-                ages.append(int(m.group()))
-        max_age = max(ages) if ages else 0
-        if not rname and max_age < 4:
+        if '新馬' in rname or '障害' in rname:
             return False
         return True
 
     json_races = [r for r in json_races if is_valid_race(r)]
-    print(f'新馬・未勝利除外後: {len(json_races)}件')
+    print(f'新馬・障害除外後: {len(json_races)}件')
 
     races_js = []
     for race_idx, race in enumerate(sorted(json_races, key=lambda r: (r.get('venue', ''), r.get('race_num', 0)))):

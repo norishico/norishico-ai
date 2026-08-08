@@ -2408,6 +2408,7 @@ function renderPaceCard(rid) {
         </div>
       </div>
       <div class="pace-comment">${p.comment || race.comment || ''}</div>
+      ${(p.s || 0) >= 0.6 ? `<div class="pace-note" style="margin-top:2px">参考(過去傾向): このような終盤スパート濃厚な展開のレースでは、MC123の1位予想馬の複勝的中率は過去平均62%でした(全体平均53%、2024年以降n=652)。相関であり、今後を保証するものではありません。</div>` : ''}
       ${accDetail}
       <div class="bump-wrap">${bumpChartSvg(race, wakuOf)}</div>
       <div class="pace-note" style="margin-top:4px">上の帯=先頭〜最後尾の推定馬身差、点線=隊列の切れ目、▲=終盤一気に進みそうな馬。馬番タップで位置の確からしさを表示</div>

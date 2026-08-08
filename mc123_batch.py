@@ -202,8 +202,12 @@ def compute_rank_z_fast(hist_list, asof_date, rank_mu, rank_sigma, n_recent=5):
 def compute_margin_z_fast(hist_list, asof_date, margin_par, n_recent=5):
     """mba_run = -clip(margin,-2,4)/sigma_cell (平均センタリングなし)。
     margin>=90(DNF)・NULLはスキップ。有効過去走2走未満は中立0。"""
+    # 【2026-08-08修正】着差が「ハナ」「クビ」「1/2」等の日本語表記(文字列)で入っている
+    # 行が250件(全margin非NULLの約0.075%)存在し、数値比較でTypeErrorになっていた
+    # (SQL側のbuild_extra_par.pyは型affinityにより文字列を自動的に除外できているため
+    # 未発覚だった)。数値型のmarginのみを対象にする
     past = [e for e in hist_list if e["date"] < asof_date
-            and e.get("margin") is not None and e["margin"] < 90
+            and isinstance(e.get("margin"), (int, float)) and e["margin"] < 90
             and e["surface"] in ("芝", "ダ")]
     recent = past[-n_recent:][::-1]
     vals = []

@@ -349,6 +349,26 @@
      見えなくなっていた(2026-08-08、のりお指摘で修正) */
   .pace-horse .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
   .pace-horse .style-tag { flex-shrink:0; }
+  /* MC123ランキング(2026-08-08追加、情報提供専用)。買い目ロジック(コーラル/パープル)とも
+     精度チップ(teal/slate/amber)とも別系統のインディゴ系配色にし、金銀銅のような
+     「当たり馬券」を連想させる装飾は避ける(委員会りこ指摘) */
+  .mc123-block { margin-bottom: 14px; }
+  .mc123-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+  .mc123-title { font-size:12px; font-weight:700; color:#818cf8; }
+  .mc123-list { display:flex; flex-direction:column; gap:3px; }
+  .mc123-row { display:flex; align-items:center; gap:6px; font-size:12px; padding:3px 6px;
+    border-radius:6px; border-left:2px solid transparent; min-width:0; }
+  .mc123-row.mc123-top { border-left-color:#818cf8; background:rgba(129,140,248,.07); }
+  .mc123-rank { width:15px; text-align:center; font-size:11px; font-weight:700;
+    color:#71717a; flex-shrink:0; }
+  .mc123-row.mc123-top .mc123-rank { color:#818cf8; }
+  .mc123-row .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
+  .mc123-row .style-tag { flex-shrink:0; }
+  .mc123-bar-wrap { flex:0 1 60px; min-width:28px; height:6px; background:rgba(255,255,255,.06);
+    border-radius:3px; overflow:hidden; }
+  .mc123-bar { height:100%; background:#818cf8; border-radius:3px; }
+  .mc123-pct { width:32px; text-align:right; font-size:11px; color:var(--bs-secondary-color);
+    flex-shrink:0; font-variant-numeric:tabular-nums; }
   /* タブナビ スマホ対応: 展開予想タブ追加で4タブになり、375-390px幅で折り返して
      2段崩れしていたため、横スクロール化+コンパクト化で1行に収める */
   @media (max-width: 575px) {
@@ -1596,12 +1616,28 @@ const WAKU_TEXT = {1:'#18181b',2:'#ffffff',3:'#ffffff',4:'#ffffff',5:'#1c1917',6
 const WAKU_LINE = {1:'#d4d4d8',2:'#8b8b94',3:'#ef4444',4:'#3b82f6',5:'#eab308',6:'#22c55e',7:'#f97316',8:'#ec4899'};
 const PACE_STAGES = [['start','スタート後'],['corner3','3コーナー'],['corner4','4コーナー'],['goal','ゴール']];
 let paceData = null, paceLoaded = false, paceSel = {};
+// MC123(1〜3着内確率、情報提供専用)。pace_data.jsonとは完全独立のファイル+読込経路。
+// 取得に失敗しても展開予想側の表示には一切影響しない(グレースフルデグレード)
+let mc123Data = null;
+
+async function loadMc123Data() {
+  try {
+    const r = await fetch('mc123_data.json', {cache:'no-store'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    mc123Data = await r.json();
+  } catch (e) {
+    mc123Data = null;
+  }
+}
 
 async function loadPaceTab() {
   if (paceLoaded) return;
   const c = document.getElementById('pace-container');
   try {
-    const r = await fetch('pace_data.json', {cache:'no-store'});
+    const [r] = await Promise.all([
+      fetch('pace_data.json', {cache:'no-store'}),
+      loadMc123Data(),
+    ]);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     paceData = await r.json();
     paceLoaded = true;
@@ -1673,6 +1709,33 @@ function renderPaceCard(rid) {
          (2024年以降の${acc.n}レースで検証)。ただし最終着順の予想は、通過順の予想より当たりにくい傾向があります
          (全体平均で通過順の当たりやすさの4割程度)。買い目(MCロジック)とは無関係の参考情報です。
        </div>` : '';
+  // MC123ランキング(1〜3着内確率、情報提供専用)。pace_data.jsonとは別ファイルのため
+  // 取得できていない場合は静かに省略する(グレースフルデグレード)
+  const mc123Race = mc123Data && mc123Data.races
+    ? mc123Data.races.find(r => r.race_id === rid) : null;
+  let mc123Html = '';
+  if (mc123Race) {
+    const rows = mc123Race.horses.slice().sort((a, b) => a.rank - b.rank).map(h => {
+      const pat = h.patterns[track] || h.patterns[TRACKS[0]] || {};
+      const pct = Math.round((pat.ptop3 || 0) * 100);
+      return `<div class="mc123-row ${h.rank <= 3 ? 'mc123-top' : ''}">
+        <span class="mc123-rank">${h.rank}</span>
+        <span class="wk wk${h.waku}">${h.num}</span>
+        <span class="nm">${h.name}</span>
+        <span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style || ''}</span>
+        <div class="mc123-bar-wrap"><div class="mc123-bar" style="width:${pct}%"></div></div>
+        <span class="mc123-pct">${pct}%</span>
+      </div>`;
+    }).join('');
+    mc123Html = `
+      <div class="mc123-block">
+        <div class="mc123-head">
+          <span class="mc123-title">AI予測(3着内確率)</span>
+          <span class="pace-note">買い目ではなく参考情報です・オッズ未考慮</span>
+        </div>
+        <div class="mc123-list">${rows}</div>
+      </div>`;
+  }
   host.innerHTML = `
   <div class="pace-card">
     <div class="pace-card-head">
@@ -1685,6 +1748,7 @@ function renderPaceCard(rid) {
       <div class="track-seg">${pills}</div>
     </div>
     <div class="pace-body">
+      ${mc123Html}
       <div class="d-flex align-items-center gap-3 flex-wrap">
         <span class="pace-verdict" style="color:${vcolor}">${verdict}</span>
         <div class="pace-gauge flex-fill" style="min-width:220px">

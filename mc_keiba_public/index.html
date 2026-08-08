@@ -309,6 +309,51 @@
   @keyframes slideup { from { transform: translateX(-50%) translateY(16px); opacity:0; } to { transform: translateX(-50%) translateY(0); opacity:1; } }
   @keyframes fadeout { to { opacity:0; transform: translateX(-50%) translateY(8px); } }
   .undo-btn { background: var(--coral); border: none; color: #fff; padding: 4px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+  /* ══ 展開予想タブ (2026-08-07追加, mc_dyn) ══ */
+  .pace-card { border:1px solid rgba(255,255,255,.08); border-radius:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+    margin-bottom:16px; overflow:hidden; }
+  .pace-card-head { display:flex; align-items:center; gap:10px; padding:12px 14px;
+    border-bottom:1px solid rgba(255,255,255,.06); flex-wrap:wrap; }
+  .pace-chip { font-size:11px; padding:2px 8px; border-radius:10px;
+    background:rgba(255,255,255,.07); color:var(--bs-secondary-color); white-space:nowrap; }
+  .pace-body { padding:12px 14px; }
+  .pace-gauge { display:flex; height:24px; border-radius:8px; overflow:hidden;
+    background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.06); }
+  .pace-seg { display:flex; align-items:center; justify-content:center; font-size:11px;
+    font-weight:700; color:#fff; transition:width .35s ease; min-width:0;
+    overflow:hidden; white-space:nowrap; }
+  .pace-seg-h { background:linear-gradient(90deg,#ef4444,#f87171); }
+  .pace-seg-m { background:linear-gradient(90deg,#52525b,#71717a); }
+  .pace-seg-s { background:linear-gradient(90deg,#2563eb,#60a5fa); }
+  .pace-verdict { font-size:13px; font-weight:700; white-space:nowrap; }
+  .pace-comment { font-size:12px; color:var(--bs-secondary-color); line-height:1.6; margin:8px 0 0; }
+  .pace-note { font-size:11px; color:var(--bs-secondary-color); }
+  .bump-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; margin-top:10px; }
+  /* JRA枠番配色バッジ */
+  .wk { display:inline-flex; align-items:center; justify-content:center; width:22px;
+    height:22px; border-radius:6px; font-size:11px; font-weight:800; flex-shrink:0; }
+  .wk1 { background:#f4f4f5; color:#18181b; }
+  .wk2 { background:#18181b; color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.4); }
+  .wk3 { background:#dc2626; color:#fff; }
+  .wk4 { background:#2563eb; color:#fff; }
+  .wk5 { background:#eab308; color:#1c1917; }
+  .wk6 { background:#16a34a; color:#fff; }
+  .wk7 { background:#ea580c; color:#fff; }
+  .wk8 { background:#db2777; color:#fff; }
+  .pace-horse-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+    gap:5px 12px; margin-top:10px; }
+  .pace-horse { display:flex; align-items:center; gap:6px; font-size:12px; min-width:0; }
+  .pace-horse .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* タブナビ スマホ対応: 展開予想タブ追加で4タブになり、375-390px幅で折り返して
+     2段崩れしていたため、横スクロール化+コンパクト化で1行に収める */
+  @media (max-width: 575px) {
+    .nav-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+    .nav-tabs .nav-item { flex-shrink: 0; }
+    .nav-tabs .nav-link { padding-left: 10px; padding-right: 10px; font-size: 13px; white-space: nowrap; }
+  }
 </style>
 </head>
 <body class="antialiased">
@@ -378,6 +423,9 @@
       </li>
       <li class="nav-item">
         <a class="nav-link" data-tab="history" href="#" onclick="switchTab('history');return false;">記録履歴</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="pace" href="#" onclick="switchTab('pace');return false;">展開予想</a>
       </li>
       <li class="nav-item">
         <a class="nav-link" data-tab="logic" href="#" onclick="switchTab('logic');return false;">MCロジック</a>
@@ -638,6 +686,13 @@
   </div>
 </div>
 
+<!-- ══ 展開予想タブ (2026-08-07追加, mc_dyn 展開シミュレーター) ══ -->
+<div id="tab-pace" style="display:none">
+  <div class="container-xl py-3" id="pace-container">
+    <div class="text-secondary py-4 text-center">読み込み中…</div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.2.0/dist/js/tabler.min.js"></script>
 <script>
 // ── Helpers ──
@@ -650,187 +705,187 @@ const STORAGE_KEY = 'mc_keiba_v2';
 // ── Race data ──
 const RACES = [
   {
-    id: "20260718_函館_7", date: "2026-07-18", venue: "函館", rno: 7,
+    id: "20260808_中京_7", date: "2026-08-08", venue: "中京", rno: 7,
+    rname: "三河S", dst: 1800, cnt: 8,
+    start_time: "15:45", nk_id: "202607020507",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:7, name:"ロードヴォイジャー", style:"先行", jockey:"西村淳", mc:0.71 },
+        aite: [
+          { no:4, name:"インザモーメント", style:"差し", jockey:"田山", mc:0.63 },
+          { no:1, name:"タガノマカシヤ", style:"先行", jockey:"団野", mc:0.6 },
+          { no:3, name:"シンビリーブ", style:"差し", jockey:"川田", mc:0.34 }
+        ]
+      },
+      "重": {
+        jiku: { no:7, name:"ロードヴォイジャー", style:"先行", jockey:"西村淳", mc:0.8 },
+        aite: [
+          { no:1, name:"タガノマカシヤ", style:"先行", jockey:"団野", mc:0.67 },
+          { no:4, name:"インザモーメント", style:"差し", jockey:"田山", mc:0.56 },
+          { no:6, name:"クァンタムウェーブ", style:"先行", jockey:"コレット", mc:0.4 }
+        ]
+      },
+      "不良": {
+        jiku: { no:7, name:"ロードヴォイジャー", style:"先行", jockey:"西村淳", mc:0.81 },
+        aite: [
+          { no:1, name:"タガノマカシヤ", style:"先行", jockey:"団野", mc:0.73 },
+          { no:4, name:"インザモーメント", style:"差し", jockey:"田山", mc:0.5 },
+          { no:6, name:"クァンタムウェーブ", style:"先行", jockey:"コレット", mc:0.45 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260808_中京_8", date: "2026-08-08", venue: "中京", rno: 8,
+    rname: "恵那特別", dst: 1800, cnt: 12,
+    start_time: "16:20", nk_id: "202607020508",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:10, name:"テーオーカイザー", style:"差し", jockey:"川田", mc:0.76 },
+        aite: [
+          { no:11, name:"ゴンタ", style:"先行", jockey:"松若", mc:0.59 },
+          { no:9, name:"リアンドゥクール", style:"先行", jockey:"西村淳", mc:0.5 },
+          { no:12, name:"バケラッタ", style:"差し", jockey:"鮫島良", mc:0.32 }
+        ]
+      },
+      "重": {
+        jiku: { no:10, name:"テーオーカイザー", style:"差し", jockey:"川田", mc:0.69 },
+        aite: [
+          { no:11, name:"ゴンタ", style:"先行", jockey:"松若", mc:0.66 },
+          { no:9, name:"リアンドゥクール", style:"先行", jockey:"西村淳", mc:0.6 },
+          { no:8, name:"スマートグロワール", style:"先行", jockey:"幸", mc:0.28 }
+        ]
+      },
+      "不良": {
+        jiku: { no:11, name:"ゴンタ", style:"先行", jockey:"松若", mc:0.69 },
+        aite: [
+          { no:10, name:"テーオーカイザー", style:"差し", jockey:"川田", mc:0.67 },
+          { no:9, name:"リアンドゥクール", style:"先行", jockey:"西村淳", mc:0.65 },
+          { no:8, name:"スマートグロワール", style:"先行", jockey:"幸", mc:0.3 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260808_新潟_9", date: "2026-08-08", venue: "新潟", rno: 9,
+    rname: "3歳以上1勝クラス", dst: 1800, cnt: 15,
+    start_time: "16:45", nk_id: "202604020509",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:7, name:"テルケンユミクイン", style:"先行", jockey:"菊沢", mc:0.39 },
+        aite: [
+          { no:15, name:"イージーブリージー", style:"先行", jockey:"田辺", mc:0.37 },
+          { no:6, name:"ガーネットテソーロ", style:"差し", jockey:"▲佐藤", mc:0.36 },
+          { no:10, name:"ルージュカルデア", style:"差し", jockey:"小崎", mc:0.34 }
+        ]
+      },
+      "重": {
+        jiku: { no:7, name:"テルケンユミクイン", style:"先行", jockey:"菊沢", mc:0.48 },
+        aite: [
+          { no:15, name:"イージーブリージー", style:"先行", jockey:"田辺", mc:0.44 },
+          { no:10, name:"ルージュカルデア", style:"差し", jockey:"小崎", mc:0.29 },
+          { no:12, name:"シャオシンユン", style:"先行", jockey:"石川", mc:0.28 }
+        ]
+      },
+      "不良": {
+        jiku: { no:7, name:"テルケンユミクイン", style:"先行", jockey:"菊沢", mc:0.48 },
+        aite: [
+          { no:15, name:"イージーブリージー", style:"先行", jockey:"田辺", mc:0.43 },
+          { no:10, name:"ルージュカルデア", style:"差し", jockey:"小崎", mc:0.3 },
+          { no:12, name:"シャオシンユン", style:"先行", jockey:"石川", mc:0.29 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260808_札幌_7", date: "2026-08-08", venue: "札幌", rno: 7,
+    rname: "3歳以上1勝クラス", dst: 1000, cnt: 12,
+    start_time: "13:20", nk_id: "202601010507",
+    patterns: {
+      "良・稍重": {
+        jiku: { no:12, name:"ランプローグ", style:"差し", jockey:"☆長浜", mc:0.33 },
+        aite: [
+          { no:2, name:"ワイドデコラシオン", style:"先行", jockey:"横山武", mc:0.33 },
+          { no:10, name:"グレイトソン", style:"逃げ", jockey:"▲和田陽", mc:0.3 },
+          { no:3, name:"グランセレスト", style:"逃げ", jockey:"川又", mc:0.28 }
+        ]
+      },
+      "重": {
+        jiku: { no:2, name:"ワイドデコラシオン", style:"先行", jockey:"横山武", mc:0.42 },
+        aite: [
+          { no:10, name:"グレイトソン", style:"逃げ", jockey:"▲和田陽", mc:0.39 },
+          { no:3, name:"グランセレスト", style:"逃げ", jockey:"川又", mc:0.37 },
+          { no:12, name:"ランプローグ", style:"差し", jockey:"☆長浜", mc:0.28 }
+        ]
+      },
+      "不良": {
+        jiku: { no:10, name:"グレイトソン", style:"逃げ", jockey:"▲和田陽", mc:0.43 },
+        aite: [
+          { no:3, name:"グランセレスト", style:"逃げ", jockey:"川又", mc:0.43 },
+          { no:2, name:"ワイドデコラシオン", style:"先行", jockey:"横山武", mc:0.43 },
+          { no:5, name:"ヨドノゴールド", style:"先行", jockey:"岩田康", mc:0.29 }
+        ]
+      }
+    }
+  },
+  {
+    id: "20260808_札幌_9", date: "2026-08-08", venue: "札幌", rno: 9,
     rname: "3歳以上1勝クラス", dst: 1700, cnt: 14,
-    start_time: "13:10", nk_id: "202602011107",
+    start_time: "14:20", nk_id: "202601010509",
     patterns: {
       "良・稍重": {
-        jiku: { no:7, name:"グランセレスト", style:"逃げ", jockey:"丹内", mc:0.44 },
+        jiku: { no:11, name:"ジーティーアリア", style:"先行", jockey:"北村友", mc:0.58 },
         aite: [
-          { no:12, name:"カーマンライン", style:"差し", jockey:"▲遠藤", mc:0.38 },
-          { no:9, name:"シェーンルスカ", style:"追い込み", jockey:"★河原田", mc:0.33 },
-          { no:14, name:"ホウオウバローロ", style:"先行", jockey:"△鷲頭", mc:0.28 }
+          { no:4, name:"ビーチイン", style:"先行", jockey:"横山和", mc:0.38 },
+          { no:9, name:"ライフイズ", style:"先行", jockey:"▲和田陽", mc:0.26 },
+          { no:13, name:"グルーヴィーオン", style:"先行", jockey:"★河原田", mc:0.26 }
         ]
       },
       "重": {
-        jiku: { no:7, name:"グランセレスト", style:"逃げ", jockey:"丹内", mc:0.53 },
+        jiku: { no:11, name:"ジーティーアリア", style:"先行", jockey:"北村友", mc:0.62 },
         aite: [
-          { no:8, name:"パラダイスフェイス", style:"先行", jockey:"古川吉", mc:0.38 },
-          { no:14, name:"ホウオウバローロ", style:"先行", jockey:"△鷲頭", mc:0.36 },
-          { no:12, name:"カーマンライン", style:"差し", jockey:"▲遠藤", mc:0.32 }
+          { no:4, name:"ビーチイン", style:"先行", jockey:"横山和", mc:0.46 },
+          { no:13, name:"グルーヴィーオン", style:"先行", jockey:"★河原田", mc:0.32 },
+          { no:9, name:"ライフイズ", style:"先行", jockey:"▲和田陽", mc:0.31 }
         ]
       },
       "不良": {
-        jiku: { no:7, name:"グランセレスト", style:"逃げ", jockey:"丹内", mc:0.55 },
+        jiku: { no:11, name:"ジーティーアリア", style:"先行", jockey:"北村友", mc:0.68 },
         aite: [
-          { no:8, name:"パラダイスフェイス", style:"先行", jockey:"古川吉", mc:0.45 },
-          { no:14, name:"ホウオウバローロ", style:"先行", jockey:"△鷲頭", mc:0.38 },
-          { no:5, name:"ウィズマスタング", style:"先行", jockey:"横山武", mc:0.32 }
+          { no:4, name:"ビーチイン", style:"先行", jockey:"横山和", mc:0.45 },
+          { no:9, name:"ライフイズ", style:"先行", jockey:"▲和田陽", mc:0.33 },
+          { no:13, name:"グルーヴィーオン", style:"先行", jockey:"★河原田", mc:0.33 }
         ]
       }
     }
   },
   {
-    id: "20260718_函館_11", date: "2026-07-18", venue: "函館", rno: 11,
-    rname: "マリーンS", dst: 1700, cnt: 13,
-    start_time: "15:20", nk_id: "202602011111",
+    id: "20260808_札幌_11", date: "2026-08-08", venue: "札幌", rno: 11,
+    rname: "エルムS", dst: 1700, cnt: 11,
+    start_time: "15:25", nk_id: "202601010511",
     patterns: {
       "良・稍重": {
-        jiku: { no:4, name:"ホールシバン", style:"追い込み", jockey:"横山琉", mc:0.36 },
+        jiku: { no:5, name:"テーオーパスワード", style:"先行", jockey:"松山", mc:0.46 },
         aite: [
-          { no:7, name:"ラタフォレスト", style:"差し", jockey:"横山武", mc:0.31 },
-          { no:5, name:"イガッチ", style:"先行", jockey:"池添", mc:0.3 },
-          { no:8, name:"ハグ", style:"先行", jockey:"鮫島駿", mc:0.27 }
+          { no:4, name:"ナチュラルライズ", style:"差し", jockey:"横山武", mc:0.44 },
+          { no:11, name:"ペリエール", style:"差し", jockey:"佐々木", mc:0.33 },
+          { no:8, name:"ウェイワードアクト", style:"先行", jockey:"舟山", mc:0.32 }
         ]
       },
       "重": {
-        jiku: { no:5, name:"イガッチ", style:"先行", jockey:"池添", mc:0.34 },
+        jiku: { no:5, name:"テーオーパスワード", style:"先行", jockey:"松山", mc:0.54 },
         aite: [
-          { no:4, name:"ホールシバン", style:"追い込み", jockey:"横山琉", mc:0.3 },
-          { no:10, name:"ウェイワードアクト", style:"先行", jockey:"舟山", mc:0.3 },
-          { no:8, name:"ハグ", style:"先行", jockey:"鮫島駿", mc:0.3 }
+          { no:8, name:"ウェイワードアクト", style:"先行", jockey:"舟山", mc:0.39 },
+          { no:9, name:"ヒルノハンブルク", style:"先行", jockey:"池添", mc:0.39 },
+          { no:2, name:"レヴォントゥレット", style:"先行", jockey:"北村友", mc:0.34 }
         ]
       },
       "不良": {
-        jiku: { no:5, name:"イガッチ", style:"先行", jockey:"池添", mc:0.37 },
+        jiku: { no:5, name:"テーオーパスワード", style:"先行", jockey:"松山", mc:0.57 },
         aite: [
-          { no:8, name:"ハグ", style:"先行", jockey:"鮫島駿", mc:0.32 },
-          { no:10, name:"ウェイワードアクト", style:"先行", jockey:"舟山", mc:0.31 },
-          { no:3, name:"オウギノカナメ", style:"先行", jockey:"丹内", mc:0.3 }
-        ]
-      }
-    }
-  },
-  {
-    id: "20260718_小倉_10", date: "2026-07-18", venue: "小倉", rno: 10,
-    rname: "熊本城特別", dst: 1700, cnt: 12,
-    start_time: "14:55", nk_id: "202610020710",
-    patterns: {
-      "良・稍重": {
-        jiku: { no:7, name:"ワンダーカモン", style:"差し", jockey:"Ｍデムーロ", mc:0.37 },
-        aite: [
-          { no:6, name:"タマモナポリ", style:"先行", jockey:"酒井", mc:0.37 },
-          { no:12, name:"タガノヘラクレス", style:"差し", jockey:"高杉", mc:0.36 },
-          { no:9, name:"ナリタヒカリ", style:"先行", jockey:"太宰", mc:0.36 }
-        ]
-      },
-      "重": {
-        jiku: { no:6, name:"タマモナポリ", style:"先行", jockey:"酒井", mc:0.46 },
-        aite: [
-          { no:9, name:"ナリタヒカリ", style:"先行", jockey:"太宰", mc:0.44 },
-          { no:2, name:"ワイドクリーガー", style:"先行", jockey:"団野", mc:0.39 },
-          { no:12, name:"タガノヘラクレス", style:"差し", jockey:"高杉", mc:0.28 }
-        ]
-      },
-      "不良": {
-        jiku: { no:6, name:"タマモナポリ", style:"先行", jockey:"酒井", mc:0.5 },
-        aite: [
-          { no:9, name:"ナリタヒカリ", style:"先行", jockey:"太宰", mc:0.45 },
-          { no:2, name:"ワイドクリーガー", style:"先行", jockey:"団野", mc:0.43 },
-          { no:12, name:"タガノヘラクレス", style:"差し", jockey:"高杉", mc:0.28 }
-        ]
-      }
-    }
-  },
-  {
-    id: "20260718_小倉_12", date: "2026-07-18", venue: "小倉", rno: 12,
-    rname: "3歳以上1勝クラス", dst: 1700, cnt: 14,
-    start_time: "16:15", nk_id: "202610020712",
-    patterns: {
-      "良・稍重": {
-        jiku: { no:13, name:"ヨカオウ", style:"差し", jockey:"☆田山", mc:0.64 },
-        aite: [
-          { no:5, name:"バートラガッツ", style:"先行", jockey:"松山", mc:0.4 },
-          { no:12, name:"フリッシュ", style:"追い込み", jockey:"藤懸", mc:0.28 },
-          { no:3, name:"スマートクラビ", style:"差し", jockey:"吉村", mc:0.25 }
-        ]
-      },
-      "重": {
-        jiku: { no:13, name:"ヨカオウ", style:"差し", jockey:"☆田山", mc:0.6 },
-        aite: [
-          { no:5, name:"バートラガッツ", style:"先行", jockey:"松山", mc:0.49 },
-          { no:12, name:"フリッシュ", style:"追い込み", jockey:"藤懸", mc:0.26 },
-          { no:7, name:"ブラックレジェンド", style:"先行", jockey:"◇今村", mc:0.24 }
-        ]
-      },
-      "不良": {
-        jiku: { no:13, name:"ヨカオウ", style:"差し", jockey:"☆田山", mc:0.56 },
-        aite: [
-          { no:5, name:"バートラガッツ", style:"先行", jockey:"松山", mc:0.54 },
-          { no:12, name:"フリッシュ", style:"追い込み", jockey:"藤懸", mc:0.25 },
-          { no:10, name:"フランキーバローズ", style:"先行", jockey:"団野", mc:0.25 }
-        ]
-      }
-    }
-  },
-  {
-    id: "20260718_福島_10", date: "2026-07-18", venue: "福島", rno: 10,
-    rname: "米沢特別", dst: 1700, cnt: 15,
-    start_time: "15:10", nk_id: "202603020710",
-    patterns: {
-      "良・稍重": {
-        jiku: { no:3, name:"グロスビーク", style:"先行", jockey:"戸崎圭", mc:0.48 },
-        aite: [
-          { no:2, name:"グラスブランシュ", style:"追い込み", jockey:"杉原", mc:0.34 },
-          { no:11, name:"ホープエトワール", style:"先行", jockey:"木幡巧", mc:0.31 },
-          { no:7, name:"ライジンマル", style:"先行", jockey:"木幡初", mc:0.27 }
-        ]
-      },
-      "重": {
-        jiku: { no:3, name:"グロスビーク", style:"先行", jockey:"戸崎圭", mc:0.52 },
-        aite: [
-          { no:11, name:"ホープエトワール", style:"先行", jockey:"木幡巧", mc:0.34 },
-          { no:7, name:"ライジンマル", style:"先行", jockey:"木幡初", mc:0.3 },
-          { no:2, name:"グラスブランシュ", style:"追い込み", jockey:"杉原", mc:0.3 }
-        ]
-      },
-      "不良": {
-        jiku: { no:3, name:"グロスビーク", style:"先行", jockey:"戸崎圭", mc:0.55 },
-        aite: [
-          { no:11, name:"ホープエトワール", style:"先行", jockey:"木幡巧", mc:0.37 },
-          { no:12, name:"タケルハーロック", style:"逃げ", jockey:"石田", mc:0.31 },
-          { no:7, name:"ライジンマル", style:"先行", jockey:"木幡初", mc:0.31 }
-        ]
-      }
-    }
-  },
-  {
-    id: "20260718_福島_12", date: "2026-07-18", venue: "福島", rno: 12,
-    rname: "3歳以上1勝クラス", dst: 1150, cnt: 16,
-    start_time: "16:30", nk_id: "202603020712",
-    patterns: {
-      "良・稍重": {
-        jiku: { no:2, name:"ソニックブレイカー", style:"差し", jockey:"戸崎圭", mc:0.49 },
-        aite: [
-          { no:3, name:"ディヴァインスカイ", style:"差し", jockey:"津村", mc:0.33 },
-          { no:13, name:"ベルゼビュート", style:"先行", jockey:"菊沢", mc:0.31 },
-          { no:15, name:"ロックオブソシジ", style:"先行", jockey:"柴田大", mc:0.27 }
-        ]
-      },
-      "重": {
-        jiku: { no:13, name:"ベルゼビュート", style:"先行", jockey:"菊沢", mc:0.41 },
-        aite: [
-          { no:2, name:"ソニックブレイカー", style:"差し", jockey:"戸崎圭", mc:0.4 },
-          { no:15, name:"ロックオブソシジ", style:"先行", jockey:"柴田大", mc:0.34 },
-          { no:14, name:"エコロカディス", style:"先行", jockey:"杉原", mc:0.32 }
-        ]
-      },
-      "不良": {
-        jiku: { no:13, name:"ベルゼビュート", style:"先行", jockey:"菊沢", mc:0.43 },
-        aite: [
-          { no:2, name:"ソニックブレイカー", style:"差し", jockey:"戸崎圭", mc:0.38 },
-          { no:14, name:"エコロカディス", style:"先行", jockey:"杉原", mc:0.35 },
-          { no:15, name:"ロックオブソシジ", style:"先行", jockey:"柴田大", mc:0.35 }
+          { no:8, name:"ウェイワードアクト", style:"先行", jockey:"舟山", mc:0.46 },
+          { no:2, name:"レヴォントゥレット", style:"先行", jockey:"北村友", mc:0.4 },
+          { no:9, name:"ヒルノハンブルク", style:"先行", jockey:"池添", mc:0.39 }
         ]
       }
     }
@@ -1460,11 +1515,12 @@ function switchTab(name) {
   document.querySelectorAll('.nav-link[data-tab]').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === name);
   });
-  ['today','history','logic'].forEach(t => {
+  ['today','history','logic','pace'].forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.style.display = t === name ? '' : 'none';
   });
   if (name === 'history') renderHistory();
+  if (name === 'pace') loadPaceTab();
   updateStats();
 }
 
@@ -1524,6 +1580,288 @@ setTimeout(() => {
     if (!p || p.status !== 'final' || stale) fetchPayout(race, null);
   });
 }, 1500);
+</script>
+<script>
+// ══ 展開予想タブ (2026-08-07追加) ══════════════════════════════════════════
+// mc_dyn展開シミュレーターの出力(pace_data.json、generate_pace_forecast.pyが生成)を
+// 表示する。既存のRACES/widget_data.jsonとは独立したデータ経路(読み込み失敗しても
+// 本体機能には影響しない)。
+const WAKU_FILL = {1:'#f4f4f5',2:'#18181b',3:'#dc2626',4:'#2563eb',5:'#eab308',6:'#16a34a',7:'#ea580c',8:'#db2777'};
+const WAKU_TEXT = {1:'#18181b',2:'#ffffff',3:'#ffffff',4:'#ffffff',5:'#1c1917',6:'#ffffff',7:'#ffffff',8:'#ffffff'};
+const WAKU_LINE = {1:'#d4d4d8',2:'#8b8b94',3:'#ef4444',4:'#3b82f6',5:'#eab308',6:'#22c55e',7:'#f97316',8:'#ec4899'};
+const PACE_STAGES = [['start','スタート後'],['corner3','3コーナー'],['corner4','4コーナー'],['goal','ゴール']];
+let paceData = null, paceLoaded = false, paceSel = {};
+
+async function loadPaceTab() {
+  if (paceLoaded) return;
+  const c = document.getElementById('pace-container');
+  try {
+    const r = await fetch('pace_data.json', {cache:'no-store'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    paceData = await r.json();
+    paceLoaded = true;
+    renderPaceTab();
+  } catch(e) {
+    c.innerHTML = '<div class="text-secondary py-5 text-center">展開予想データを読み込めませんでした<br>' +
+      '<span style="font-size:11px">(' + e.message + ')</span></div>';
+  }
+}
+
+function renderPaceTab() {
+  const c = document.getElementById('pace-container');
+  const races = (paceData.races || []).slice().sort((a,b) =>
+    a.venue === b.venue ? a.rno - b.rno : a.venue.localeCompare(b.venue, 'ja'));
+  let html = `
+    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+      <span class="fw-bold" style="font-size:15px">展開予想</span>
+      <span class="pace-chip">${paceData.date}</span>
+      <span class="pace-chip">${races.length}レース</span>
+      <span class="pace-note ms-auto">mc_dyn 展開シミュレーター(各${(paceData.n_sim||0).toLocaleString()}回試行)</span>
+    </div>
+    <div class="pace-note mb-3">${paceData.note || ''} 隊列は良馬場想定です。</div>`;
+  html += races.map(r => `<div id="pace-card-${r.race_id}"></div>`).join('');
+  c.innerHTML = html;
+  races.forEach(r => renderPaceCard(r.race_id));
+}
+
+function setPaceTrack(rid, t) { paceSel[rid] = t; renderPaceCard(rid); }
+
+function paceVerdict(p) {
+  const h = p.h||0, m = p.m||0, s = p.s||0;
+  if (h >= m && h >= s) return ['ハイペース' + (h >= .6 ? '濃厚' : '寄り'), '#f87171'];
+  if (s >= m)           return ['スローペース' + (s >= .6 ? '濃厚' : '寄り'), '#60a5fa'];
+  return ['ミドルペース中心', '#a1a1aa'];
+}
+
+function renderPaceCard(rid) {
+  const race = paceData.races.find(r => r.race_id === rid);
+  const host = document.getElementById('pace-card-' + rid);
+  if (!race || !host) return;
+  const track = paceSel[rid] || TRACKS[0];
+  const p = race.pace[track] || race.pace[TRACKS[0]] || {};
+  const [verdict, vcolor] = paceVerdict(p);
+  const pills = TRACKS.map(t =>
+    `<button class="track-pill ${t === track ? 'active' : ''}" onclick="setPaceTrack('${rid}','${t}')">${t}</button>`).join('');
+  const seg = (v, cls, label) => {
+    const pct = Math.round((v||0) * 100);
+    return `<div class="pace-seg ${cls}" style="width:${pct}%" title="${label} ${pct}%">${pct >= 12 ? label + ' ' + pct + '%' : ''}</div>`;
+  };
+  const wakuOf = {};
+  race.horses.forEach(h => wakuOf[h.num] = h.waku);
+  const horseList = race.horses.map(h =>
+    `<div class="pace-horse"><span class="wk wk${h.waku}">${h.num}</span>
+      <span class="nm">${h.name}<span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style}</span></span>
+    </div>`).join('');
+  const estWarn = race.numbers_estimated
+    ? `<span class="pace-chip" style="color:#fbbf24">馬番は暫定(枠順確定前データ)</span>` : '';
+  const acc = race.accuracy;
+  const ACC_COLOR = { '高': '#2dd4bf', '中': '#94a3b8', '低': '#facc15' };
+  const ACC_WORD = { '高': '当たりやすい部類', '中': '標準的な当たりやすさ', '低': 'やや当たりにくい部類' };
+  const accChip = acc
+    ? `<span class="pace-chip acc-chip" style="color:${ACC_COLOR[acc.tier]};cursor:pointer"
+         onclick="this.nextElementSibling.classList.toggle('d-none')">隊列 精度:${acc.tier}</span>`
+    : '';
+  const accDetail = acc
+    ? `<div class="pace-note acc-detail d-none" style="margin-top:6px;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:8px">
+         この会場・距離(${race.venue}${race.surface}${race.distance}m)の隊列予測は${ACC_WORD[acc.tier]}です
+         (2024年以降の${acc.n}レースで検証)。ただし最終着順の予想は、通過順の予想より当たりにくい傾向があります
+         (全体平均で通過順の当たりやすさの4割程度)。買い目(MCロジック)とは無関係の参考情報です。
+       </div>` : '';
+  host.innerHTML = `
+  <div class="pace-card">
+    <div class="pace-card-head">
+      <span class="venue-badge">${race.venue}</span>
+      <div style="min-width:0">
+        <div class="fw-bold" style="font-size:14px">${race.rno}R ${race.rname}</div>
+        <div class="pace-note">${race.surface}${race.distance}m・${race.n_horses}頭・逃げ${race.nige_count}頭</div>
+      </div>
+      ${estWarn}${accChip}
+      <div class="track-seg">${pills}</div>
+    </div>
+    <div class="pace-body">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <span class="pace-verdict" style="color:${vcolor}">${verdict}</span>
+        <div class="pace-gauge flex-fill" style="min-width:220px">
+          ${seg(p.h, 'pace-seg-h', 'ハイ')}${seg(p.m, 'pace-seg-m', 'ミドル')}${seg(p.s, 'pace-seg-s', 'スロー')}
+        </div>
+      </div>
+      <div class="pace-comment">${p.comment || race.comment || ''}</div>
+      ${accDetail}
+      <div class="bump-wrap">${bumpChartSvg(race, wakuOf)}</div>
+      <div class="pace-note" style="margin-top:4px">上の帯=先頭〜最後尾の推定馬身差、点線=隊列の切れ目、▲=終盤一気に進みそうな馬。馬番タップで位置の確からしさを表示</div>
+      <div class="pace-horse-list">${horseList}</div>
+      <div class="pace-note mt-2">※隊列予測は参考情報です。厳密な通過順ではなく大まかな位置取りの傾向としてご覧ください。買い目(MCロジック)とは独立した予測です。</div>
+    </div>
+  </div>`;
+}
+
+const STYLE_CLASS_PACE = {
+  '逃げ':'style-nige','先行':'style-senkou','差し':'style-sashi',
+  '追い込み':'style-oikomi','差し追込':'style-sashi','中団':'style-chutan'
+};
+
+// タップした馬×ステージの区分確率を表示するポップオーバー(C)。1チャートにつき1つ共有
+let pacePopoverEl = null;
+function showPaceTierPopover(evt, wx, wy, name, tp) {
+  evt.stopPropagation();
+  const svg = evt.currentTarget.closest('svg');
+  hidePaceTierPopover();
+  const names = ['先頭','先団','中団','後方'];
+  const rows = tp.map((p, i) => `${names[i]} ${Math.round(p * 100)}%`).join(' / ');
+  const div = document.createElement('div');
+  div.className = 'pace-tier-popover';
+  div.textContent = `${name}: ${rows}`;
+  div.style.cssText = 'position:absolute;z-index:20;background:#18181b;color:#fff;font-size:11px;' +
+    'padding:5px 9px;border-radius:6px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;';
+  const wrap = svg.closest('.bump-wrap');
+  const svgRect = svg.getBoundingClientRect(), wrapRect = wrap.getBoundingClientRect();
+  div.style.left = (svgRect.left - wrapRect.left + wrap.scrollLeft + wx) + 'px';
+  div.style.top = (svgRect.top - wrapRect.top + wy - 34) + 'px';
+  wrap.style.position = 'relative';
+  wrap.appendChild(div);
+  pacePopoverEl = div;
+  document.addEventListener('click', hidePaceTierPopover, { once: true });
+}
+function hidePaceTierPopover() {
+  if (pacePopoverEl) { pacePopoverEl.remove(); pacePopoverEl = null; }
+}
+
+function bumpChartSvg(race, wakuOf) {
+  const stages = PACE_STAGES.filter(([k]) => race.formation && race.formation[k]);
+  if (!stages.length) return '<div class="pace-note">このコースは隊列チャート非対応です(直線競走など)</div>';
+  const n = race.n_horses;
+  const rowH = 26, colW = 150, mL = 58, mT = 44, mB = 8, badgeW = 26, badgeH = 20;
+  const width = mL + colW * (stages.length - 1) + badgeW + 24;
+  const bodyH = rowH * n;
+  const height = mT + bodyH + mB;
+  const yOf = rank => mT + rank * rowH + rowH / 2;
+  const xOf = si => mL + si * colW;
+  const nameOf = {};
+  race.horses.forEach(h => nameOf[h.num] = h.name);
+
+  // 位置(rank)テーブル: num -> stageごとのrank / sd / 区分確率(tp) / 馬群デプス(gfl) / 一気前進確率(surge)
+  const rankOf = {}, sdOf = {}, tpOf = {}, gflOf = {}, surgeOf = {};
+  stages.forEach(([k], si) => {
+    race.formation[k].forEach((e, rank) => {
+      (rankOf[e.num] = rankOf[e.num] || [])[si] = rank;
+      (sdOf[e.num] = sdOf[e.num] || [])[si] = e.sd;
+      (tpOf[e.num] = tpOf[e.num] || [])[si] = e.tp;
+      (gflOf[e.num] = gflOf[e.num] || [])[si] = e.gfl;
+      if (e.surge != null) surgeOf[e.num] = e.surge;
+    });
+  });
+
+  // 区分バンド(先頭/先団/中団/後方、rank比率で全ステージ共通)
+  const cutoffs = [0.15, 0.40, 0.75, 1.0], tierNames = ['先頭','先団','中団','後方'];
+  let bands = '', prev = 0;
+  cutoffs.forEach((cut, i) => {
+    const endRank = Math.max(prev + 1, Math.round(cut * n));
+    const y0 = mT + prev * rowH, y1 = mT + Math.min(endRank, n) * rowH;
+    if (y1 > y0) {
+      bands += `<rect x="0" y="${y0}" width="${width}" height="${y1-y0}" fill="rgba(255,255,255,${i%2 ? .015 : .045})"/>` +
+        `<text x="8" y="${(y0+y1)/2+4}" fill="rgba(255,255,255,.45)" font-size="11" font-weight="600">${tierNames[i]}</text>`;
+    }
+    prev = Math.min(endRank, n);
+  });
+
+  // (A) 馬群デプスバー+区切り線。gaps_between[stage] = 隣接順位間ギャップ(馬身)の配列(長さn-1)
+  const gapsAll = race.gaps_between || {};
+  const maxDepth = Math.max(1, ...stages.map(([k]) => {
+    const gb = gapsAll[k];
+    return gb ? gb.reduce((a, b) => a + b, 0) : 0;
+  }));
+  const depthBarMaxW = colW - 20;
+  let depthBars = '', breakLines = '';
+  const GAP_BREAK_M = 1.5; // この馬身以上の間隔があれば「隊列の切れ目」とみなす(初期値、要調整)
+  stages.forEach(([k], si) => {
+    const gb = gapsAll[k];
+    if (!gb) return;
+    const totalDepth = gb.reduce((a, b) => a + b, 0);
+    const bw = Math.max(2, depthBarMaxW * totalDepth / maxDepth);
+    const bx = xOf(si) + badgeW / 2 - bw / 2;
+    depthBars += `<rect x="${bx}" y="26" width="${bw}" height="4" rx="2" fill="rgba(232,134,90,.55)"/>`;
+    depthBars += `<text x="${xOf(si) + badgeW/2}" y="24" text-anchor="middle" fill="rgba(255,255,255,.4)" ` +
+      `font-size="9">約${totalDepth.toFixed(0)}馬身</text>`;
+    gb.forEach((g, r) => {
+      if (g >= GAP_BREAK_M) {
+        const y = mT + (r + 1) * rowH;
+        breakLines += `<line x1="${xOf(si) - 6}" y1="${y}" x2="${xOf(si) + badgeW + 6}" y2="${y}" ` +
+          `stroke="rgba(255,255,255,.3)" stroke-width="1" stroke-dasharray="2,2"/>`;
+      }
+    });
+  });
+
+  // ステージ見出し+ (D) 入替チップ(4角->ゴール間のみ、直前ステージとgoalの間に表示)
+  const heads = stages.map(([k, label], si) =>
+    `<text x="${xOf(si) + badgeW/2}" y="18" text-anchor="middle" fill="rgba(255,255,255,.6)" ` +
+    `font-size="11" font-weight="600">${label}</text>`).join('');
+  let churnChip = '';
+  const goalIdx = stages.findIndex(([k]) => k === 'goal');
+  if (goalIdx > 0 && race.churn_label) {
+    const cx = (xOf(goalIdx - 1) + xOf(goalIdx)) / 2 + badgeW / 2;
+    const churnColor = { '小': '#a1a1aa', '中': '#fb923c', '大': '#f87171' }[race.churn_label] || '#a1a1aa';
+    churnChip = `<g>
+      <rect x="${cx - 20}" y="4" width="40" height="16" rx="8" fill="${churnColor}" fill-opacity="0.18"/>
+      <text x="${cx}" y="15" text-anchor="middle" fill="${churnColor}" font-size="10" font-weight="700">入替${race.churn_label}</text>
+    </g>`;
+  }
+
+  // (B) ゴール列のみ、順位ではなく推定着差(馬身)に比例した実距離風y座標にする。
+  // 密集時のバッジ衝突を避けるため、着差順に並べたあとbadgeH間隔を下回らないよう押し下げ、
+  // 末尾が枠からはみ出す場合は間隔を均等に圧縮する(単純な貪欲ラベル配置アルゴリズム)
+  const goalYOf = {};
+  if (goalIdx >= 0 && race.formation.goal) {
+    const targets = race.formation.goal.map(e => ({
+      num: e.num,
+      y: mT + Math.min(e.gfl || 0, maxDepth) / (maxDepth || 1) * (bodyH - badgeH) + badgeH / 2,
+    }));
+    for (let i = 1; i < targets.length; i++) {
+      if (targets[i].y < targets[i - 1].y + badgeH) targets[i].y = targets[i - 1].y + badgeH;
+    }
+    const bottom = mT + bodyH - badgeH / 2;
+    const overflow = targets.length ? targets[targets.length - 1].y - bottom : 0;
+    if (overflow > 0 && targets.length > 1) {
+      const span = targets[targets.length - 1].y - targets[0].y;
+      const scale = span > 0 ? Math.max(0.25, (span - overflow) / span) : 1;
+      const base = targets[0].y;
+      targets.forEach(t => { t.y = base + (t.y - base) * scale; });
+    }
+    targets.forEach(t => { goalYOf[t.num] = t.y; });
+  }
+
+  // 折れ線+ノード
+  const yAt = (num, k, si) => (k === 'goal' && goalYOf[num] != null) ? goalYOf[num] : yOf(rankOf[num][si]);
+  let lines = '', nodes = '';
+  race.horses.forEach(h => {
+    const rk = rankOf[h.num];
+    if (!rk) return;
+    const pts = stages.map(([k], si) => rk[si] != null ? `${xOf(si) + badgeW/2},${yAt(h.num, k, si)}` : null).filter(Boolean);
+    if (pts.length > 1) {
+      lines += `<polyline points="${pts.join(' ')}" fill="none" stroke="${WAKU_LINE[h.waku] || '#888'}" stroke-width="2" stroke-opacity="0.45" stroke-linejoin="round"/>`;
+    }
+    stages.forEach(([k], si) => {
+      if (rk[si] == null) return;
+      const x = xOf(si), wx = x + badgeW / 2;
+      const y = yAt(h.num, k, si);
+      const tp = tpOf[h.num] && tpOf[h.num][si];
+      const wCol = WAKU_LINE[h.waku] || '#888';
+      // 閾値0.03は実データ32レース・397頭分のsurge_p分布(95%tile≈0.033)から暫定設定。
+      // 当初案の0.3は同分布のmax(0.067)すら下回り一度も発火しないため2026-08-08に修正
+      const surgeMark = (k === 'goal' && (surgeOf[h.num] || 0) >= 0.03)
+        ? `<path d="M ${wx} ${y - badgeH/2 - 9} l 4 6 h -8 z" fill="#4ade80"/>` : '';
+      nodes += `<g class="pace-node" data-y="${y}" data-x="${x}" data-si="${si}">
+        <rect x="${x}" y="${y - badgeH/2}" width="${badgeW}" height="${badgeH}" rx="5"
+          fill="${WAKU_FILL[h.waku] || '#666'}" ${h.waku === 2 ? 'stroke="rgba(255,255,255,.45)" stroke-width="1"' : ''}
+          style="cursor:${tp ? 'pointer' : 'default'}"
+          ${tp ? `onclick="showPaceTierPopover(event,${wx},${y},'${h.name.replace(/'/g, "\\'")}',[${tp.join(',')}])"` : ''}/>
+        <text x="${wx}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="800"
+          fill="${WAKU_TEXT[h.waku] || '#fff'}" style="pointer-events:none">${h.num}</text>
+        ${surgeMark}</g>`;
+    });
+  });
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"
+    style="display:block" role="img" aria-label="予想隊列チャート">${bands}${depthBars}${breakLines}${heads}${churnChip}${lines}${nodes}</svg>`;
+}
 </script>
 </body>
 </html>

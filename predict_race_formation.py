@@ -30,6 +30,7 @@ mc_dyn_engine.simulate_field(record_snapshots=True) の順位スナップショ�
 import sys
 import io
 import json
+import math
 import time
 import random
 import argparse
@@ -179,9 +180,27 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
     n = len(horses)
     rng = random.Random(seed)
     rank_sums = defaultdict(lambda: [0.0] * n)
+    rank_sq_sums = defaultdict(lambda: [0.0] * n)
     n_zones = len(geometry["corner_zones"])
     pace_counts = {"H": 0, "M": 0, "S": 0, "none": 0}
     lap_sums, lap_counts = [], []
+    # 2026-08-08追加: バンプチャートの不確実性可視化(A馬群デプス/C区分確率/D入替チャーン)用の
+    # 追加統計。simulate_field本体は変更せず、snapshots(ranks/cross_times)から集計するのみ。
+    phase_map = {
+        "序盤(1角入口)": "phase_c1", "中盤(仕掛け点)": "phase_kick",
+        "終盤(最終C入口≒3角)": f"zone{n_zones-1}_in",
+        "直線入口(最終C出口≒4角)": f"zone{n_zones-1}_out", "ゴール": "goal",
+    }
+    only_keys = set(phase_map.values())
+    rank_hist = defaultdict(lambda: [[0] * n for _ in range(n)])          # [name][horse_i][rank0idx] = 出現回数
+    gap_from_leader_sums = defaultdict(lambda: [0.0] * n)                 # [name][horse_i] = 先頭比ギャップ秒の合計
+    gap_from_leader_counts = defaultdict(lambda: [0] * n)
+    gap_between_sums = defaultdict(lambda: [0.0] * n)                     # [name][r] = r位-r+1位間ギャップ秒の合計(0-idx, r=0..n-2)
+    gap_between_counts = defaultdict(lambda: [0] * n)
+    corner4_key = f"zone{n_zones-1}_out" if n_zones else None
+    advance_sum = [0.0] * n            # 4角→ゴールの前進量(rank差、正=前に進んだ)の合計
+    surge_counts = [0] * n             # 3順位以上前進した回数(「一気に来る馬」判定用)
+    churn_race_sum = 0.0               # レース全体の平均|前進量|の合計(後でn_simで割って小/中/大判定)
     for k in range(n_sim):
         sim_horses = [{"style": st, "spd": 80.0 + rng.gauss(0, 3.0),
                        "spr": 80.0 + rng.gauss(0, 3.0),
@@ -208,6 +227,40 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
         for name, rk in ranks.items():  # 全チェックポイントを集計(zone0はpos1/2検証用)
             for i in range(n):
                 rank_sums[name][i] += rk[i]
+                rank_sq_sums[name][i] += rk[i] * rk[i]
+        # 馬群デプス(A)・区分確率(C)用: 表示対象フェーズ(only_keys)のみ、順位ヒストグラムと
+        # 隣接馬間ギャップ(cross_times、秒)をこのシミュレーション内で集計
+        checkpoints_meta = res["snapshots"]["checkpoints"]
+        cross_times = res["snapshots"]["cross_times"]
+        for ci, cpm in enumerate(checkpoints_meta):
+            name = cpm["name"]
+            if name not in only_keys:
+                continue
+            rk = ranks[name]
+            order = sorted(range(n), key=lambda i: rk[i])
+            for r, i in enumerate(order):
+                rank_hist[name][i][r] += 1
+            ts = [cross_times[i][ci] for i in range(n)]
+            leader_t = next((ts[i] for i in order if ts[i] is not None), None)
+            if leader_t is not None:
+                for i in range(n):
+                    if ts[i] is not None:
+                        gap_from_leader_sums[name][i] += ts[i] - leader_t
+                        gap_from_leader_counts[name][i] += 1
+            for r in range(n - 1):
+                a, b = ts[order[r]], ts[order[r + 1]]
+                if a is not None and b is not None:
+                    gap_between_sums[name][r] += b - a
+                    gap_between_counts[name][r] += 1
+        # フェーズ間チャーン(D): 4角→ゴールの前進量(このシミュレーション内での比較)
+        if corner4_key and corner4_key in ranks and "goal" in ranks:
+            rk4, rkg = ranks[corner4_key], ranks["goal"]
+            advances = [rk4[i] - rkg[i] for i in range(n)]  # 正=前に進んだ(rank数字が減った)
+            for i, adv in enumerate(advances):
+                advance_sum[i] += adv
+                if adv >= 3:
+                    surge_counts[i] += 1
+            churn_race_sum += sum(abs(a) for a in advances) / n
         derived = calc_derived(res["leader_laps"], race["distance"])
         pt = derived.get("pace_type")
         pace_counts[pt if pt in ("H", "M", "S") else "none"] += 1
@@ -222,15 +275,51 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
                     lap_counts[j] += 1
 
     mean_ranks = {name: [v / n_sim for v in vals] for name, vals in rank_sums.items()}
-    phase_map = {
-        "序盤(1角入口)": "phase_c1", "中盤(仕掛け点)": "phase_kick",
-        "終盤(最終C入口≒3角)": f"zone{n_zones-1}_in",
-        "直線入口(最終C出口≒4角)": f"zone{n_zones-1}_out", "ゴール": "goal",
-    }
+    # 順位のシミュレーション間ばらつき(標準偏差)。E[X^2]-E[X]^2、丸め誤差での負値をmax(0,.)で防止
+    rank_sd = {name: [math.sqrt(max(0.0, rank_sq_sums[name][i] / n_sim - mean_ranks[name][i] ** 2))
+                       for i in range(n)] for name in mean_ranks}
     formation = {}
     for label, key in phase_map.items():
         if key in mean_ranks:
             formation[label] = sorted(range(n), key=lambda i: mean_ranks[key][i])
+
+    # 区分(先頭/先団/中団/後方)確率(C)。バンプチャートの帯区分と同一比率を使用
+    TIER_CUTS = [0.15, 0.40, 0.75, 1.0]
+    tier_bounds, _prev = [], 0
+    for _cut in TIER_CUTS:
+        _end = max(_prev + 1, round(_cut * n))
+        tier_bounds.append((_prev, min(_end, n)))
+        _prev = min(_end, n)
+    tier_probs = {}
+    for name, hist in rank_hist.items():
+        if name not in only_keys:
+            continue
+        tier_probs[name] = [[sum(hist[i][lo:hi]) / n_sim for (lo, hi) in tier_bounds] for i in range(n)]
+
+    # 馬群デプス(A)。秒→馬身換算(1馬身≈2.4m、v_baseはm/s)
+    HORSE_LEN_M = 2.4
+    gap_from_leader = {
+        name: [(gap_from_leader_sums[name][i] / gap_from_leader_counts[name][i] * v_base / HORSE_LEN_M)
+               if gap_from_leader_counts[name][i] else 0.0 for i in range(n)]
+        for name in only_keys if name in gap_from_leader_sums
+    }
+    gap_between = {  # r=0が1位-2位間、...、r=n-2がn-1位-n位間(馬身)
+        name: [(gap_between_sums[name][r] / gap_between_counts[name][r] * v_base / HORSE_LEN_M)
+               if gap_between_counts[name][r] else 0.0 for r in range(n - 1)]
+        for name in only_keys if name in gap_between_sums
+    }
+
+    # フェーズ間チャーン(D、4角→ゴール)。閾値は初期値・要実データ調整(2026-08-08時点、暫定)
+    surge_p = [surge_counts[i] / n_sim for i in range(n)] if corner4_key else None
+    churn_avg = (churn_race_sum / n_sim) if (corner4_key and n_sim) else None
+    if churn_avg is None:
+        churn_label = None
+    elif churn_avg < 1.0:
+        churn_label = "小"
+    elif churn_avg < 2.2:
+        churn_label = "中"
+    else:
+        churn_label = "大"
 
     n_valid = pace_counts["H"] + pace_counts["M"] + pace_counts["S"]
     avg_laps = [s / c for s, c in zip(lap_sums, lap_counts)] if n_valid else []
@@ -242,8 +331,10 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
         "par_time": get_par_time(conn, race["venue"], race["surface"], race["distance"]),
     }
     nige_count = sum(1 for st in styles if st == "逃げ")
-    return {"formation": formation, "mean_ranks": mean_ranks, "c2": c2,
-            "phase_map": phase_map, "pace": pace, "nige_count": nige_count}
+    return {"formation": formation, "mean_ranks": mean_ranks, "rank_sd": rank_sd, "c2": c2,
+            "phase_map": phase_map, "pace": pace, "nige_count": nige_count,
+            "tier_probs": tier_probs, "gap_from_leader": gap_from_leader, "gap_between": gap_between,
+            "surge_p": surge_p, "churn_avg": churn_avg, "churn_label": churn_label}
 
 
 def describe_pace(pace, nige_count, n_horses):

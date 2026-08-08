@@ -390,8 +390,9 @@
       AYO<span style="color:var(--coral)">keiba</span>
     </a>
     <span class="text-secondary ms-2 d-none d-md-inline" style="font-size:12px">AI予想確率+展開シミュレーション(参考情報)</span>
-    <!-- 2026-08-09: 買い目表示撤去に伴いROI表示は非表示化(JSはハームレスに動き続ける) -->
-    <div class="ms-auto d-flex align-items-baseline gap-2" style="display:none">
+    <!-- 2026-08-09: 買い目表示撤去に伴いROI表示は非表示化(JSはハームレスに動き続ける)
+         d-flexがdisplay:flex !importantのため通常のstyle="display:none"は負ける。!important必須 -->
+    <div class="ms-auto d-flex align-items-baseline gap-2" style="display:none !important">
       <span class="text-secondary" style="font-size:11px">ROI</span>
       <span id="hdr-roi" class="fw-bold roi-neutral" style="font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:-0.5px">—%</span>
     </div>
@@ -2267,7 +2268,7 @@ const WAKU_FILL = {1:'#f4f4f5',2:'#18181b',3:'#dc2626',4:'#2563eb',5:'#eab308',6
 const WAKU_TEXT = {1:'#18181b',2:'#ffffff',3:'#ffffff',4:'#ffffff',5:'#1c1917',6:'#ffffff',7:'#ffffff',8:'#ffffff'};
 const WAKU_LINE = {1:'#d4d4d8',2:'#8b8b94',3:'#ef4444',4:'#3b82f6',5:'#eab308',6:'#22c55e',7:'#f97316',8:'#ec4899'};
 const PACE_STAGES = [['start','スタート後'],['corner3','3コーナー'],['corner4','4コーナー'],['goal','ゴール']];
-let paceData = null, paceLoaded = false, paceSel = {};
+let paceData = null, paceLoaded = false, paceSel = {}, paceVenueFilter = 'all';
 // MC123(1〜3着内確率、情報提供専用)。pace_data.jsonとは完全独立のファイル+読込経路。
 // 取得に失敗しても展開予想側の表示には一切影響しない(グレースフルデグレード)
 let mc123Data = null;
@@ -2300,18 +2301,43 @@ async function loadPaceTab() {
   }
 }
 
+// 発走時刻を過ぎたレースは「終わった」として一覧の下に回す(会場タブ内の並びは維持)
+function paceRaceStarted(r) {
+  if (!r.start_time) return false;
+  const m = /^(\d{1,2}):(\d{2})/.exec(r.start_time);
+  if (!m) return false;
+  const t = new Date();
+  t.setHours(Number(m[1]), Number(m[2]), 0, 0);
+  return Date.now() >= t.getTime();
+}
+
+function setPaceVenueFilter(v) { paceVenueFilter = v; renderPaceTab(); }
+
 function renderPaceTab() {
   const c = document.getElementById('pace-container');
-  const races = (paceData.races || []).slice().sort((a,b) =>
-    a.venue === b.venue ? a.rno - b.rno : a.venue.localeCompare(b.venue, 'ja'));
+  const allRaces = paceData.races || [];
+  const venues = [...new Set(allRaces.map(r => r.venue))].sort((a, b) => a.localeCompare(b, 'ja'));
+  if (paceVenueFilter !== 'all' && !venues.includes(paceVenueFilter)) paceVenueFilter = 'all';
+  const races = allRaces
+    .filter(r => paceVenueFilter === 'all' || r.venue === paceVenueFilter)
+    .slice()
+    .sort((a, b) => {
+      const sa = paceRaceStarted(a), sb = paceRaceStarted(b);
+      if (sa !== sb) return sa ? 1 : -1;
+      return a.venue === b.venue ? a.rno - b.rno : a.venue.localeCompare(b.venue, 'ja');
+    });
+  const venueTabs = ['all', ...venues].map(v =>
+    `<button class="track-pill ${v === paceVenueFilter ? 'active' : ''}" onclick="setPaceVenueFilter('${v}')">${v === 'all' ? 'すべて' : v}</button>`
+  ).join('');
   let html = `
-    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
       <span class="fw-bold" style="font-size:15px">展開予想</span>
       <span class="pace-chip">${paceData.date}</span>
       <span class="pace-chip">${races.length}レース</span>
       <span class="pace-note ms-auto">mc_dyn 展開シミュレーター(各${(paceData.n_sim||0).toLocaleString()}回試行)</span>
     </div>
-    <div class="pace-note mb-3">${paceData.note || ''} 隊列は良馬場想定です。</div>`;
+    <div class="track-seg mb-3" style="margin-left:0">${venueTabs}</div>
+    <div class="pace-note mb-3">${paceData.note || ''} 隊列は良馬場想定です。発走済みのレースは一覧の下に移動します。</div>`;
   html += races.map(r => `<div id="pace-card-${r.race_id}"></div>`).join('');
   c.innerHTML = html;
   races.forEach(r => renderPaceCard(r.race_id));

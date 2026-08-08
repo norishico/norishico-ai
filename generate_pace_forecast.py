@@ -163,6 +163,26 @@ def fetch_day_races_live():
     return sorted(out, key=lambda x: (x[1], x[2]))
 
 
+# 【2026-08-09追加】タブ内で発走済みレースを下に移動する表示用にstart_timeが要る。
+# this_week_races.jsonはresults確定後も発走時刻を保持しているため、live/確定後どちらの
+# 経路でも同じソースから引ける(generate_mc_record.pyのload_start_time_mapと同一方針)。
+_START_TIME_CACHE = None
+
+
+def load_start_time_map():
+    global _START_TIME_CACHE
+    if _START_TIME_CACHE is not None:
+        return _START_TIME_CACHE
+    p = Path("this_week_races.json")
+    if not p.exists():
+        _START_TIME_CACHE = {}
+        return _START_TIME_CACHE
+    all_races = json.loads(p.read_text(encoding="utf-8"))
+    _START_TIME_CACHE = {(r.get("venue", ""), r.get("race_num", 0)): r.get("start_time", "") or ""
+                         for r in all_races if r.get("date") == TARGET_DATE}
+    return _START_TIME_CACHE
+
+
 def fetch_horses_live(race_id):
     """this_week_races.jsonの出走表から未確定レース用のhorsesを組み立てる。
     sire/horse_weightは省略(classify_style_c2側がDB直近値・欠損フラグで自動補完する)。"""
@@ -188,7 +208,7 @@ def fetch_horses_live(race_id):
 
 def _process_one_race(args):
     """1レース分の展開予想を計算しJSON辞書を返す(並列ワーカー、レース単位で独立)。"""
-    race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode = args
+    race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode, start_time = args
     # Windows spawnワーカーでのstdout競合対策(compute_formation_accuracy.pyと同一の対処)
     import os as _os
     global _keep_alive_ref
@@ -261,6 +281,7 @@ def _process_one_race(args):
         race_json = {
             "race_id": race_id, "venue": venue, "rno": rno, "rname": rname,
             "surface": surface, "distance": distance, "n_horses": n,
+            "start_time": start_time,
             "numbers_estimated": numbers_estimated,
             "nige_count": first_out["nige_count"],
             "pace": pace_patterns,
@@ -308,7 +329,8 @@ def main():
             n_skip_jump += 1
             print(f"  SKIP {venue}{rno}R {rname}(障害または非対応surface)")
             continue
-        targets.append((race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode))
+        st = load_start_time_map().get((venue, rno), "")
+        targets.append((race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode, st))
 
     races_out, n_skip_err = [], 0
     with Pool(workers) as pool:

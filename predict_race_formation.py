@@ -309,14 +309,17 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
         for name in only_keys if name in gap_between_sums
     }
 
-    # フェーズ間チャーン(D、4角→ゴール)。閾値は初期値・要実データ調整(2026-08-08時点、暫定)
+    # フェーズ間チャーン(D、4角→ゴール)。
+    # 閾値は2026-08-08当初1.0/2.2で仮置きしたが、本番31レース(n_sim=5000)の実測分布が
+    # 0.375〜0.798(3分位境界≈0.55/0.66)としか出ず、全レースが常に「小」判定になり
+    # 実質機能していなかった(のりお指摘で発覚)。実測3分位に基づき修正。
     surge_p = [surge_counts[i] / n_sim for i in range(n)] if corner4_key else None
     churn_avg = (churn_race_sum / n_sim) if (corner4_key and n_sim) else None
     if churn_avg is None:
         churn_label = None
-    elif churn_avg < 1.0:
+    elif churn_avg < 0.55:
         churn_label = "小"
-    elif churn_avg < 2.2:
+    elif churn_avg < 0.66:
         churn_label = "中"
     else:
         churn_label = "大"

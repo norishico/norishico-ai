@@ -295,10 +295,18 @@ def main():
     print(f"{TARGET_DATE}: {len(day_races)}レース" + ("(ライブ)" if live_mode else ""))
 
     targets = []
-    n_skip_shinba = 0
+    n_skip_shinba = n_skip_jump = 0
     for race_id, venue, rno, rname, surface, distance, n_ent, track_cond in day_races:
         if pace_cls_group(rname) == "新馬":
             n_skip_shinba += 1
+            continue
+        # 【2026-08-08追加】障害(飛越)レースはmc_dynが平地競走専用のため対象外。
+        # this_week_races.json側は距離欄が「障3000m」等となり surface/distance が
+        # 空/0のまま流れ込み、原因不明の失敗として黙って弾かれていた
+        # (2026-08-08、中京9R 3歳以上障害OPで発覚)ため、明示的に除外する
+        if "障害" in (rname or "") or surface not in ("芝", "ダ"):
+            n_skip_jump += 1
+            print(f"  SKIP {venue}{rno}R {rname}(障害または非対応surface)")
             continue
         targets.append((race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode))
 
@@ -328,7 +336,8 @@ def main():
         if p.parent.exists():
             p.write_text(text, encoding="utf-8")
             print(f"書き出し: {p}")
-    print(f"完了: {len(races_out)}R 出力 / 新馬スキップ{n_skip_shinba} / 対象外・失敗{n_skip_err}")
+    print(f"完了: {len(races_out)}R 出力 / 新馬スキップ{n_skip_shinba} / 障害等スキップ{n_skip_jump} / "
+          f"対象外・失敗{n_skip_err}")
 
 
 if __name__ == "__main__":

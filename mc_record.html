@@ -343,11 +343,16 @@
   .wk8 { background:#db2777; color:#fff; }
   .pace-horse-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
     gap:5px 12px; margin-top:10px; }
-  .pace-horse { display:flex; align-items:center; gap:6px; font-size:12px; min-width:0; }
-  .pace-horse .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pace-horse { display:flex; align-items:center; gap:4px; font-size:12px; min-width:0; }
+  /* 馬名だけを省略対象にし、脚質タグ(style-tag)はflex-shrink:0で常に表示する。
+     以前はnm要素の中にstyle-tagを内包していたため、幅が足りないとタグごと
+     見えなくなっていた(2026-08-08、のりお指摘で修正) */
+  .pace-horse .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
+  .pace-horse .style-tag { flex-shrink:0; }
   /* タブナビ スマホ対応: 展開予想タブ追加で4タブになり、375-390px幅で折り返して
      2段崩れしていたため、横スクロール化+コンパクト化で1行に収める */
   @media (max-width: 575px) {
+    .pace-horse-list { grid-template-columns: 1fr; }
     .nav-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
       scrollbar-width: none; }
     .nav-tabs::-webkit-scrollbar { display: none; }
@@ -1650,7 +1655,8 @@ function renderPaceCard(rid) {
   race.horses.forEach(h => wakuOf[h.num] = h.waku);
   const horseList = race.horses.map(h =>
     `<div class="pace-horse"><span class="wk wk${h.waku}">${h.num}</span>
-      <span class="nm">${h.name}<span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style}</span></span>
+      <span class="nm">${h.name}</span>
+      <span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style}</span>
     </div>`).join('');
   const estWarn = race.numbers_estimated
     ? `<span class="pace-chip" style="color:#fbbf24">馬番は暫定(枠順確定前データ)</span>` : '';

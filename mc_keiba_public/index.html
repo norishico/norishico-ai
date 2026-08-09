@@ -2414,6 +2414,20 @@ function renderPaceCard(rid) {
         <div class="mc123-list">${rows}</div>
       </div>`;
   }
+  // 参考(過去傾向)ブロック: Sペース条件+会場×距離の統計的信頼性(委員会承認、
+  // 会場×距離はCochranのQ検定+DL縮小でheterogeneous かつ n>=15のセルのみ・高低のみ表示)
+  const refNotes = [];
+  if ((p.s || 0) >= 0.6) {
+    refNotes.push('終盤スパート濃厚な展開のレースでは、MC123の1位予想馬の複勝的中率は過去平均62%でした(全体平均53%、2024年以降n=652)。');
+  }
+  const rel = mc123Race && mc123Race.top1_reliability;
+  if (rel && (rel.tier === '高' || rel.tier === '低')) {
+    const word = rel.tier === '高' ? 'やや高い部類でした' : 'やや低い部類でした';
+    refNotes.push(`この会場・距離(${race.venue}${race.surface}${race.distance}m)は、過去のMC123 1位予想の複勝的中率が${word}(2024年以降n=${rel.n})。`);
+  }
+  const refBlock = refNotes.length
+    ? `<div class="pace-note" style="margin-top:2px">参考(過去傾向): ${refNotes.join(' ')}相関であり、今後を保証するものではありません。</div>`
+    : '';
   host.innerHTML = `
   <div class="pace-card">
     <div class="pace-card-head">
@@ -2434,7 +2448,7 @@ function renderPaceCard(rid) {
         </div>
       </div>
       <div class="pace-comment">${p.comment || race.comment || ''}</div>
-      ${(p.s || 0) >= 0.6 ? `<div class="pace-note" style="margin-top:2px">参考(過去傾向): このような終盤スパート濃厚な展開のレースでは、MC123の1位予想馬の複勝的中率は過去平均62%でした(全体平均53%、2024年以降n=652)。相関であり、今後を保証するものではありません。</div>` : ''}
+      ${refBlock}
       ${accDetail}
       <div class="bump-wrap">${bumpChartSvg(race, wakuOf)}</div>
       <div class="pace-note" style="margin-top:4px">上の帯=先頭〜最後尾の推定馬身差、点線=隊列の切れ目、▲=終盤一気に進みそうな馬。馬番タップで位置の確からしさを表示</div>

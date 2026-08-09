@@ -49,6 +49,35 @@ TARGET_DATE = sys.argv[1] if len(sys.argv) > 1 else _date.today().isoformat()
 N_MC = 10000
 TRACK_PATTERNS = [("良・稍重", "良"), ("重", "重"), ("不良", "不")]
 
+# 2026-08-10: 会場×距離別のMC123 1位予想 複勝的中率の信頼性(委員会承認、
+# compute_mc123_top1_reliability.pyの出力をそのまま参照。generate_pace_forecast.pyの
+# get_accuracy_entryと同一方針: heterogeneous=false または n<15のセルは一切表示しない)
+_RELIABILITY_PATH = Path(__file__).resolve().parent / "mc123_top1_reliability.json"
+_RELIABILITY_CACHE = None
+
+
+def load_reliability_lookup():
+    global _RELIABILITY_CACHE
+    if _RELIABILITY_CACHE is not None:
+        return _RELIABILITY_CACHE
+    if not _RELIABILITY_PATH.exists():
+        _RELIABILITY_CACHE = {}
+        return _RELIABILITY_CACHE
+    data = json.loads(_RELIABILITY_PATH.read_text(encoding="utf-8"))
+    lut = {(c["venue"], c["surface"], c["distance"]): c for c in data["cells"]}
+    lut["__meta__"] = {"heterogeneous": data["heterogeneous"], "n_races_used": data["n_races_used"]}
+    _RELIABILITY_CACHE = lut
+    return lut
+
+
+def get_top1_reliability_entry(venue, surface, distance):
+    lut = load_reliability_lookup()
+    c = lut.get((venue, surface, distance))
+    meta = lut.get("__meta__", {})
+    if not c or not c.get("reliable") or not meta.get("heterogeneous"):
+        return None
+    return {"tier": c["tier"], "place_rate": c["place_rate_shrunk"], "n": c["n"]}
+
 
 def umaban_to_gate(umaban):
     if not umaban or umaban <= 0:
@@ -175,6 +204,7 @@ def main():
             "race_id": race_id, "venue": venue, "rno": rno, "rname": rname,
             "surface": surface, "distance": distance, "n_horses": n,
             "horses": horses_out,
+            "top1_reliability": get_top1_reliability_entry(venue, surface, distance),
         })
         print(f"  OK {venue}{rno}R {rname} {surface}{distance}m {n}頭")
 

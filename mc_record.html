@@ -484,7 +484,7 @@ function renderPaceCard(rid) {
   const ACC_WORD = { '高': '当たりやすい部類', '中': '標準的な当たりやすさ', '低': 'やや当たりにくい部類' };
   const accChip = acc
     ? `<span class="pace-chip acc-chip" style="color:${ACC_COLOR[acc.tier]};cursor:pointer"
-         onclick="this.nextElementSibling.classList.toggle('d-none')">隊列 精度:${acc.tier}${acc.data_limited ? '(参考)' : ''}</span>`
+         onclick="this.closest('.pace-card').querySelector('.acc-detail').classList.toggle('d-none')">隊列 精度:${acc.tier}${acc.data_limited ? '(参考)' : ''}</span>`
     : '';
   const accDetail = acc
     ? `<div class="pace-note acc-detail d-none" style="margin-top:6px;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:8px">

@@ -34,8 +34,10 @@ OUT_PATHS = [Path("mc_keiba_public/pace_data.json")]
 TARGET_DATE = sys.argv[1] if len(sys.argv) > 1 else _date.today().isoformat()
 N_SIM = 5000
 
-# 会場×表面×距離別の隊列予測精度(compute_formation_accuracy.py生成、2026-08-08)。
-# 見つからない/信頼できない(n<15)セルはNoneのまま返し、フロント側で「データ不足」扱いする
+# 会場×表面×距離別の隊列予測精度(compute_formation_accuracy.py生成、2026-08-08新規/2026-08-13
+# 統計手法改訂)。見つからないセルのみNoneを返す。n<15セルも縮小値を返すが、data_limited=True
+# を付与しフロント側で「データ限定的」の注記を出す(旧版はn<15またはheterogeneous=falseなら
+# 一律非表示だったが、12人委員会でシュリンク自体は常時適用・小標本は注記付きで見せる方針に変更)
 _ACCURACY_PATH = Path(__file__).resolve().parent / "formation_accuracy.json"
 _ACCURACY_CACHE = None
 
@@ -64,11 +66,12 @@ def get_accuracy_entry(venue, surface, distance):
     lut = load_accuracy_lookup()
     c = lut.get((venue, surface, distance))
     meta = lut.get("__meta__", {})
-    if not c or not c.get("reliable") or not meta.get("heterogeneous"):
+    if not c:
         return None
     return {
         "tier": c["tier"], "rho_pos4": c["rho_pos4_shrunk"], "rho_goal": c.get("rho_goal_raw"),
         "n": c["n"], "scope": meta.get("computed_scope"),
+        "data_limited": bool(c.get("data_limited")),
     }
 
 # サイトの既存馬場pill(良・稍重/重/不良)とtrack_condの対応

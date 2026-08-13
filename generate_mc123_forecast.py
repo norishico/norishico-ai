@@ -49,9 +49,11 @@ TARGET_DATE = sys.argv[1] if len(sys.argv) > 1 else _date.today().isoformat()
 N_MC = 10000
 TRACK_PATTERNS = [("良・稍重", "良"), ("重", "重"), ("不良", "不")]
 
-# 2026-08-10: 会場×距離別のMC123 1位予想 複勝的中率の信頼性(委員会承認、
-# compute_mc123_top1_reliability.pyの出力をそのまま参照。generate_pace_forecast.pyの
-# get_accuracy_entryと同一方針: heterogeneous=false または n<15のセルは一切表示しない)
+# 2026-08-10新規/2026-08-13統計手法改訂: 会場×距離別のMC123 1位予想 複勝的中率の信頼性
+# (12人委員会承認、compute_mc123_top1_reliability.pyの出力をそのまま参照)。
+# 見つからないセルのみNoneを返す。n<15セルも縮小値を返すがdata_limited=Trueを付与し、
+# フロント側で「データ限定的」の注記を出す(旧版はreliable=false/heterogeneous=falseなら
+# 一律非表示だったが、シュリンク自体は常時適用・小標本は注記付きで見せる方針に変更)
 _RELIABILITY_PATH = Path(__file__).resolve().parent / "mc123_top1_reliability.json"
 _RELIABILITY_CACHE = None
 
@@ -73,10 +75,12 @@ def load_reliability_lookup():
 def get_top1_reliability_entry(venue, surface, distance):
     lut = load_reliability_lookup()
     c = lut.get((venue, surface, distance))
-    meta = lut.get("__meta__", {})
-    if not c or not c.get("reliable") or not meta.get("heterogeneous"):
+    if not c:
         return None
-    return {"tier": c["tier"], "place_rate": c["place_rate_shrunk"], "n": c["n"]}
+    return {
+        "tier": c["tier"], "place_rate": c["place_rate_shrunk"], "n": c["n"],
+        "data_limited": bool(c.get("data_limited")),
+    }
 
 
 def umaban_to_gate(umaban):

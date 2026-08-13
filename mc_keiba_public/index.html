@@ -484,13 +484,14 @@ function renderPaceCard(rid) {
   const ACC_WORD = { '高': '当たりやすい部類', '中': '標準的な当たりやすさ', '低': 'やや当たりにくい部類' };
   const accChip = acc
     ? `<span class="pace-chip acc-chip" style="color:${ACC_COLOR[acc.tier]};cursor:pointer"
-         onclick="this.nextElementSibling.classList.toggle('d-none')">隊列 精度:${acc.tier}</span>`
+         onclick="this.nextElementSibling.classList.toggle('d-none')">隊列 精度:${acc.tier}${acc.data_limited ? '(参考)' : ''}</span>`
     : '';
   const accDetail = acc
     ? `<div class="pace-note acc-detail d-none" style="margin-top:6px;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:8px">
          この会場・距離(${race.venue}${race.surface}${race.distance}m)の隊列予測は${ACC_WORD[acc.tier]}です
          (2024年以降の${acc.n}レースで検証)。ただし最終着順の予想は、通過順の予想より当たりにくい傾向があります
          (全体平均で通過順の当たりやすさの4割程度)。買い目(MCロジック)とは無関係の参考情報です。
+         ${acc.data_limited ? 'このセルはサンプル数が少なく、推定の不確実性が大きい参考値です。' : ''}
        </div>` : '';
   // MC123ランキング(1〜3着内確率、情報提供専用)。pace_data.jsonとは別ファイルのため
   // 取得できていない場合は静かに省略する(グレースフルデグレード)
@@ -519,8 +520,9 @@ function renderPaceCard(rid) {
         <div class="mc123-list">${rows}</div>
       </div>`;
   }
-  // 参考(過去傾向)ブロック: Sペース条件+会場×距離の統計的信頼性(委員会承認、
-  // 会場×距離はCochranのQ検定+DL縮小でheterogeneous かつ n>=15のセルのみ・高低のみ表示)
+  // 参考(過去傾向)ブロック: Sペース条件+会場×距離の統計的信頼性(12人委員会承認、
+  // 2026-08-13改訂: 会場×距離は全セルに常時経験ベイズ縮小を適用した上で高/低のみ表示。
+  // n<15の小標本セルはdata_limited=trueが付き、表示する場合は注記を追加する)
   const refNotes = [];
   if ((p.s || 0) >= 0.6) {
     refNotes.push('終盤スパート濃厚な展開のレースでは、MC123の1位予想馬の複勝的中率は過去平均62%でした(全体平均53%、2024年以降n=652)。');
@@ -528,7 +530,8 @@ function renderPaceCard(rid) {
   const rel = mc123Race && mc123Race.top1_reliability;
   if (rel && (rel.tier === '高' || rel.tier === '低')) {
     const word = rel.tier === '高' ? 'やや高い部類でした' : 'やや低い部類でした';
-    refNotes.push(`この会場・距離(${race.venue}${race.surface}${race.distance}m)は、過去のMC123 1位予想の複勝的中率が${word}(2024年以降n=${rel.n})。`);
+    const limitedNote = rel.data_limited ? '(サンプルが少なく参考程度)' : '';
+    refNotes.push(`この会場・距離(${race.venue}${race.surface}${race.distance}m)は、過去のMC123 1位予想の複勝的中率が${word}(2024年以降n=${rel.n})${limitedNote}。`);
   }
   const refBlock = refNotes.length
     ? `<div class="pace-note" style="margin-top:2px">参考(過去傾向): ${refNotes.join(' ')}相関であり、今後を保証するものではありません。</div>`

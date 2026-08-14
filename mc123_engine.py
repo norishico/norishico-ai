@@ -87,6 +87,19 @@ WIND_B_STYLE = 0.0
 BASE_NOISE_STD = 5.0
 WIND_C_GUST = 0.15
 
+# ── K_WET_APT(個体別道悪適性、2026-08-01 新規事前登録テスト→不採用) ──
+# g += K_WET_APT * wet_apt_z(道悪レース(稍/重/不良)の時のみ加算)。
+# wet_apt_z = 縮約道悪複勝率 - 縮約良馬場複勝率(test_wet_aptitude_residual.py参照)。
+#
+# 【2026-08-01 検証実施→不採用】train(2021-2022)グリッド探索でK_WET_APT=2.0が
+# 最良候補として見つかったが、OOS評価(2023/2024/2025、道悪レース限定プール)で
+# 相対Brier改善は-0.012%(悪化、3年中1年のみ僅かにプラス+0.008%)、事前登録基準
+# 0.44%に届かず不採用。母集団の道悪複勝率(21.81%)と良馬場複勝率(21.81%)が
+# cutoff時点で完全一致しており、個体の「道悪適性」という発想自体、CTA/RFA/L3Fが
+# 既に地力情報を織り込んだ後には残差として検出できないと判明。
+# K_WET_APT=0.0のままgainへの影響を完全に無効化し、導入前と数学的に同一の挙動を維持。
+K_WET_APT = 0.0
+
 
 def hash64_seed(race_id: str) -> int:
     """race_idから決定的な32bit seedを生成する(PYTHONHASHSEED依存のbuiltin hash()は
@@ -158,6 +171,7 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
     c_adj = COURSE_ADV.get(venue, {}).get(dist, 0)
     heavy = tc in ("重", "不良")
     hv = 3.0 if tc == "不良" else 2.0
+    wet = tc in ("稍", "重", "不良")  # K_WET_APT用。heavyより広い(稍を含む)
     n_nige = sum(1 for h in horses if h["style"] == "逃げ")
     n_front = sum(1 for h in horses if h["style"] in ("逃げ", "先行"))
     num_h = race_info.get("num_horses", n)
@@ -235,6 +249,8 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
                     bon += hv * 0.6
                 elif st in ("差し", "追い込み"):
                     bon -= hv * 0.5
+            if wet:
+                bon += K_WET_APT * h.get("wet_apt_z", 0.0)
             if c_adj > 0 and st in ("逃げ", "先行"):
                 bon += c_adj * 0.5
             elif c_adj < 0 and st in ("差し", "追い込み"):

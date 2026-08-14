@@ -43,6 +43,20 @@ TRAIN_GATE_MIN     = 2      # --no-train-gate: train_count_7dゲート撤廃検�
 STRAIGHT_STYLE_BONUS = False  # --straight-style-bonus: 先行×長直線ボーナス検証用 (2026-07-21)
 FRONT4_BONUS       = False  # --front4-bonus: H3 4角先頭加重ボーナス検証用 (2026-07-21、新規提案として再検証)
 
+# ── CTA/RFA着順/RFA着差 上乗せボーナス検証用 (2026-07-27、/bt-verify) ──
+# past_performance「限界的価値」オフライン検証(project_pastperf_reconstruction.md)で
+# v6.6のtotal_scoreに対し事前登録基準を満たした3特徴量(CTA・RFA着順z・RFA着差z、
+# L3Fは事前登録テストで不採用)を、実際の買い条件パイプラインでROI検証するためのフラグ。
+# 係数は「レース内softmax条件付きロジット回帰(Fold2: train2021-2024→test2025)」で
+# 得たβ比率(cta_z:rank_z:margin_z = 0.3989:0.2049:0.3956、対total_score係数0.6029)を、
+# 実測したtotal_scoreのレース内標準偏差(2023年1月サンプル303レース、平均7.76点)に
+# 掛け戻して得た一発較正値(グリッドサーチなし)。
+CTA_RFA_BONUS      = False  # --cta-rfa-bonus: CTA/RFA着順/RFA着差の上乗せボーナス検証用
+CTA_RFA_W_CTA      = 5.09
+CTA_RFA_W_RANK     = 2.62
+CTA_RFA_W_MARGIN   = 5.05
+_cta_rfa_state = {}  # run_year_v6()で年次cutoff付きテーブルをセット、run_month_v6()から参照
+
 # 調教フィルタ用: サンデーサイレンス系種牡馬リスト
 SUNDAY_SIRES = frozenset({
     'ディープインパクト','ハーツクライ','キズナ','ステイゴールド','オルフェーヴル',
@@ -250,6 +264,27 @@ def run_month_v6(conn, sc_conn, year, month):
             result, meta = score_one_race(rows, sc_conn)
         except: continue
         if not result or len(result) < 2: continue
+
+        if CTA_RFA_BONUS:
+            from mc123_batch import compute_cta_fast, compute_rank_z_fast, compute_margin_z_fast
+            horse_hist = _cta_rfa_state['horse_hist']
+            class_par = _cta_rfa_state['class_par']
+            k_cls = _cta_rfa_state['k_cls']
+            bias_map = _cta_rfa_state['bias_map']
+            rank_mu, rank_sigma = _cta_rfa_state['rank_par']
+            margin_par = _cta_rfa_state['margin_par']
+            for h in result:
+                hist_list = horse_hist.get(h['horse_name'], [])
+                cta_main, _, n_cta = compute_cta_fast(hist_list, race['date'], class_par, k_cls, bias_map)
+                cta_z = cta_main if cta_main is not None else 0.0
+                rank_z = compute_rank_z_fast(hist_list, race['date'], rank_mu, rank_sigma)
+                margin_z = compute_margin_z_fast(hist_list, race['date'], margin_par)
+                h['total_score'] = round(h['total_score'] + CTA_RFA_W_CTA * cta_z
+                                          + CTA_RFA_W_RANK * rank_z + CTA_RFA_W_MARGIN * margin_z, 1)
+            result.sort(key=lambda x: (-x['total_score'], x['horse_name']))
+            for rank_i, h2 in enumerate(result, 1):
+                h2['rank'] = rank_i
+            meta['standout_gap'] = round(result[0]['total_score'] - result[1]['total_score'], 1)
 
         honmei = result[0]; ni = result[1]
         scores = [h['total_score'] for h in result]
@@ -490,6 +525,17 @@ def run_year_v6(year, db_path):
     scoring._gcbb_cache.clear(); scoring._gcbb_loaded = False
     scoring._tbb_cache.clear(); scoring._week_cache.clear()
 
+    if CTA_RFA_BONUS:
+        from mc123_batch import load_horse_hist_all, load_same_day_bias_dict
+        from build_class_par import build_class_par_table, calibrate_k_cls
+        from build_extra_par import build_rank_par, build_margin_par
+        _cta_rfa_state['horse_hist'] = load_horse_hist_all(conn)
+        _cta_rfa_state['class_par'] = build_class_par_table(conn, cutoff_date=cutoff, verbose=False)
+        _cta_rfa_state['k_cls'] = calibrate_k_cls(conn, cutoff_date=cutoff, verbose=False)
+        _cta_rfa_state['bias_map'] = load_same_day_bias_dict(conn)
+        _cta_rfa_state['rank_par'] = build_rank_par(conn, cutoff_date=cutoff, verbose=False)
+        _cta_rfa_state['margin_par'] = build_margin_par(conn, cutoff_date=cutoff, verbose=False)
+
     if STRAIGHT_STYLE_BONUS:
         # 孤立フラグ: --straight-style-bonus 時のみ年度別cutoffでリビルド
         from build_venue_style_bonus import build_venue_style_bonus
@@ -539,6 +585,8 @@ if __name__ == '__main__':
         FRONT4_BONUS = True  # noqa: F841  (module-level global)
         import scoring as _sc4
         _sc4.FRONT4_BONUS_ENABLED = True
+    if '--cta-rfa-bonus' in sys.argv:
+        CTA_RFA_BONUS = True  # noqa: F841  (module-level global)
     if '--family-nicks' in sys.argv:
         FAMILY_NICKS_BONUS = True  # noqa: F841  (module-level global)
         os.environ['NORISHIKO_FAMILY_NICKS'] = '1'
@@ -612,6 +660,8 @@ if __name__ == '__main__':
         suffix += '_trainneutral'
     if STRAIGHT_STYLE_BONUS:
         suffix += '_straightstyle'
+    if CTA_RFA_BONUS:
+        suffix += '_ctarfa'
     fname = f'btv6_{year}{suffix}.json'
     with open(fname, 'w', encoding='utf-8') as f:
         json.dump({'summary': s, 'bet_records': bet_records, 'all_races': all_races}, f,

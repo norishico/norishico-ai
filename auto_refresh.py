@@ -61,7 +61,10 @@ def save_odds_snapshot(race_id, date, venue, race_num, horses, snapshot_type):
                 odds_v = float(h['odds']) if h.get('odds') not in (None, '') else None
             except (TypeError, ValueError):
                 odds_v = None
-            pop_v = h.get('popularity')
+            try:
+                pop_v = int(h['popularity']) if h.get('popularity') not in (None, '') else None
+            except (TypeError, ValueError):
+                pop_v = None
             rows.append((race_id, date, venue, race_num, umaban,
                           h.get('name') or h.get('horse_name'),
                           odds_v, pop_v, snapshot_type, now))

@@ -609,6 +609,13 @@ def build_db(csv_files: list, db_path: str = DB_PATH):
             print(f"     ❌ ファイルが見つかりません")
             continue
 
+        if Path(filepath).stat().st_size == 0:
+            # JV-Link側に新規データが無い場合の正常系(fromtime以降の差分が0件)。
+            # pd.read_csvに渡すとEmptyDataErrorで例外扱いされ、本当のパースエラーと
+            # 見分けがつかなくなるため、ここで明示的に「0行・正常」として処理する。
+            print(f"     (0行 — 新規データなし、正常)")
+            continue
+
         try:
             # ファイル種別判定（サンプル読み込み）
             try:

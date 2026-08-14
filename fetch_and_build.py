@@ -45,6 +45,14 @@ DIVIDENDS_CSV = ROOT / "jvlink_dump_dividends.csv"
 # 件数チェック: staging results が prod 比この割合以上減ったら構造破壊と判定
 COUNT_DROP_LIMIT = 0.10  # 10%超減少でNG
 
+# 鮮度チェック: results の MAX(date) が今日からこの日数以上前ならJV-Link取得の
+# 滞留を疑って警告する(JV-Link週次遅延の通常範囲=最大1週間強を超えた場合のみ発火)。
+# 件数チェック(drop_rate)は「swapでデータが減っていないか」しか見ておらず、
+# 「本来増えるはずの新規データが何週間も来ていない」ケースは無条件で素通りしていた
+# (2026-07-23発見: JV-Link RACE rc=-1(正常系, 新規データ無し)が続いた週に、
+# 件数チェックがdrop_rate=0%で無警告のまま素通りしていたことが判明)。
+STALENESS_WARN_DAYS = 10
+
 
 def log(msg, fh=None):
     line = f"[{dt.datetime.now().strftime('%H:%M:%S')}] {msg}"
@@ -260,9 +268,24 @@ def run_blood_fetch(fh):
         log(f"blood fetch done in {time.time()-t0:.0f}s", fh)
 
 
+def _staleness_days(date_str):
+    """date_str('YYYY-MM-DD')が今日から何日前かを返す。パース不能ならNone。"""
+    if not date_str:
+        return None
+    try:
+        d = dt.datetime.strptime(date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        return None
+    return (dt.date.today() - d).days
+
+
 def run_verification(fh):
     """件数チェック: staging results件数が prod 比 COUNT_DROP_LIMIT 以上減ったらNG。
     BT実行は行わない (261秒かかる上にROI変動で誤検知が多発していた)。
+
+    件数チェックのみでは「新規データが何週間も来ていない」滞留を検知できない
+    (staging=prodのまま件数が減らなければdrop_rate=0%で無条件通過するため)。
+    そのため件数チェックとは別に、鮮度(MAX(date)が何日前か)も見て警告する。
     """
     prod_count = _db_results_count(DB_PROD)
     stg_count  = _db_results_count(DB_STAGING)
@@ -276,8 +299,19 @@ def run_verification(fh):
             log(f"[FAIL] 件数減少 {drop_rate:.1%} (上限{COUNT_DROP_LIMIT:.0%}): staging={stg_count} prod={prod_count}", fh)
             return False, {"prod_count": prod_count, "stg_count": stg_count, "drop_rate": drop_rate}
 
+    stale_days = _staleness_days(stg_max)
+    if stale_days is not None and stale_days > STALENESS_WARN_DAYS:
+        log(f"[WARN] resultsの最新日付が{stale_days}日前({stg_max})——"
+            f"JV-Link取得が{STALENESS_WARN_DAYS}日を超えて滞留している可能性。"
+            f"swapはブロックしないが要確認", fh)
+        _discord_error(
+            f"⚠️ norishiko_ai: results最新日付が{stale_days}日前({stg_max})で滞留中。"
+            f"JV-Link取得(fromtime/rc)を確認してください。"
+        )
+
     log(f"[OK] 件数チェック通過: staging={stg_count}件 prod={prod_count}件", fh)
-    return True, {"prod_count": prod_count, "stg_count": stg_count, "drop_rate": 0.0}
+    return True, {"prod_count": prod_count, "stg_count": stg_count, "drop_rate": 0.0,
+                  "stale_days": stale_days}
 
 
 def atomic_swap(fh):

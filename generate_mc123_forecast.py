@@ -90,7 +90,13 @@ def umaban_to_gate(umaban):
 
 
 def fetch_horses_for_mc123(conn, race_id, live_mode):
-    """MC123用のhorses(horse_name/umaban/jockey/gate/style/finish)を組み立てる。"""
+    """MC123用のhorses(horse_name/umaban/jockey/gate/style/finish)を組み立てる。
+
+    weight_kg(斤量)はclassify_style_c2のwkg_norm特徴量に使われる。2026-08-15発見:
+    この関数がweight_kgを渡していなかったため、classify_style_c2側で全馬が既定値55.0kg
+    (平均斤量)扱いになり、実斤量を渡している展開予想タブ(generate_pace_forecast.py)側と
+    脚質判定が食い違うケースがあった(斤量が55kgから離れた僅差の馬で脚質ラベルが入れ替わる)。
+    """
     if live_mode:
         live = _load_live_races()
         r = live.get(race_id)
@@ -100,12 +106,16 @@ def fetch_horses_for_mc123(conn, race_id, live_mode):
         out = []
         for hi, h in enumerate(rows):
             uma = h.get("umaban") or (hi + 1)
+            try:
+                wkg = float(h.get("weight", "") or "")
+            except ValueError:
+                wkg = None
             out.append({"horse_name": (h.get("name") or "").strip(), "umaban": uma,
                         "jockey": (h.get("jockey") or "").strip(), "gate": umaban_to_gate(uma),
-                        "style": None, "finish": None})
+                        "weight_kg": wkg, "style": None, "finish": None})
         return out
     rows = conn.execute("""
-        SELECT TRIM(horse_name), jockey, umaban
+        SELECT TRIM(horse_name), jockey, umaban, weight_kg
         FROM results WHERE race_id = ? AND (finish IS NULL OR finish < 90)
         ORDER BY (umaban IS NULL), umaban, horse_name
     """, (race_id,)).fetchall()
@@ -113,7 +123,7 @@ def fetch_horses_for_mc123(conn, race_id, live_mode):
     for hi, r in enumerate(rows):
         uma = r[2] or (hi + 1)
         out.append({"horse_name": r[0], "umaban": uma, "jockey": r[1] or "",
-                    "gate": umaban_to_gate(uma), "style": None, "finish": None})
+                    "gate": umaban_to_gate(uma), "weight_kg": r[3], "style": None, "finish": None})
     return out
 
 
@@ -157,8 +167,11 @@ def main():
             n_skip_err += 1
             continue
 
-        # 脚質(表示用+MC123内部のn_nige/n_front算出に必須。展開予想タブと同じclassify_style_c2)
-        pf_horses = [{"horse_name": h["horse_name"], "jockey": h["jockey"], "umaban": h["umaban"]}
+        # 脚質(表示用+MC123内部のn_nige/n_front算出に必須。展開予想タブと同じclassify_style_c2)。
+        # 2026-08-15: weight_kg(斤量)を含め忘れていたため、fetch_horses_for_mc123側で
+        # 修正した後もここで再度落ちてしまい、展開予想タブと脚質判定が食い違う原因になっていた。
+        pf_horses = [{"horse_name": h["horse_name"], "jockey": h["jockey"], "umaban": h["umaban"],
+                      "weight_kg": h.get("weight_kg")}
                      for h in horses]
         style_race = {"date": TARGET_DATE, "venue": venue, "surface": surface, "distance": distance,
                       "num_horses": len(horses), "track_cond": track_cond, "race_name": rname}

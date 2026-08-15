@@ -201,6 +201,7 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
     advance_sum = [0.0] * n            # 4角→ゴールの前進量(rank差、正=前に進んだ)の合計
     surge_counts = [0] * n             # 3順位以上前進した回数(「一気に来る馬」判定用)
     churn_race_sum = 0.0               # レース全体の平均|前進量|の合計(後でn_simで割って小/中/大判定)
+    winner_time_sum = 0.0              # 想定タイム表示用: 1着馬の実際の走破タイムの合計(後述)
     for k in range(n_sim):
         sim_horses = [{"style": st, "spd": 80.0 + rng.gauss(0, 3.0),
                        "spr": 80.0 + rng.gauss(0, 3.0),
@@ -223,6 +224,8 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
             track_cond_factor=track_cond_factor,
             seed=seed * 1_000_003 + k, record_snapshots=True,
         )
+        if res.get("finish_times") and res.get("order"):
+            winner_time_sum += res["finish_times"][res["order"][0]]
         ranks = res["snapshots"]["ranks"]
         for name, rk in ranks.items():  # 全チェックポイントを集計(zone0はpos1/2検証用)
             for i in range(n):
@@ -326,11 +329,17 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
 
     n_valid = pace_counts["H"] + pace_counts["M"] + pace_counts["S"]
     avg_laps = [s / c for s, c in zip(lap_sums, lap_counts)] if n_valid else []
+    # 2026-08-16修正: avg_total_timeは以前sum(avg_laps)=「各区間で瞬間的に先頭にいた馬」の
+    # 継ぎ接ぎ合計だった。先頭は区間ごとに入れ替わりうるため、実在するどの1頭の走破タイムでも
+    # ない理論上の最速合成値になり、実際のタイムより系統的に速く出るバイアスがあった
+    # (実測: 8/1-8/15 60R診断でMAE2.44秒、par_time単体1.15秒より悪化、相関r=-0.49と符号まで
+    # 逆転していた)。1着馬(res["order"][0])の実際のfinish_timeをシミュレーションごとに
+    # 集計したwinner_time_sumに差し替える。
     pace = {
         "h_rate": pace_counts["H"] / n_valid if n_valid else None,
         "m_rate": pace_counts["M"] / n_valid if n_valid else None,
         "s_rate": pace_counts["S"] / n_valid if n_valid else None,
-        "avg_total_time": sum(avg_laps) if avg_laps else None,
+        "avg_total_time": (winner_time_sum / n_sim) if n_sim else None,
         "par_time": get_par_time(conn, race["venue"], race["surface"], race["distance"]),
     }
     nige_count = sum(1 for st in styles if st == "逃げ")

@@ -150,7 +150,13 @@ def _run(seg_lens, distance, v_base, spd_res=0.0, spr_res=0.0, sta_res=0.0,
 
 def anchor_v_base(distance, par_time_sec, n_segments=None, **kw):
     """SPD=80(残差0)の馬がpar_time_secちょうどになるv_baseを二分探索で解く。"""
-    n = n_segments or max(3, round(distance / 200))
+    # 2026-08-16修正: round(distance/200)は端数200m未満の距離(distance%200!=0)で
+    # segment_lengths()が要求する区間数と食い違うことがあった(例: 1700mはround()=8だが
+    # 実際は[100,200,200,200,200,200,200,200,200]の9区間必要)。区間の合計が距離に
+    # 足りず、実際より短い距離をシミュレーションしてv_baseが異常に低く較正される
+    # バグがあった(1300/1700/2100/2500/3210/3250/3300/4250/4260mで発生、実データの
+    # 8.7%が該当)。ceil(distance/200)相当の整数演算に置き換え、常に一致させる。
+    n = n_segments or max(3, (int(distance) + 199) // 200)
     seg_lens = segment_lengths(n, distance)
     lo, hi = 10.0, 25.0
     for _ in range(50):
@@ -896,7 +902,9 @@ def simulate_field(distance, v_base, d_c1, corner_zones, horses, q_star,
     # (float加算 x+0.0 はビットパターン不変)。
     pace_noise = (rng.gauss(0.0, pace_noise_sigma) if pace_noise_sigma > 0 else 0.0) + pace_bias
 
-    n_seg = max(3, round(distance / 200))
+    # 2026-08-16修正: anchor_v_base()と同一のバグ(round()による区間数の食い違い)。詳細は
+    # anchor_v_base()のコメント参照。simulate_field本体はこちらが実際の隊列予測に使われる側。
+    n_seg = max(3, (int(distance) + 199) // 200)
     seg_lens = segment_lengths(n_seg, distance)
     markers = []
     acc = 0.0

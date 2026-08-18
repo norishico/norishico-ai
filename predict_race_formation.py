@@ -349,21 +349,39 @@ def predict_formation(conn, race, horses, n_sim=100, seed=0):
             "surge_p": surge_p, "churn_avg": churn_avg, "churn_label": churn_label}
 
 
-def describe_pace(pace, nige_count, n_horses):
-    """ペース統計+逃げ馬頭数+基準タイム差から、日本語の解説文を1段落で生成する。"""
+def describe_pace(pace, nige_count, n_horses, surface=None):
+    """ペース統計+逃げ馬頭数+基準タイム差から、日本語の解説文を1段落で生成する。
+
+    surface: "ダ"を渡すとダート向けの文言に切り替える。2026-08-16の実データ検証
+    (2024年以降、4角先頭集団30%vs後方集団30%の複勝率差)で、ダートは実測H率に
+    関わらず前有利が+28〜44ptと一貫して強く(1200mも1800mも同水準、むしろ短距離より
+    1800m台の方が大きいセルもある)、芝より前有利の度合いが明確に強いと判明。
+    「ハイペース→前が苦しくなり差し・追い込み有利」という一般論は芝を念頭にしたもので、
+    ダートにそのまま適用すると実態と逆になる。
+    """
     h, m, s = pace["h_rate"], pace["m_rate"], pace["s_rate"]
     if h is None:
         return "ペース判定に必要なシミュレーション結果が不足しています。"
+    is_dirt = (surface == "ダ")
     dominant = max(("H", h), ("M", m), ("S", s), key=lambda x: x[1])[0]
     if dominant == "H":
-        lean = f"ハイペースが濃厚(H={h*100:.0f}%)で、前が苦しくなり差し・追い込み勢にチャンスが増えそうな展開です。"
+        if is_dirt:
+            lean = (f"ハイペースが濃厚(H={h*100:.0f}%)です。ただしダートは実測でも前有利の"
+                    f"傾向が強く、ハイペースでも差し・追い込みが届くとは限りません。")
+        else:
+            lean = f"ハイペースが濃厚(H={h*100:.0f}%)で、前が苦しくなり差し・追い込み勢にチャンスが増えそうな展開です。"
     elif dominant == "S":
         lean = f"スローペースが濃厚(S={s*100:.0f}%)で、前残りしやすく、逃げ・先行勢が有利な展開が見込まれます。"
     else:
         second = "H" if h >= s else "S"
         if second == "H" and h >= 0.20:
-            lean = (f"ミドルペースが中心(M={m*100:.0f}%)ですが、ハイペースに振れる可能性"
-                    f"(H={h*100:.0f}%)もあり、前同士の主導権争い次第では差し・追い込みにもチャンスが残ります。")
+            if is_dirt:
+                lean = (f"ミドルペースが中心(M={m*100:.0f}%)ですが、ハイペースに振れる可能性"
+                        f"(H={h*100:.0f}%)もあります。ただしダートは前有利の傾向が強く、"
+                        f"ハイペースに振れても差し・追い込みが有利になるとは限りません。")
+            else:
+                lean = (f"ミドルペースが中心(M={m*100:.0f}%)ですが、ハイペースに振れる可能性"
+                        f"(H={h*100:.0f}%)もあり、前同士の主導権争い次第では差し・追い込みにもチャンスが残ります。")
         elif second == "S" and s >= 0.20:
             lean = (f"ミドルペースが中心(M={m*100:.0f}%)ですが、スローペースに振れる可能性"
                     f"(S={s*100:.0f}%)もあり、前が残りやすい展開になることもありそうです。")
@@ -409,7 +427,7 @@ def cmd_race(args):
     if pace["h_rate"] is not None:
         print(f"予想ペース: H={pace['h_rate']*100:.0f}%  M={pace['m_rate']*100:.0f}%  "
               f"S={pace['s_rate']*100:.0f}%")
-        print(describe_pace(pace, out["nige_count"], n))
+        print(describe_pace(pace, out["nige_count"], n, surface=race["surface"]))
     print()
     print("隊列予想(馬番+馬名、先頭/先団/中団/後方):")
     # netkeiba「レース展開予想」の3段階(スタート後/3コーナー/4コーナー)に合わせて表示

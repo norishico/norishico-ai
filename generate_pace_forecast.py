@@ -245,7 +245,7 @@ def _process_one_race(args):
                 "s": round(p["s_rate"], 3) if p["s_rate"] is not None else None,
                 # 馬場パターン別の解説文(UIのpill切替と連動させる。無いと良・稍重の
                 # 数値が他パターンでも表示されてしまう不整合が起きる)
-                "comment": describe_pace(p, out["nige_count"], len(horses)),
+                "comment": describe_pace(p, out["nige_count"], len(horses), surface=surface),
             }
         if first_out is None:
             return ("skip_err", race_id, None)
@@ -288,7 +288,7 @@ def _process_one_race(args):
             "numbers_estimated": numbers_estimated,
             "nige_count": first_out["nige_count"],
             "pace": pace_patterns,
-            "comment": describe_pace(first_out["pace"], first_out["nige_count"], n),
+            "comment": describe_pace(first_out["pace"], first_out["nige_count"], n, surface=surface),
             "horses": horses_out,
             "formation": formation_out,
             "gaps_between": gaps_out,

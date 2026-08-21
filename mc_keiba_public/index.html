@@ -212,7 +212,7 @@
     border:1px solid rgba(129,140,248,.5); color:#818cf8; font-size:13px; font-weight:700;
     display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .featured-body { flex:1; min-width:0; }
-  .featured-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .featured-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
   .featured-horse { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
   .featured-stats { display:flex; gap:18px; flex-wrap:wrap; }
   .featured-stat { display:flex; flex-direction:column; gap:2px; }
@@ -424,7 +424,7 @@ const WAKU_FILL = {1:'#f4f4f5',2:'#18181b',3:'#dc2626',4:'#2563eb',5:'#eab308',6
 const WAKU_TEXT = {1:'#18181b',2:'#ffffff',3:'#ffffff',4:'#ffffff',5:'#1c1917',6:'#ffffff',7:'#ffffff',8:'#ffffff'};
 const WAKU_LINE = {1:'#d4d4d8',2:'#8b8b94',3:'#ef4444',4:'#3b82f6',5:'#eab308',6:'#22c55e',7:'#f97316',8:'#ec4899'};
 const PACE_STAGES = [['start','スタート後'],['corner3','3コーナー'],['corner4','4コーナー'],['goal','ゴール']];
-let paceData = null, paceLoaded = false, paceSel = {}, paceVenueFilter = 'all';
+let paceData = null, paceLoaded = false, paceDataLoaded = false, paceSel = {}, paceVenueFilter = 'all';
 // MC123(1〜3着内確率、情報提供専用)。pace_data.jsonとは完全独立のファイル+読込経路。
 // 取得に失敗しても展開予想側の表示には一切影響しない(グレースフルデグレード)
 let mc123Data = null;
@@ -443,27 +443,56 @@ async function loadMc123Data() {
   }
 }
 
-// ══ 注目レースタブ (2026-08-22追加) ══════════════════════════════════════════
-// MC123(mc123_data.json)から、1着候補馬(rank===1)の過去の的中実績が信頼度「高」に
-// 区分されたレースだけを抽出し、良馬場想定のp1(1着率)降順で並べる。買い目ロジックとは
-// 無関係の参考情報タブ(委員会承認事項: 「おすすめ」ではなく「注目」、参考情報の明記必須)。
+// pace_data.jsonの取得のみを担う共通関数(2026-08-22、注目レースタブ追加に伴い
+// loadPaceTab()内のfetch処理を抽出)。成功時のみpaceDataLoaded=trueにする(失敗時は
+// 呼び出し側で再試行できるよう、既存のloadPaceTab()のエラー表示動作は変更しない)
+async function fetchPaceData() {
+  if (paceDataLoaded) return;
+  const r = await fetch('pace_data.json', {cache:'no-store'});
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  paceData = await r.json();
+  paceDataLoaded = true;
+}
+
+// ══ 注目レースタブ (2026-08-22追加、08-22改訂: 隊列予想の精度も条件に追加) ══════════
+// MC123(mc123_data.json)の1着候補馬(rank===1)の過去の的中実績が信頼度「高」、かつ
+// pace_data.json(mc_dyn展開シミュレーター)の隊列予想精度(accuracy.tier)も「高」の
+// レースだけを抽出し、良馬場想定のp1(1着率)降順で並べる。買い目ロジックとは無関係の
+// 参考情報タブ(委員会承認事項: 「おすすめ」ではなく「注目」、参考情報の明記必須)。
+// 2つのファイルはrace_idの文字列形式が将来的に食い違う可能性があるため、
+// venue名+rno(レース番号)の組み合わせで突合する(のりお指摘、2026-08-22)。
 async function loadFeaturedTab() {
-  if (!mc123Loaded) await loadMc123Data();
+  const tasks = [];
+  if (!mc123Loaded) tasks.push(loadMc123Data());
+  if (!paceDataLoaded) tasks.push(fetchPaceData().catch(() => {}));
+  await Promise.all(tasks);
   renderFeaturedTab();
+}
+
+function buildPaceIndexByVenueRno() {
+  const idx = new Map();
+  if (paceData && paceData.races) {
+    paceData.races.forEach(r => idx.set(r.venue + '|' + r.rno, r));
+  }
+  return idx;
 }
 
 function extractFeaturedRaces() {
   if (!mc123Data || !mc123Data.races) return [];
   const track = TRACKS[0]; // '良・稍重' = 良馬場想定
+  const paceIdx = buildPaceIndexByVenueRno();
   return mc123Data.races
     .map(race => {
       const rel = race.top1_reliability;
       if (!rel || rel.tier !== '高') return null;
+      const paceRace = paceIdx.get(race.venue + '|' + race.rno);
+      const acc = paceRace && paceRace.accuracy;
+      if (!acc || acc.tier !== '高') return null;
       const horse = (race.horses || []).find(h => h.rank === 1);
       if (!horse || !horse.patterns) return null;
       const pat = horse.patterns[track];
       if (!pat) return null;
-      return { race, horse, rel, pat };
+      return { race, horse, rel, acc, pat };
     })
     .filter(Boolean)
     .sort((a, b) => (b.pat.p1 || 0) - (a.pat.p1 || 0));
@@ -480,7 +509,7 @@ function renderFeaturedTab() {
   const notice = `
     <div style="background:rgba(220,53,69,0.12);border:1px solid rgba(220,53,69,0.5);border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:14px">
       ⚠️ <strong>買い目ではなく参考情報です</strong>。MC123シミュレーションで1着候補馬の過去の的中実績が
-      信頼度「高」に区分されたレースを、1着率が高い順に並べています。
+      信頼度「高」、かつ展開予想(隊列)の精度も「高」に区分されたレースを、1着率が高い順に並べています。
     </div>
     <div class="pace-note mb-3">
       ※良馬場を想定した場合の参考値です。実際の馬場状態と異なる場合があります。
@@ -490,18 +519,19 @@ function renderFeaturedTab() {
       <span class="fw-bold" style="font-size:15px">注目レース</span>
       <span class="pace-chip">${mc123Data.date || ''}</span>
       <span class="pace-chip">${items.length}レース</span>
-      <span class="pace-note ms-auto">MC123 信頼度「高」×1着率順(${(mc123Data.n_mc || 0).toLocaleString()}回試行)</span>
+      <span class="pace-note ms-auto">MC123 信頼度「高」×展開予想 精度「高」×1着率順(${(mc123Data.n_mc || 0).toLocaleString()}回試行)</span>
     </div>`;
   const cards = items.map((it, idx) => renderFeaturedCard(it, idx)).join('');
   c.innerHTML = header + notice + `<div class="featured-list">${cards}</div>`;
 }
 
 function renderFeaturedCard(it, idx) {
-  const { race, horse, rel, pat } = it;
+  const { race, horse, rel, acc, pat } = it;
   const p1 = Math.round((pat.p1 || 0) * 100);
   const ptop3 = Math.round((pat.ptop3 || 0) * 100);
   const placeRate = Math.round((rel.place_rate || 0) * 100);
-  const limitedNote = rel.data_limited ? '(参考値)' : '';
+  const relLimitedNote = rel.data_limited ? '(参考値)' : '';
+  const accLimitedNote = acc.data_limited ? '(参考値)' : '';
   return `
   <div class="featured-card ${idx < 5 ? 'featured-top' : ''}">
     <div class="featured-rank">${idx + 1}</div>
@@ -511,6 +541,10 @@ function renderFeaturedCard(it, idx) {
         <div style="min-width:0">
           <div class="fw-bold" style="font-size:14px">${race.rno}R ${race.rname}</div>
           <div class="pace-note">${race.surface}${race.distance}m・${race.n_horses}頭</div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap ms-auto">
+          <span class="pace-chip" style="color:#2dd4bf">MC123 信頼度:高</span>
+          <span class="pace-chip" style="color:#2dd4bf">展開予想 精度:高</span>
         </div>
       </div>
       <div class="featured-horse">
@@ -522,8 +556,10 @@ function renderFeaturedCard(it, idx) {
       <div class="featured-stats">
         <div class="featured-stat"><span class="featured-stat-label">1着率</span><span class="featured-stat-val">${p1}%</span></div>
         <div class="featured-stat"><span class="featured-stat-label">複勝圏内率</span><span class="featured-stat-val">${ptop3}%</span></div>
-        <div class="featured-stat"><span class="featured-stat-label">信頼度(過去の的中実績)</span>
-          <span class="featured-stat-val">複勝的中率${placeRate}%<span class="sub"> (n=${rel.n})${limitedNote}</span></span></div>
+        <div class="featured-stat"><span class="featured-stat-label">MC123信頼度(過去の的中実績)</span>
+          <span class="featured-stat-val">複勝的中率${placeRate}%<span class="sub"> (n=${rel.n})${relLimitedNote}</span></span></div>
+        <div class="featured-stat"><span class="featured-stat-label">展開予想 精度(隊列)</span>
+          <span class="featured-stat-val">高<span class="sub"> (n=${acc.n})${accLimitedNote}</span></span></div>
       </div>
     </div>
   </div>`;
@@ -533,12 +569,7 @@ async function loadPaceTab() {
   if (paceLoaded) return;
   const c = document.getElementById('pace-container');
   try {
-    const [r] = await Promise.all([
-      fetch('pace_data.json', {cache:'no-store'}),
-      loadMc123Data(),
-    ]);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    paceData = await r.json();
+    await Promise.all([fetchPaceData(), loadMc123Data()]);
     paceLoaded = true;
     renderPaceTab();
   } catch(e) {

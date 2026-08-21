@@ -199,6 +199,26 @@
   .mc123-bar { height:100%; background:#818cf8; border-radius:3px; }
   .mc123-pct { width:32px; text-align:right; font-size:11px; color:var(--bs-secondary-color);
     flex-shrink:0; font-variant-numeric:tabular-nums; }
+  /* 注目レースタブ (2026-08-22追加、MC123 top1_reliability=「高」抽出)。買い目ロジックとも
+     mc123-blockのインディゴ配色を踏襲しつつ、金銀銅のような「当たり馬券」を連想させる
+     装飾は避ける(mc123-block同様の委員会方針を踏襲) */
+  .featured-list { display:flex; flex-direction:column; gap:12px; }
+  .featured-card { display:flex; gap:12px; border:1px solid rgba(255,255,255,.08); border-radius:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+    padding:14px; }
+  .featured-card.featured-top { border-color:rgba(129,140,248,.4);
+    background:linear-gradient(180deg, rgba(129,140,248,.09), rgba(129,140,248,.02)); }
+  .featured-rank { width:28px; height:28px; border-radius:50%; background:rgba(129,140,248,.15);
+    border:1px solid rgba(129,140,248,.5); color:#818cf8; font-size:13px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .featured-body { flex:1; min-width:0; }
+  .featured-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .featured-horse { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .featured-stats { display:flex; gap:18px; flex-wrap:wrap; }
+  .featured-stat { display:flex; flex-direction:column; gap:2px; }
+  .featured-stat-label { font-size:11px; color:var(--bs-secondary-color); }
+  .featured-stat-val { font-size:15px; font-weight:700; color:#818cf8; }
+  .featured-stat-val .sub { font-weight:400; font-size:11px; color:var(--bs-secondary-color); }
   /* タブナビ スマホ対応: 展開予想タブ追加で4タブになり、375-390px幅で折り返して
      2段崩れしていたため、横スクロール化+コンパクト化で1行に収める */
   @media (max-width: 575px) {
@@ -235,6 +255,10 @@
            MC123ランキングを統合済み -->
       <li class="nav-item">
         <a class="nav-link active" data-tab="pace" href="#" onclick="switchTab('pace');return false;">今日の予想</a>
+      </li>
+      <li class="nav-item">
+        <!-- 2026-08-22追加: MC123の信頼度「高」×1着率上位を抽出する参考情報タブ(買い目ではない) -->
+        <a class="nav-link" data-tab="featured" href="#" onclick="switchTab('featured');return false;">注目レース</a>
       </li>
       <li class="nav-item">
         <a class="nav-link" data-tab="logic" href="#" onclick="switchTab('logic');return false;">AIについて</a>
@@ -362,6 +386,13 @@
   </div>
 </div>
 
+<!-- ══ 注目レースタブ (2026-08-22追加, MC123 top1_reliability=「高」抽出) ══ -->
+<div id="tab-featured" style="display:none">
+  <div class="container-xl py-3" id="featured-container">
+    <div class="text-secondary py-4 text-center">読み込み中…</div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.2.0/dist/js/tabler.min.js"></script>
 <script>
 const TRACKS = ['良・稍重', '重', '不良'];
@@ -371,11 +402,12 @@ function switchTab(name) {
   document.querySelectorAll('.nav-link[data-tab]').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === name);
   });
-  ['logic', 'pace'].forEach(t => {
+  ['logic', 'pace', 'featured'].forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.style.display = t === name ? '' : 'none';
   });
   if (name === 'pace') loadPaceTab();
+  if (name === 'featured') loadFeaturedTab();
 }
 
 // ── 戻るボタン: 600px以上スクロールしたら表示 ──
@@ -396,6 +428,8 @@ let paceData = null, paceLoaded = false, paceSel = {}, paceVenueFilter = 'all';
 // MC123(1〜3着内確率、情報提供専用)。pace_data.jsonとは完全独立のファイル+読込経路。
 // 取得に失敗しても展開予想側の表示には一切影響しない(グレースフルデグレード)
 let mc123Data = null;
+let mc123Loaded = false; // 取得を試みたかどうか(成功/失敗を問わず)。注目レースタブが単独で
+                          // 開かれた場合の二重フェッチを防ぐためのフラグ
 
 async function loadMc123Data() {
   try {
@@ -404,7 +438,95 @@ async function loadMc123Data() {
     mc123Data = await r.json();
   } catch (e) {
     mc123Data = null;
+  } finally {
+    mc123Loaded = true;
   }
+}
+
+// ══ 注目レースタブ (2026-08-22追加) ══════════════════════════════════════════
+// MC123(mc123_data.json)から、1着候補馬(rank===1)の過去の的中実績が信頼度「高」に
+// 区分されたレースだけを抽出し、良馬場想定のp1(1着率)降順で並べる。買い目ロジックとは
+// 無関係の参考情報タブ(委員会承認事項: 「おすすめ」ではなく「注目」、参考情報の明記必須)。
+async function loadFeaturedTab() {
+  if (!mc123Loaded) await loadMc123Data();
+  renderFeaturedTab();
+}
+
+function extractFeaturedRaces() {
+  if (!mc123Data || !mc123Data.races) return [];
+  const track = TRACKS[0]; // '良・稍重' = 良馬場想定
+  return mc123Data.races
+    .map(race => {
+      const rel = race.top1_reliability;
+      if (!rel || rel.tier !== '高') return null;
+      const horse = (race.horses || []).find(h => h.rank === 1);
+      if (!horse || !horse.patterns) return null;
+      const pat = horse.patterns[track];
+      if (!pat) return null;
+      return { race, horse, rel, pat };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (b.pat.p1 || 0) - (a.pat.p1 || 0));
+}
+
+function renderFeaturedTab() {
+  const c = document.getElementById('featured-container');
+  if (!c) return;
+  const items = extractFeaturedRaces();
+  if (!mc123Data || items.length === 0) {
+    c.innerHTML = '<div class="text-secondary py-5 text-center">本日は注目レースの対象がありません</div>';
+    return;
+  }
+  const notice = `
+    <div style="background:rgba(220,53,69,0.12);border:1px solid rgba(220,53,69,0.5);border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:14px">
+      ⚠️ <strong>買い目ではなく参考情報です</strong>。MC123シミュレーションで1着候補馬の過去の的中実績が
+      信頼度「高」に区分されたレースを、1着率が高い順に並べています。
+    </div>
+    <div class="pace-note mb-3">
+      ※良馬場を想定した場合の参考値です。実際の馬場状態と異なる場合があります。
+    </div>`;
+  const header = `
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+      <span class="fw-bold" style="font-size:15px">注目レース</span>
+      <span class="pace-chip">${mc123Data.date || ''}</span>
+      <span class="pace-chip">${items.length}レース</span>
+      <span class="pace-note ms-auto">MC123 信頼度「高」×1着率順(${(mc123Data.n_mc || 0).toLocaleString()}回試行)</span>
+    </div>`;
+  const cards = items.map((it, idx) => renderFeaturedCard(it, idx)).join('');
+  c.innerHTML = header + notice + `<div class="featured-list">${cards}</div>`;
+}
+
+function renderFeaturedCard(it, idx) {
+  const { race, horse, rel, pat } = it;
+  const p1 = Math.round((pat.p1 || 0) * 100);
+  const ptop3 = Math.round((pat.ptop3 || 0) * 100);
+  const placeRate = Math.round((rel.place_rate || 0) * 100);
+  const limitedNote = rel.data_limited ? '(参考値)' : '';
+  return `
+  <div class="featured-card ${idx < 5 ? 'featured-top' : ''}">
+    <div class="featured-rank">${idx + 1}</div>
+    <div class="featured-body">
+      <div class="featured-head">
+        <span class="venue-badge">${race.venue}</span>
+        <div style="min-width:0">
+          <div class="fw-bold" style="font-size:14px">${race.rno}R ${race.rname}</div>
+          <div class="pace-note">${race.surface}${race.distance}m・${race.n_horses}頭</div>
+        </div>
+      </div>
+      <div class="featured-horse">
+        <span class="wk wk${horse.waku}">${horse.num}</span>
+        <span class="fw-bold" style="font-size:14px">${horse.name}</span>
+        <span class="style-tag ${STYLE_CLASS_PACE[horse.style] || 'style-chutan'}">${horse.style || ''}</span>
+        <span class="text-secondary" style="font-size:12px">${horse.jockey || ''}騎手</span>
+      </div>
+      <div class="featured-stats">
+        <div class="featured-stat"><span class="featured-stat-label">1着率</span><span class="featured-stat-val">${p1}%</span></div>
+        <div class="featured-stat"><span class="featured-stat-label">複勝圏内率</span><span class="featured-stat-val">${ptop3}%</span></div>
+        <div class="featured-stat"><span class="featured-stat-label">信頼度(過去の的中実績)</span>
+          <span class="featured-stat-val">複勝的中率${placeRate}%<span class="sub"> (n=${rel.n})${limitedNote}</span></span></div>
+      </div>
+    </div>
+  </div>`;
 }
 
 async function loadPaceTab() {

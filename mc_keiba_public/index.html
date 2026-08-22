@@ -219,6 +219,24 @@
   .featured-stat-label { font-size:11px; color:var(--bs-secondary-color); }
   .featured-stat-val { font-size:15px; font-weight:700; color:#818cf8; }
   .featured-stat-val .sub { font-weight:400; font-size:11px; color:var(--bs-secondary-color); }
+  /* WIN5タブ (2026-08-22追加)。featured-card/featured-rank/featured-body/featured-headは
+     注目レースタブと共用。「本命(v6.6予想)」「AI3着以内候補(MC123)」の2ブロックに分け、
+     それぞれ根拠が違うことが一目でわかるようにする(のりお指摘、2026-08-22追加要望) */
+  .win5-pred-block { margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,.06); }
+  .win5-pred-label { font-size:11px; font-weight:700; color:var(--bs-secondary-color);
+    text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
+  .win5-pred-empty { font-size:12px; color:var(--bs-secondary-color); }
+  .win5-honmei-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .win5-mc123-list { display:flex; flex-direction:column; gap:3px; }
+  .win5-mc123-row { display:flex; align-items:center; gap:6px; font-size:12px; padding:3px 6px;
+    border-radius:6px; border-left:2px solid transparent; min-width:0; }
+  .win5-mc123-row.win5-mc123-top { border-left-color:#818cf8; background:rgba(129,140,248,.07); }
+  .win5-mc123-rank { width:15px; text-align:center; font-size:11px; font-weight:700;
+    color:#71717a; flex-shrink:0; }
+  .win5-mc123-row.win5-mc123-top .win5-mc123-rank { color:#818cf8; }
+  .win5-mc123-row .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
+  .win5-mc123-pct { font-size:12px; font-weight:700; color:#818cf8; flex-shrink:0;
+    font-variant-numeric:tabular-nums; }
   /* タブナビ スマホ対応: 展開予想タブ追加で4タブになり、375-390px幅で折り返して
      2段崩れしていたため、横スクロール化+コンパクト化で1行に収める */
   @media (max-width: 575px) {
@@ -259,6 +277,10 @@
       <li class="nav-item">
         <!-- 2026-08-22追加: MC123の信頼度「高」×1着率上位を抽出する参考情報タブ(買い目ではない) -->
         <a class="nav-link" data-tab="featured" href="#" onclick="switchTab('featured');return false;">注目レース</a>
+      </li>
+      <li class="nav-item">
+        <!-- 2026-08-22追加: 本日のWIN5対象レース(通常5レース)の本命・AI3着以内候補を表示する参考情報タブ -->
+        <a class="nav-link" data-tab="win5" href="#" onclick="switchTab('win5');return false;">WIN5</a>
       </li>
       <li class="nav-item">
         <a class="nav-link" data-tab="logic" href="#" onclick="switchTab('logic');return false;">AIについて</a>
@@ -393,6 +415,13 @@
   </div>
 </div>
 
+<!-- ══ WIN5タブ (2026-08-22追加, WIN5対象レースの本命/AI3着以内候補) ══ -->
+<div id="tab-win5" style="display:none">
+  <div class="container-xl py-3" id="win5-container">
+    <div class="text-secondary py-4 text-center">読み込み中…</div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.2.0/dist/js/tabler.min.js"></script>
 <script>
 const TRACKS = ['良・稍重', '重', '不良'];
@@ -402,12 +431,13 @@ function switchTab(name) {
   document.querySelectorAll('.nav-link[data-tab]').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === name);
   });
-  ['logic', 'pace', 'featured'].forEach(t => {
+  ['logic', 'pace', 'featured', 'win5'].forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.style.display = t === name ? '' : 'none';
   });
   if (name === 'pace') loadPaceTab();
   if (name === 'featured') loadFeaturedTab();
+  if (name === 'win5') loadWin5Tab();
 }
 
 // ── 戻るボタン: 600px以上スクロールしたら表示 ──
@@ -560,6 +590,118 @@ function renderFeaturedCard(it, idx) {
           <span class="featured-stat-val">複勝的中率${placeRate}%<span class="sub"> (n=${rel.n})${relLimitedNote}</span></span></div>
         <div class="featured-stat"><span class="featured-stat-label">展開予想 精度(隊列)</span>
           <span class="featured-stat-val">高<span class="sub"> (n=${acc.n})${accLimitedNote}</span></span></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ══ WIN5タブ (2026-08-22追加) ══════════════════════════════════════════════
+// win5_data.json(generate_win5_data.pyが生成、netkeiba「WIN5対象レース」ページから抽出)を
+// 表示する。他タブのデータ(pace_data.json/mc123_data.json)とは完全独立の読み込み経路で、
+// 取得に失敗しても本体機能には一切影響しない(グレースフルデグレード)。
+// 各対象レースに「本命(v6.6予想=weekend_predictions.json)」「AI3着以内候補
+// (MC123=mc123_data.json)」を別ブロックで表示し、突合できなかった場合は捏造せず
+// 「予想データなし」と明記する(のりお指摘、2026-08-22追加要望)。
+let win5Data = null, win5Loaded = false;
+
+async function loadWin5Tab() {
+  if (win5Loaded) return;
+  const c = document.getElementById('win5-container');
+  try {
+    const r = await fetch('win5_data.json', {cache:'no-store'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    win5Data = await r.json();
+    win5Loaded = true;
+    renderWin5Tab();
+  } catch (e) {
+    win5Loaded = true;
+    win5Data = null;
+    renderWin5Tab();
+  }
+}
+
+function renderWin5Tab() {
+  const c = document.getElementById('win5-container');
+  if (!c) return;
+  const races = (win5Data && win5Data.races) || [];
+  if (!win5Data || races.length === 0) {
+    c.innerHTML = '<div class="text-secondary py-5 text-center">本日はWIN5データを取得できませんでした</div>';
+    return;
+  }
+  const notice = `
+    <div style="background:rgba(220,53,69,0.12);border:1px solid rgba(220,53,69,0.5);border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:14px">
+      ⚠️ <strong>買い目ではなく参考情報です</strong>。本日のWIN5対象レース全${win5Data.n_races_target || races.length}レースについて、
+      「本命」(v6.6予想ロジック)と「AI3着以内候補」(MC123シミュレーション、オッズ非考慮)を並べて表示しています。
+    </div>`;
+  const header = `
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+      <span class="fw-bold" style="font-size:15px">WIN5対象レース</span>
+      <span class="pace-chip">${win5Data.date || ''}</span>
+      <span class="pace-chip">全${win5Data.n_races_target || races.length}レース</span>
+    </div>`;
+  const cards = races.map(r => renderWin5Card(r)).join('');
+  c.innerHTML = header + notice + `<div class="featured-list">${cards}</div>`;
+}
+
+function renderWin5Card(r) {
+  const raceLabel = r.race_num ? `${r.race_num}R ${r.race_name || ''}` : (r.race_name || '');
+  const detailBits = [];
+  if (r.start_time) detailBits.push(`${r.start_time}発走`);
+  if (r.surface && r.distance) detailBits.push(`${r.surface}${r.distance}m`);
+  if (r.track_cond) detailBits.push(`馬場:${r.track_cond}`);
+
+  let honmeiHtml;
+  if (r.matched_prediction && r.honmei && r.honmei.horse_name) {
+    const h = r.honmei;
+    const oddsStr = (h.odds != null) ? `${h.odds}倍` : '';
+    const popStr = (h.popularity != null) ? `${h.popularity}人気` : '';
+    const scoreStr = (h.total_score != null) ? `スコア${h.total_score}` : '';
+    honmeiHtml = `
+      <div class="win5-honmei-row">
+        <span class="wk wk${h.waku || ''}">${h.umaban != null ? h.umaban : '?'}</span>
+        <span class="fw-bold" style="font-size:14px">${h.horse_name}</span>
+        <span class="pace-note">${[popStr, oddsStr, scoreStr].filter(Boolean).join('・')}</span>
+      </div>`;
+  } else {
+    honmeiHtml = `<div class="win5-pred-empty">予想データなし(weekend_predictions.jsonと突合できませんでした)</div>`;
+  }
+
+  let mc123Html;
+  if (r.matched_mc123 && r.mc123_top3 && r.mc123_top3.length) {
+    const rows = r.mc123_top3.map((h, i) => {
+      const pct = h.ptop3 != null ? Math.round(h.ptop3 * 100) : null;
+      return `
+      <div class="win5-mc123-row ${i === 0 ? 'win5-mc123-top' : ''}">
+        <span class="win5-mc123-rank">${i + 1}</span>
+        <span class="wk wk${h.waku || ''}">${h.num != null ? h.num : '?'}</span>
+        <span class="nm">${h.name || ''}</span>
+        <span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style || ''}</span>
+        <span class="win5-mc123-pct">${pct != null ? pct + '%' : ''}</span>
+      </div>`;
+    }).join('');
+    mc123Html = `<div class="win5-mc123-list">${rows}</div>`;
+  } else {
+    mc123Html = `<div class="win5-pred-empty">予想データなし(mc123_data.jsonと突合できませんでした)</div>`;
+  }
+
+  return `
+  <div class="featured-card">
+    <div class="featured-rank">${r.leg || ''}</div>
+    <div class="featured-body">
+      <div class="featured-head">
+        <span class="venue-badge">${r.venue || ''}</span>
+        <div style="min-width:0">
+          <div class="fw-bold" style="font-size:14px">${raceLabel}</div>
+          <div class="pace-note">${detailBits.join('・')}</div>
+        </div>
+      </div>
+      <div class="win5-pred-block">
+        <div class="win5-pred-label">本命(v6.6予想)</div>
+        ${honmeiHtml}
+      </div>
+      <div class="win5-pred-block">
+        <div class="win5-pred-label">AI3着以内候補(MC123・複勝圏内率上位)</div>
+        ${mc123Html}
       </div>
     </div>
   </div>`;

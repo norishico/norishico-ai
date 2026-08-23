@@ -104,10 +104,20 @@ def umaban_to_waku(u, n):
 
 
 def fetch_day_races(conn):
+    """当日分のresultsを取得。
+    【2026-08-23修正】resultsには本スクリプトとは無関係な別処理が、標準の12桁数値
+    race_id(JRA形式)とは異なる文字列形式(例: '2026-08-23_中京_1')・umaban全欠損の
+    プレースホルダー行を週末ごとに書き込んでいることが判明した(7月から継続、本スクリプトの
+    バグではないが影響を受けていた)。このプレースホルダー行が引っかかると「本日はresultsに
+    実データあり」と誤判定され、本来使うべきfetch_day_races_live()(weekend_predictions.json
+    経由、馬番が確実に入っている)ではなく不完全なこの経路が選ばれ、馬番と馬名が食い違った
+    データを公開してしまっていた(中京1R等で実際に発覚)。race_idが標準の12桁数値のみに
+    絞ることで、このプレースホルダー行を除外する。
+    """
     rows = conn.execute("""
         SELECT race_id, venue, race_num, MAX(race_name), surface, distance,
                COUNT(*), MAX(track_cond)
-        FROM results WHERE date = ?
+        FROM results WHERE date = ? AND race_id GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
         GROUP BY race_id ORDER BY venue, race_num
     """, (TARGET_DATE,)).fetchall()
     return rows
@@ -137,8 +147,18 @@ def fetch_horses(conn, race_id):
 
 # 【2026-08-08追加】当日ライブフォールバック: 開催当日はJV-Link経由のresults反映が
 # レース終了後になるため、発走前は`results`にTARGET_DATE分の行が1件も無い。
-# その間はauto_refresh.pyが管理するthis_week_races.json(出走表+想定オッズ)から
-# 直接読む。results行が存在すればそちらを優先するため、この経路は本当に無い時のみ使う。
+# その間は当日の出走表(馬番含む)が必要になる。
+# 【2026-08-23修正】従来はauto_refresh.pyが管理するthis_week_races.jsonを直接
+# 読んでいたが、同ファイルは開催当日ずっと非アトミックに書き換えられ続けており
+# (with open(...,'w')で即時truncateしてから書く)、更新の狭間で読むとumabanが
+# 一時的に欠損した不完全なスナップショットを掴むことがあった(その状態が数分単位で
+# 継続することもあり、短いリトライでは救えなかった)。結果として馬番と馬名が
+# 食い違ったデータをAYOkeibaに公開してしまうインシデントが発生(中京1R等)。
+# weekend_predictions.json(auto_refresh.py内でthis_week_races.json書き込み後に
+# predict_weekend.pyが再生成する、より後工程で検証済みのファイル)は今回の調査で
+# 終始一貫して正しい馬番を保持していたことを確認済みのため、そちらを優先ソースにする。
+# this_week_races.jsonは(weekend_predictions.jsonに無い当日限定レース等の)
+# フォールバックとしてのみ残す。
 _LIVE_RACES_CACHE = None
 
 
@@ -146,13 +166,32 @@ def _load_live_races():
     global _LIVE_RACES_CACHE
     if _LIVE_RACES_CACHE is not None:
         return _LIVE_RACES_CACHE
-    p = Path("this_week_races.json")
-    if not p.exists():
-        _LIVE_RACES_CACHE = {}
-        return _LIVE_RACES_CACHE
-    all_races = json.loads(p.read_text(encoding="utf-8"))
-    today = [r for r in all_races if r.get("date") == TARGET_DATE]
-    _LIVE_RACES_CACHE = {f"{TARGET_DATE}_{r.get('venue','')}_{r.get('race_num',0)}": r for r in today}
+    cache = {}
+    wp_path = Path("weekend_predictions.json")
+    if wp_path.exists():
+        wp_all = json.loads(wp_path.read_text(encoding="utf-8"))
+        for entry in wp_all:
+            r = entry.get("race", {})
+            if r.get("date") != TARGET_DATE:
+                continue
+            key = f"{TARGET_DATE}_{r.get('venue','')}_{r.get('race_num',0)}"
+            cache[key] = {
+                "venue": r.get("venue", ""), "race_num": r.get("race_num", 0),
+                "race_name": r.get("race_name") or "", "surface": r.get("surface") or "",
+                "distance": r.get("distance") or 0, "track_cond": r.get("track_cond") or "良",
+                "horses": r.get("horses", []),
+            }
+    # this_week_races.jsonはフォールバック専用: weekend_predictions.jsonに無いレースのみ補う
+    twr_path = Path("this_week_races.json")
+    if twr_path.exists():
+        all_races = json.loads(twr_path.read_text(encoding="utf-8"))
+        for r in all_races:
+            if r.get("date") != TARGET_DATE:
+                continue
+            key = f"{TARGET_DATE}_{r.get('venue','')}_{r.get('race_num',0)}"
+            if key not in cache:
+                cache[key] = r
+    _LIVE_RACES_CACHE = cache
     return _LIVE_RACES_CACHE
 
 
@@ -210,8 +249,13 @@ def fetch_horses_live(race_id):
 
 
 def _process_one_race(args):
-    """1レース分の展開予想を計算しJSON辞書を返す(並列ワーカー、レース単位で独立)。"""
-    race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode, start_time = args
+    """1レース分の展開予想を計算しJSON辞書を返す(並列ワーカー、レース単位で独立)。
+    2026-08-23修正: 出走馬データ(horses)はメインプロセスが事前に1回だけ取得してargsに
+    含める(以前は各ワーカーがthis_week_races.jsonを個別に読み直していたが、開催当日は
+    auto_refresh.pyが同ファイルを非アトミックに書き換え続けるため、多数ワーカーが同時に
+    読みに行くと稀に不整合な内容を読んでしまい、馬番と馬名の対応がズレるバグがあった
+    <2026-08-23、中京1R等で発覚>)。"""
+    race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode, start_time, horses, numbers_estimated = args
     # Windows spawnワーカーでのstdout競合対策(compute_formation_accuracy.pyと同一の対処)
     import os as _os
     global _keep_alive_ref
@@ -219,8 +263,6 @@ def _process_one_race(args):
     import sqlite3 as _sq
     conn = _sq.connect(f"file:{DB}?mode=ro", uri=True)
     try:
-        horses, numbers_estimated = (fetch_horses_live(race_id) if live_mode
-                                      else fetch_horses(conn, race_id))
         if len(horses) < 2:
             return ("skip_err", race_id, None)
         race = {"date": TARGET_DATE, "venue": venue, "surface": surface,
@@ -318,8 +360,38 @@ def main():
     conn.close()
     print(f"{TARGET_DATE}: {len(day_races)}レース" + ("(ライブ)" if live_mode else ""))
 
+    # 【2026-08-23追加】出走馬データはここ(メインプロセス)で1回だけ取得する。
+    # 以前は各ワーカーがthis_week_races.jsonを個別に読み直しており、開催当日に
+    # auto_refresh.pyが同ファイルを非アトミックに書き換え続ける影響で、多数ワーカーが
+    # 同時アクセスした際に稀に不整合な内容を読んで馬番と馬名の対応がズレる不具合があった。
+    horses_conn = sqlite3.connect(f"file:{DB}?mode=ro", uri=True) if not live_mode else None
+
+    # 【2026-08-23追加】this_week_races.jsonはauto_refresh.pyが開催当日ずっと
+    # 非アトミックに書き換え続けている(with open(...,'w')で即時truncateしてから書く
+    # ため、更新の狭間で読むとumabanが一時的に空/欠損した不完全なスナップショットを
+    # 掴むことがある)。umaban欠損時のフォールバック(出走順連番)自体は仕様通りだが、
+    # 「本来は全馬umabanが確定しているはずのライブレースで大量にフォールバックが
+    # 発火する」のは異常事態のサインであり、そのまま出すと馬番と馬名が食い違った
+    # 誤ったデータを公開してしまう(2026-08-23、中京1R等で実際に発生・発覚)。
+    # そのためlive_modeでフォールバックが起きたレースは、キャッシュを破棄して
+    # 数秒待ってから読み直すリトライを行い、それでも駄目なら安全側に倒してスキップする。
+    import time as _time
+
+    def _fetch_with_retry(race_id, max_retry=3, wait_sec=5):
+        for attempt in range(max_retry + 1):
+            horses, est = fetch_horses_live(race_id)
+            if not est or not horses:
+                return horses, est
+            if attempt < max_retry:
+                print(f"  ⚠ {race_id}: 馬番が推定値(欠損スナップショットの疑い)、"
+                      f"{wait_sec}秒待って読み直します(試行{attempt+1}/{max_retry})")
+                _time.sleep(wait_sec)
+                global _LIVE_RACES_CACHE
+                _LIVE_RACES_CACHE = None  # 強制リロード
+        return horses, est
+
     targets = []
-    n_skip_shinba = n_skip_jump = 0
+    n_skip_shinba = n_skip_jump = n_skip_horses = n_skip_umaban = 0
     for race_id, venue, rno, rname, surface, distance, n_ent, track_cond in day_races:
         if pace_cls_group(rname) == "新馬":
             n_skip_shinba += 1
@@ -332,8 +404,20 @@ def main():
             n_skip_jump += 1
             print(f"  SKIP {venue}{rno}R {rname}(障害または非対応surface)")
             continue
+        horses, numbers_estimated = (_fetch_with_retry(race_id) if live_mode
+                                      else fetch_horses(horses_conn, race_id))
+        if len(horses) < 2:
+            n_skip_horses += 1
+            continue
+        if live_mode and numbers_estimated:
+            n_skip_umaban += 1
+            print(f"  SKIP {venue}{rno}R {rname}(リトライ後も馬番欠損、誤表示防止のため今回は見送り)")
+            continue
         st = load_start_time_map().get((venue, rno), "")
-        targets.append((race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode, st))
+        targets.append((race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode, st,
+                        horses, numbers_estimated))
+    if horses_conn is not None:
+        horses_conn.close()
 
     races_out, n_skip_err = [], 0
     with Pool(workers) as pool:
@@ -362,7 +446,7 @@ def main():
             p.write_text(text, encoding="utf-8")
             print(f"書き出し: {p}")
     print(f"完了: {len(races_out)}R 出力 / 新馬スキップ{n_skip_shinba} / 障害等スキップ{n_skip_jump} / "
-          f"対象外・失敗{n_skip_err}")
+          f"出走馬2頭未満スキップ{n_skip_horses} / 馬番欠損スキップ{n_skip_umaban} / 対象外・失敗{n_skip_err}")
 
 
 if __name__ == "__main__":

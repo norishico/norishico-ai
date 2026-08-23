@@ -8,6 +8,10 @@ REM 2026-08-13: pace_data.json/mc123_data.jsonの自動生成をbatに組み込�
 REM この2本は失敗しても独立設計(古いデータが残るだけで本体・ウィジェットには影響しない)
 REM ため、個別の失敗ではデプロイ自体は止めない(generate_mc_record.pyの失敗のみデプロイを
 REM 止めるcanaryとして扱う)
+REM 2026-08-23: win5_data.json自動生成を追加(手動生成のみで前日分のまま止まる不具合を解消)。
+REM 引数なし実行で本日日付を自動取得(pace/mc123と違いYYYYMMDD内部処理のため%TODAY%は渡さない)。
+REM この起動タスク自体が土日(=中央競馬開催に概ね一致)のみ実行のため、開催日限定の追加ロジックは不要。
+REM 同様に失敗してもデプロイは止めない
 setlocal
 set PROJ=C:\Users\westr\norishiko_ai
 set PYEXE=py
@@ -38,6 +42,10 @@ echo [%date% %time%] pace forecast rc=%ERRORLEVEL% >> "%LOGFILE%"
 echo [%date% %time%] mc123 forecast start >> "%LOGFILE%"
 "%PYEXE%" -X utf8 generate_mc123_forecast.py %TODAY% >> "%LOGFILE%" 2>&1
 echo [%date% %time%] mc123 forecast rc=%ERRORLEVEL% >> "%LOGFILE%"
+
+echo [%date% %time%] win5 data start >> "%LOGFILE%"
+"%PYEXE%" -X utf8 generate_win5_data.py >> "%LOGFILE%" 2>&1
+echo [%date% %time%] win5 data rc=%ERRORLEVEL% >> "%LOGFILE%"
 
 echo [%date% %time%] Vercel deploy start >> "%LOGFILE%"
 vercel --cwd "%PROJ%\mc_keiba_public" --prod --yes >> "%LOGFILE%" 2>&1

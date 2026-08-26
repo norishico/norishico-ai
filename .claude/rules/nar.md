@@ -8,7 +8,7 @@ paths:
 
 ## ⚠️現在2系統の予想ロジックが存在する(混同注意)
 1. **v3.3 (pick_honmei)** — 本番稼働中・実弾投入あり。`nar/scoring_nar.py`/`nar/predict_nar.py`/`nar/nar_daily.py`。下記「買い条件」参照
-2. **H-NAR-1 (ペース免罪仮説)** — 2026-08-19設計、**まだ実弾投入していない**(2026-09からプロスペクティブ観測中、紙上検証のみ)。v3.3とは完全に独立したストリームで、v3.3のスコアリング・買い条件には一切影響しない。`nar/hnar1_pace_excuse.py`/`nar/backtest_hnar1.py`。採否は/committee最終審議待ち。詳細はメモリ`project_nar.md`・kanban「検証中」参照
+2. **H-NAR-1 (ペース免罪仮説)** — 2026-08-19設計、**まだ実弾投入していない**(2026-09からプロスペクティブ観測中、紙上検証のみ)。v3.3とは完全に独立したストリームで、v3.3のスコアリング・買い条件には一切影響しない。`nar/hnar1_pace_excuse.py`/`nar/backtest_hnar1.py`。2026-08-27、`nar/nar_daily.py`から独立try/exceptで呼ばれる日次観測ログ`nar/hnar1_daily_log.py`を追加(実弾投入なし、`nar_predictions/hnar1_observation_log.json`に毎日追記)。採否は/committee最終審議待ち。詳細はメモリ`project_nar.md`・kanban「検証中」参照
 
 ## 会場コード
 浦和=42 / 船橋=43 / 大井=44 / 川崎=45
@@ -43,3 +43,5 @@ paths:
 | nar/nar_pnl.py | 実運用P&L集計 |
 | nar/hnar1_pace_excuse.py | H-NAR-1特徴量計算(trailing方式) ※実弾未投入 |
 | nar/backtest_hnar1.py | H-NAR-1独立BT(v3.3非依存) ※実弾未投入 |
+| nar/hnar1_daily_log.py | H-NAR-1日次観測ログ(nar_daily.pyから独立呼び出し、記録専用) ※実弾未投入 |
+| nar_predictions/hnar1_observation_log.json | H-NAR-1観測ログ本体(*.jsonでgit管理対象外、蓄積型) |

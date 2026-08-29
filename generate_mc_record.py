@@ -17,6 +17,64 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 TARGET_DATE = sys.argv[1] if len(sys.argv) > 1 else _date.today().isoformat()
 
+# 2026-08-29障害対応: 前夜のSaturdayPreview(publish_weekend.py --saturday)がnetkeiba取得
+# エラーでfail-loud終了し、weekend_predictions.json/this_week_races.jsonが5日前のまま
+# 残留した状態で本スクリプト(パイプライン最上流)が翌朝走り、「本日該当レース0件」を
+# 正常終了として出力→後続のpace/mc123/win5生成とvercel deployが空データのまま実行され、
+# AYOkeibaサイトが空表示になった。この再発防止として、後続処理に進む前にweekend_predictions.
+# json(pace/mc123タブ側でも「検証済みの優先ソース」として扱っている、predict_weekend.pyが
+# 本体予想生成の最終工程で書き出すファイル)の鮮度を検証する。
+STALE_GAP_DAYS = 3  # weekend_predictions.jsonの最新日付が対象日よりこれ以上前なら「データ古着」とみなす
+
+
+def check_weekend_predictions_freshness():
+    """weekend_predictions.jsonに対象日(TARGET_DATE)のレースが実際に含まれているかを検証する。
+
+    - 対象日のレースが1件でもあれば正常(そのまま続行)。
+    - 対象日のレースが0件で、かつファイル内の最新日付が対象日から3日以上前の場合は、
+      本体予想生成(SaturdayPreview/SundayPreview/MondayPreview等のpublish_weekend.py)が
+      失敗して更新されていない可能性が高いためエラー終了する(exit code非0)。
+      mc_keiba_generate.bat側の `if %RC% NEQ 0 goto :end` により、後続のpace/mc123/win5
+      生成とvercel deployも連鎖的にスキップされる。
+    - 対象日のレースが0件でも、最新日付が対象日の近く(3日未満)の場合は「今回は本当に
+      開催が無い日」とみなして続行する(平日等での誤検知防止)。
+    - ファイルが存在しない/空の場合は判定不能として続行する(初回セットアップ等を誤検知しない)。
+    """
+    p = Path('weekend_predictions.json')
+    if not p.exists():
+        print('weekend_predictions.json: ファイルが存在しないため鮮度チェックをスキップします')
+        return
+    try:
+        wp_all = json.load(open(p, encoding='utf-8'))
+    except (json.JSONDecodeError, OSError) as e:
+        print(f'エラー: weekend_predictions.jsonの読み込みに失敗しました: {e}', file=sys.stderr)
+        sys.exit(1)
+
+    dates = sorted({(entry.get('race') or {}).get('date') for entry in wp_all
+                     if (entry.get('race') or {}).get('date')})
+    target_hit = sum(1 for entry in wp_all if (entry.get('race') or {}).get('date') == TARGET_DATE)
+
+    if target_hit > 0:
+        print(f'weekend_predictions.json: 対象日({TARGET_DATE})のレース{target_hit}件を確認')
+        return
+    if not dates:
+        print('weekend_predictions.json: レースデータが空のため鮮度チェックをスキップします')
+        return
+
+    latest_date = dates[-1]
+    gap_days = abs((_date.fromisoformat(TARGET_DATE) - _date.fromisoformat(latest_date)).days)
+    if gap_days >= STALE_GAP_DAYS:
+        print(f'エラー: weekend_predictions.jsonに対象日({TARGET_DATE})のデータがありません。'
+              f'ファイル内の最新日付は{latest_date}で、{gap_days}日前のまま更新されていません。',
+              file=sys.stderr)
+        print('weekend_predictions.jsonに対象日のデータが無い。SaturdayPreview/SundayPreview/'
+              'MondayPreview等の本体予想生成(publish_weekend.py)が失敗している可能性がある。'
+              'logs/配下の該当タスクログを確認すること。', file=sys.stderr)
+        sys.exit(1)
+
+    print(f'weekend_predictions.json: 対象日({TARGET_DATE})のレースなし '
+          f'(最新日付{latest_date}, {gap_days}日差) → 開催日でないと判断し続行します')
+
 
 def load_start_time_map():
     """this_week_races.jsonからvenue×race_num→{start_time, nk_id}のマップを返す"""
@@ -81,6 +139,7 @@ def write_widget_json(races):
 
 
 def main():
+    check_weekend_predictions_freshness()
     races = fetch_target_races()
     write_widget_json(races)
     nk_empty = [f"{r['venue']}{r['rno']}R" for r in races if not r.get('nk_id')]

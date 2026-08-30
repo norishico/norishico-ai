@@ -123,10 +123,18 @@ def run_fetch(fromtime, fh):
 
 
 def _db_max_date(db_path):
-    """DB の results MAX(date) を返す。存在しなければ None。"""
+    """DB の results MAX(date) を返す(確定済み=finish非NULLの行のみ対象)。存在しなければ None。
+
+    【2026-08-30修正】単純な MAX(date) は、JV-Linkが発走前に配信する出走予定レコード
+    (finish未確定、日付は将来の開催日)も拾ってしまう。この値が prod 側で常に「最新」に
+    見えてしまい、build_staging() の staging保護判定(staging_max > prod_max なら clone
+    スキップ)を毎回誤らせ、stagingに蓄積された確定結果(finish)がprodへ反映されないまま
+    週次のStagingPromotionで上書きされ続け、prodのresults.finishが3週間止まる障害が発生した
+    (2026-08-30発覚)。確定済み行のみでMAX(date)を計算することで、この誤判定を防ぐ。
+    """
     try:
         c = sqlite3.connect(str(db_path))
-        row = c.execute("SELECT MAX(date) FROM results").fetchone()
+        row = c.execute("SELECT MAX(date) FROM results WHERE finish IS NOT NULL").fetchone()
         c.close()
         return row[0] if row else None
     except Exception:

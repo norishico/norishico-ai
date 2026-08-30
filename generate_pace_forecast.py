@@ -105,20 +105,31 @@ def umaban_to_waku(u, n):
 
 def fetch_day_races(conn):
     """当日分のresultsを取得。
-    【2026-08-23修正】resultsには本スクリプトとは無関係な別処理が、標準の12桁数値
-    race_id(JRA形式)とは異なる文字列形式(例: '2026-08-23_中京_1')・umaban全欠損の
-    プレースホルダー行を週末ごとに書き込んでいることが判明した(7月から継続、本スクリプトの
-    バグではないが影響を受けていた)。このプレースホルダー行が引っかかると「本日はresultsに
-    実データあり」と誤判定され、本来使うべきfetch_day_races_live()(weekend_predictions.json
-    経由、馬番が確実に入っている)ではなく不完全なこの経路が選ばれ、馬番と馬名が食い違った
-    データを公開してしまっていた(中京1R等で実際に発覚)。race_idが標準の12桁数値のみに
-    絞ることで、このプレースホルダー行を除外する。
+    【2026-08-23修正→2026-08-30訂正】当時、resultsの'YYYY-MM-DD_venue_N'形式race_id・
+    umaban全欠損の行を「本スクリプトとは無関係な汚染データ」と誤認し、標準の12桁数値
+    race_idのみに絞るフィルタを追加していたが、これは誤りだった。実際にはresultsテーブル
+    全体がこの'YYYY-MM-DD_venue_N'形式で構築される設計(build_db.py、JV-Link取り込みの
+    正規のrace_id)であり、12桁数値のrace_idはこのDBには存在しない。このフィルタにより
+    resultsが常に0件扱いとなり、fetch_day_races_live()への意図しないフォールバックが
+    常時発生していた。
+    根本原因は別にあった: fetch_and_build.pyの_db_max_date()が確定前レコードの未来日付
+    まで拾ってしまい、staging→prod反映(clone/swap)が3週間止まっていたため、当時のresultsは
+    「出走予定のみでumaban未確定」の中途半端な状態で凍結されていた(2026-08-30修正済み、
+    fetch_and_build.py参照)。12桁フィルタは削除したが、代わりにHAVING句で「そのレース内に
+    umaban NULLの馬が1頭でもいれば除外」する条件を追加した。umaban自体がNULLになるのは
+    JV-Link経由データの既知の仕様(CLAUDE.md記載)で異常ではないが、その場合の
+    fetch_horses()側フォールバック(出走順連番、numbers_estimated=True)は実際の馬番と
+    一致する保証がなく、weekend_predictions.jsonの正しい馬番と食い違う実害を2026-08-30に
+    再確認した(中京1R等)。そのためumaban不完全なレースは丸ごと除外し、
+    fetch_day_races_live()(weekend_predictions.json、馬番確実)に委ねる設計とする。
     """
     rows = conn.execute("""
         SELECT race_id, venue, race_num, MAX(race_name), surface, distance,
                COUNT(*), MAX(track_cond)
-        FROM results WHERE date = ? AND race_id GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
-        GROUP BY race_id ORDER BY venue, race_num
+        FROM results WHERE date = ?
+        GROUP BY race_id
+        HAVING SUM(CASE WHEN umaban IS NULL THEN 1 ELSE 0 END) = 0
+        ORDER BY venue, race_num
     """, (TARGET_DATE,)).fetchall()
     return rows
 

@@ -37,22 +37,60 @@ MOBILE_UA = {
 SEX_CHARS = '牡牝セ'
 
 
+# JRA公式race_id(12桁: YYYY+venue_cd2桁+kai2桁+nichime2桁+race_num2桁)の
+# venue_cdから会場名を導出するマッピング(fetch_shutsuba_sp.pyと同一定義)
+_VENUE_MAP = {'01': '札幌', '02': '函館', '03': '福島', '04': '新潟', '05': '東京',
+              '06': '中山', '07': '中京', '08': '京都', '09': '阪神', '10': '小倉'}
+
+
 def get_race_ids_for_date(date_str):
-    """this_week_races.json から指定日のrace情報リストを返す
+    """指定日のrace情報リストを返す(this_week_races.json優先、無ければSeleniumで
+    netkeibaから遡及取得)。
     date_str: 'YYYY-MM-DD'
     Returns: [{'race_id': str, 'venue': str, 'race_num': int}, ...]
+
+    【2026-09-01追加】this_week_races.jsonは直近週のみ保持しており、過去分の
+    umaban遡及復旧(build_db.pyのINSERT OR REPLACEバグにより長期間umaban未更新
+    だった問題への対応)にはthis_week_races.json経由では対応できない。
+    Seleniumフォールバックを追加し、race_id(JRA公式12桁)から機械的にvenue/race_num
+    を導出することで、this_week_races.jsonに依存せず任意の過去日を処理可能にする。
     """
-    if not THIS_WEEK_JSON.exists():
-        return None
+    if THIS_WEEK_JSON.exists():
+        try:
+            with open(THIS_WEEK_JSON, encoding='utf-8') as f:
+                races = json.load(f)
+            day_races = [r for r in races if r.get('date', '') == date_str]
+            if day_races:
+                print(f"this_week_races.json から {date_str} の {len(day_races)}R を取得")
+                return [{'race_id': r['race_id'], 'venue': r.get('venue', ''), 'race_num': r.get('race_num', 0)} for r in day_races]
+        except Exception as e:
+            print(f"this_week_races.json 読み込みエラー: {e}")
+
+    print(f"this_week_races.jsonに{date_str}のデータなし。Seleniumでnetkeibaから遡及取得を試みます")
     try:
-        with open(THIS_WEEK_JSON, encoding='utf-8') as f:
-            races = json.load(f)
-        day_races = [r for r in races if r.get('date', '') == date_str]
-        if day_races:
-            print(f"this_week_races.json から {date_str} の {len(day_races)}R を取得")
-            return [{'race_id': r['race_id'], 'venue': r.get('venue', ''), 'race_num': r.get('race_num', 0)} for r in day_races]
+        from fetch_shutsuba import create_driver, fetch_race_list
+        yyyymmdd = date_str.replace('-', '')
+        driver = create_driver()
+        try:
+            raw_races = fetch_race_list(driver, yyyymmdd)
+        finally:
+            driver.quit()
+        out = []
+        for r in raw_races:
+            rid = r.get('race_id', '')
+            if len(rid) != 12 or not rid.isdigit():
+                continue
+            venue_cd = rid[4:6]
+            venue = _VENUE_MAP.get(venue_cd)
+            if not venue:
+                continue
+            race_num = int(rid[10:12])
+            out.append({'race_id': rid, 'venue': venue, 'race_num': race_num})
+        if out:
+            print(f"Seleniumで {date_str} の {len(out)}R を取得")
+            return out
     except Exception as e:
-        print(f"this_week_races.json 読み込みエラー: {e}")
+        print(f"Selenium遡及取得エラー: {e}")
     return None
 
 

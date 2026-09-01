@@ -547,7 +547,20 @@ def init_db(conn: sqlite3.Connection):
 
 
 def upsert_df(conn: sqlite3.Connection, df: pd.DataFrame, table: str) -> int:
-    """DataFrameをINSERT OR REPLACE でUPSERT"""
+    """DataFrameを真のUPSERT(INSERT ... ON CONFLICT DO UPDATE)でテーブルに反映。
+
+    【2026-09-01修正】以前は`INSERT OR REPLACE`を使っていたが、これはSQLite仕様上
+    「既存行を削除して新しい行を挿入」する動作であり、渡されたDataFrameに含まれない
+    カラム(例: results.umaban — JV-Link側のカラムマッピングに存在せず、
+    fetch_saturday_results.py等の別ソースが後から埋める)は、UPSERTのたびにNULLへ
+    リセットされてしまっていた。これにより手動で復旧したumabanが、翌日以降のJV-Link
+    定期取り込みで毎回消え続けるという実害が発生していた(2026-08-30/09-01発覚)。
+    真のUPSERT(ON CONFLICT DO UPDATE SET 指定カラムのみ)に変更し、DataFrameに
+    含まれないカラムは既存値をそのまま保持するようにする。また、DataFrame側の値が
+    NULLの場合も既存値を上書きしない(CASE WHEN excluded.col IS NOT NULL THEN
+    excluded.col ELSE col END)ことで、JV-Link側がまだ確定していない値で既存の
+    確定済みデータを消してしまう事故も防ぐ。
+    """
     if df.empty:
         return 0
 
@@ -564,8 +577,6 @@ def upsert_df(conn: sqlite3.Connection, df: pd.DataFrame, table: str) -> int:
                 pass
 
     # テーブルに存在するカラムのみ使用
-    valid_cols = [c for c in df.columns if c in existing or c in df.columns]
-    # 再確認
     existing2 = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
     valid_cols = [c for c in df.columns if c in existing2]
 
@@ -574,9 +585,33 @@ def upsert_df(conn: sqlite3.Connection, df: pd.DataFrame, table: str) -> int:
     # NaN → None に変換（SQLite互換）
     df_insert = df_insert.where(pd.notnull(df_insert), None)
 
+    # PRIMARY KEYカラムを特定(PRAGMA table_infoのpkフラグ、複合PKも順序通りに取得)
+    pk_info = sorted(
+        (row for row in conn.execute(f"PRAGMA table_info({table})").fetchall() if row[5] > 0),
+        key=lambda row: row[5]
+    )
+    pk_cols = [row[1] for row in pk_info]
+    update_cols = [c for c in valid_cols if c not in pk_cols]
+
     cols_str      = ', '.join(valid_cols)
     placeholders  = ', '.join(['?'] * len(valid_cols))
-    sql = f"INSERT OR REPLACE INTO {table} ({cols_str}) VALUES ({placeholders})"
+
+    if pk_cols and update_cols:
+        conflict_cols = ', '.join(pk_cols)
+        set_clause = ', '.join(
+            f"{c}=CASE WHEN excluded.{c} IS NOT NULL THEN excluded.{c} ELSE {c} END"
+            for c in update_cols
+        )
+        sql = (f"INSERT INTO {table} ({cols_str}) VALUES ({placeholders}) "
+               f"ON CONFLICT({conflict_cols}) DO UPDATE SET {set_clause}")
+    elif pk_cols:
+        # 更新対象カラムがPRIMARY KEYのみの場合はON CONFLICT DO NOTHING(既存行を保護)
+        conflict_cols = ', '.join(pk_cols)
+        sql = (f"INSERT INTO {table} ({cols_str}) VALUES ({placeholders}) "
+               f"ON CONFLICT({conflict_cols}) DO NOTHING")
+    else:
+        # PRIMARY KEYが取得できない場合のみ旧方式にフォールバック(想定外ケース)
+        sql = f"INSERT OR REPLACE INTO {table} ({cols_str}) VALUES ({placeholders})"
 
     data = [list(row) for row in df_insert.itertuples(index=False, name=None)]
     conn.executemany(sql, data)

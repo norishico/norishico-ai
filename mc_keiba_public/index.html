@@ -927,18 +927,21 @@ function renderPaceCard(rid) {
     ? mc123Data.races.find(r => r.race_id === rid) : null;
   let mc123Html = '';
   if (mc123Race) {
-    const rows = mc123Race.horses.slice().sort((a, b) => a.rank - b.rank).map(h => {
-      const pat = h.patterns[track] || h.patterns[TRACKS[0]] || {};
-      const pct = Math.round((pat.ptop3 || 0) * 100);
-      return `<div class="mc123-row ${h.rank <= 3 ? 'mc123-top' : ''}">
-        <span class="mc123-rank">${h.rank}</span>
-        <span class="wk wk${h.waku}">${h.num}</span>
-        <span class="nm">${h.name}</span>
-        <span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style || ''}</span>
-        <div class="mc123-bar-wrap"><div class="mc123-bar" style="width:${pct}%"></div></div>
-        <span class="mc123-pct">${pct}%</span>
-      </div>`;
-    }).join('');
+    const rows = mc123Race.horses.slice()
+      .map(h => ({ h, pat: h.patterns[track] || h.patterns[TRACKS[0]] || {} }))
+      .sort((a, b) => (b.pat.ptop3 || 0) - (a.pat.ptop3 || 0))
+      .map(({ h, pat }, idx) => {
+        const rank = idx + 1;
+        const pct = Math.round((pat.ptop3 || 0) * 100);
+        return `<div class="mc123-row ${rank <= 3 ? 'mc123-top' : ''}">
+          <span class="mc123-rank">${rank}</span>
+          <span class="wk wk${h.waku}">${h.num}</span>
+          <span class="nm">${h.name}</span>
+          <span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style || ''}</span>
+          <div class="mc123-bar-wrap"><div class="mc123-bar" style="width:${pct}%"></div></div>
+          <span class="mc123-pct">${pct}%</span>
+        </div>`;
+      }).join('');
     mc123Html = `
       <div class="mc123-block">
         <div class="mc123-head">

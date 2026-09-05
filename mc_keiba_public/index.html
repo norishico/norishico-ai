@@ -596,7 +596,14 @@ function extractFeaturedRaces() {
       return { race, horse, rel, acc, pat, startTime: paceRace.start_time };
     })
     .filter(Boolean)
-    .sort((a, b) => (b.pat.p1 || 0) - (a.pat.p1 || 0));
+    .sort((a, b) => featuredStartMinutes(a.startTime) - featuredStartMinutes(b.startTime));
+}
+
+// 発走時刻("H:MM"/"HH:MM")を分に変換してソート比較に使う。時刻不明は末尾に回す
+// (2026-09-06: のりお要望で1着率順→発走順に変更)
+function featuredStartMinutes(t) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t || '');
+  return m ? Number(m[1]) * 60 + Number(m[2]) : Infinity;
 }
 
 function renderFeaturedTab() {
@@ -610,7 +617,7 @@ function renderFeaturedTab() {
   const notice = `
     <div style="background:rgba(220,53,69,0.12);border:1px solid rgba(220,53,69,0.5);border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:14px">
       ⚠️ <strong>買い目ではなく参考情報です</strong>。MC123シミュレーションで1着候補馬の過去の的中実績が
-      信頼度「高」、かつ展開予想(隊列)の精度も「高」に区分されたレースを、1着率が高い順に並べています。
+      信頼度「高」、かつ展開予想(隊列)の精度も「高」に区分されたレースを、発走時刻順に並べています。
     </div>
     <div class="pace-note mb-3">
       ※良馬場を想定した場合の参考値です。実際の馬場状態と異なる場合があります。
@@ -620,7 +627,7 @@ function renderFeaturedTab() {
       <span class="fw-bold" style="font-size:15px">注目レース</span>
       <span class="pace-chip">${mc123Data.date || ''}</span>
       <span class="pace-chip">${items.length}レース</span>
-      <span class="pace-note ms-auto">MC123 信頼度「高」×展開予想 精度「高」×1着率順(${(mc123Data.n_mc || 0).toLocaleString()}回試行)</span>
+      <span class="pace-note ms-auto">MC123 信頼度「高」×展開予想 精度「高」×発走順(${(mc123Data.n_mc || 0).toLocaleString()}回試行)</span>
     </div>`;
   const cards = items.map((it, idx) => renderFeaturedCard(it, idx)).join('');
   c.innerHTML = header + notice + `<div class="featured-list">${cards}</div>`;

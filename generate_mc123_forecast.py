@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from generate_pace_forecast import (
     fetch_day_races, fetch_day_races_live, pace_cls_group, umaban_to_waku, _load_live_races,
+    reset_live_races_cache,
 )
 from build_class_par import build_class_par_table, calibrate_k_cls
 from build_pace_baseline import build_baseline_table
@@ -97,15 +98,24 @@ def fetch_horses_for_mc123(conn, race_id, live_mode):
     (平均斤量)扱いになり、実斤量を渡している展開予想タブ(generate_pace_forecast.py)側と
     脚質判定が食い違うケースがあった(斤量が55kgから離れた僅差の馬で脚質ラベルが入れ替わる)。
     """
+    # 2026-09-05修正: 従来はumaban欠損時に無警告で出走順連番へフォールバックしており、
+    # generate_pace_forecast.py側で対策済みの「this_week_races.json非アトミック書き換えの
+    # 狭間読み→馬番と馬名の対応がズレる」不具合(2026-08-23、中京1R等で発覚)への
+    # ガードがmc123側だけ欠けていた。numbers_estimatedを返すようにし、呼び出し側で
+    # pace側と同じリトライ・スキップ判断ができるようにする。
     if live_mode:
         live = _load_live_races()
         r = live.get(race_id)
         if r is None:
-            return []
+            return [], False
         rows = r.get("horses", [])
         out = []
+        numbers_estimated = False
         for hi, h in enumerate(rows):
-            uma = h.get("umaban") or (hi + 1)
+            uma = h.get("umaban")
+            if not uma:
+                uma = hi + 1
+                numbers_estimated = True
             try:
                 wkg = float(h.get("weight", "") or "")
             except ValueError:
@@ -113,18 +123,39 @@ def fetch_horses_for_mc123(conn, race_id, live_mode):
             out.append({"horse_name": (h.get("name") or "").strip(), "umaban": uma,
                         "jockey": (h.get("jockey") or "").strip(), "gate": umaban_to_gate(uma),
                         "weight_kg": wkg, "style": None, "finish": None})
-        return out
+        return out, numbers_estimated
     rows = conn.execute("""
         SELECT TRIM(horse_name), jockey, umaban, weight_kg
         FROM results WHERE race_id = ? AND (finish IS NULL OR finish < 90)
         ORDER BY (umaban IS NULL), umaban, horse_name
     """, (race_id,)).fetchall()
     out = []
+    numbers_estimated = False
     for hi, r in enumerate(rows):
-        uma = r[2] or (hi + 1)
+        uma = r[2]
+        if not uma:
+            uma = hi + 1
+            numbers_estimated = True
         out.append({"horse_name": r[0], "umaban": uma, "jockey": r[1] or "",
                     "gate": umaban_to_gate(uma), "weight_kg": r[3], "style": None, "finish": None})
-    return out
+    return out, numbers_estimated
+
+
+def _fetch_horses_with_retry(conn, race_id, live_mode, max_retry=3, wait_sec=5):
+    """generate_pace_forecast.py側の三重ガード(リトライ・スキップ・numbers_estimated)を移植。
+    live_modeでumaban欠損が発生するのは、auto_refresh.pyがthis_week_races.jsonを非アトミックに
+    書き換え続けている狭間を読んでしまった異常事態のサインであり、そのまま出すと馬番と馬名が
+    食い違った誤ったデータを公開してしまう(2026-08-23、中京1R等でpace側にて実際に発生)。"""
+    for attempt in range(max_retry + 1):
+        horses, est = fetch_horses_for_mc123(conn, race_id, live_mode)
+        if not live_mode or not est or not horses:
+            return horses, est
+        if attempt < max_retry:
+            print(f"  ⚠ {race_id}: 馬番が推定値(欠損スナップショットの疑い)、"
+                  f"{wait_sec}秒待って読み直します(試行{attempt+1}/{max_retry})")
+            time.sleep(wait_sec)
+            reset_live_races_cache()
+    return horses, est
 
 
 def main():
@@ -154,7 +185,7 @@ def main():
     l3f_par = build_l3f_par(conn, cutoff_date=TARGET_DATE, verbose=False)
     print(f"構築完了({time.time()-t0:.1f}秒)")
 
-    races_out, n_skip_shinba, n_skip_jump, n_skip_err = [], 0, 0, 0
+    races_out, n_skip_shinba, n_skip_jump, n_skip_err, n_skip_umaban = [], 0, 0, 0, 0
     for race_id, venue, rno, rname, surface, distance, n_ent, track_cond in day_races:
         if pace_cls_group(rname) == "新馬":
             n_skip_shinba += 1
@@ -162,9 +193,13 @@ def main():
         if "障害" in (rname or "") or surface not in ("芝", "ダ"):
             n_skip_jump += 1
             continue
-        horses = fetch_horses_for_mc123(conn, race_id, live_mode)
+        horses, numbers_estimated = _fetch_horses_with_retry(conn, race_id, live_mode)
         if len(horses) < 3:
             n_skip_err += 1
+            continue
+        if live_mode and numbers_estimated:
+            n_skip_umaban += 1
+            print(f"  SKIP {venue}{rno}R {rname}(リトライ後も馬番欠損、誤表示防止のため今回は見送り)")
             continue
 
         # 脚質(表示用+MC123内部のn_nige/n_front算出に必須。展開予想タブと同じclassify_style_c2)。
@@ -220,10 +255,12 @@ def main():
         races_out.append({
             "race_id": race_id, "venue": venue, "rno": rno, "rname": rname,
             "surface": surface, "distance": distance, "n_horses": n,
+            "numbers_estimated": numbers_estimated,
             "horses": horses_out,
             "top1_reliability": get_top1_reliability_entry(venue, surface, distance),
         })
-        print(f"  OK {venue}{rno}R {rname} {surface}{distance}m {n}頭")
+        print(f"  OK {venue}{rno}R {rname} {surface}{distance}m {n}頭"
+              f"{' (馬番は推定)' if numbers_estimated else ''}")
 
     payload = {
         "date": TARGET_DATE,
@@ -239,7 +276,7 @@ def main():
             p.write_text(text, encoding="utf-8")
             print(f"書き出し: {p}")
     print(f"完了: {len(races_out)}R 出力 / 新馬スキップ{n_skip_shinba} / 障害等スキップ{n_skip_jump} / "
-          f"対象外・失敗{n_skip_err}")
+          f"馬番欠損スキップ{n_skip_umaban} / 対象外・失敗{n_skip_err}")
     conn.close()
 
 

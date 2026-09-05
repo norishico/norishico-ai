@@ -100,6 +100,13 @@ def load_mc123_data():
     if not MC123_PATH.exists():
         return {}
     data = json.loads(MC123_PATH.read_text(encoding="utf-8"))
+    # 2026-09-05修正: venue+rnoのみの突合だと、mc123_data.jsonの生成がその朝失敗して
+    # 前日分が残っていた場合に、今日のWIN5対象レースへ前日の別レースのAI候補を誤って
+    # 貼り付けてしまう恐れがあった。日付が対象日と一致する時だけ突合する。
+    if data.get("date") != TARGET_DATE_ISO:
+        print(f"  WARN: mc123_data.jsonの日付({data.get('date')})が対象日({TARGET_DATE_ISO})と"
+              f"不一致のため、mc123突合をスキップします")
+        return {}
     lut = {}
     for race in data.get("races", []):
         key = (race.get("venue"), race.get("rno"))

@@ -77,6 +77,17 @@ def get_accuracy_entry(venue, surface, distance):
 # サイトの既存馬場pill(良・稍重/重/不良)とtrack_condの対応
 TRACK_PATTERNS = [("良・稍重", "良"), ("重", "重"), ("不良", "不")]
 
+
+def track_cond_to_label(raw):
+    """実際のtrack_cond(良/稍重/重/不良)をサイトの馬場pillラベルに変換する。
+    脚質・隊列など「その日の実際の馬場」を反映すべき値の選択に使う
+    (2026-09-05: 従来TRACK_PATTERNS[0]=良・稍重固定だったための不整合を修正)。"""
+    if raw == "重":
+        return "重"
+    if raw in ("不良", "不"):
+        return "不良"
+    return "良・稍重"
+
 # 隊列表示ステージ(predict_race_formation.cmd_raceのnetkeiba風3段+ゴール)
 STAGE_MAP = [("start", "序盤(1角入口)"), ("corner3", "終盤(最終C入口≒3角)"),
              ("corner4", "直線入口(最終C出口≒4角)"), ("goal", "ゴール")]
@@ -206,6 +217,12 @@ def _load_live_races():
     return _LIVE_RACES_CACHE
 
 
+def reset_live_races_cache():
+    """_load_live_races()のキャッシュを破棄する(他モジュールからのリトライ用に公開)。"""
+    global _LIVE_RACES_CACHE
+    _LIVE_RACES_CACHE = None
+
+
 def fetch_day_races_live():
     live = _load_live_races()
     out = []
@@ -279,7 +296,7 @@ def _process_one_race(args):
         race = {"date": TARGET_DATE, "venue": venue, "surface": surface,
                 "distance": distance, "num_horses": len(horses),
                 "track_cond": track_cond, "race_name": rname}
-        pace_patterns, first_out = {}, None
+        outs, pace_patterns, first_out = {}, {}, None
         for label, cond in TRACK_PATTERNS:
             r2 = dict(race)
             r2["track_cond"] = cond
@@ -291,11 +308,13 @@ def _process_one_race(args):
                 return ("skip_err", race_id, None)
             if first_out is None:
                 first_out = out
+            outs[label] = out
             p = out["pace"]
             pace_patterns[label] = {
                 "h": round(p["h_rate"], 3) if p["h_rate"] is not None else None,
                 "m": round(p["m_rate"], 3) if p["m_rate"] is not None else None,
                 "s": round(p["s_rate"], 3) if p["s_rate"] is not None else None,
+                "nige_count": out["nige_count"],
                 # 馬場パターン別の解説文(UIのpill切替と連動させる。無いと良・稍重の
                 # 数値が他パターンでも表示されてしまう不整合が起きる)
                 "comment": describe_pace(p, out["nige_count"], len(horses), surface=surface),
@@ -303,8 +322,14 @@ def _process_one_race(args):
         if first_out is None:
             return ("skip_err", race_id, None)
 
+        # 2026-09-05修正: 脚質・隊列・入替度は「実際のその日の馬場」の結果を使う
+        # (従来は常にTRACK_PATTERNS[0]=良・稍重固定だったため、道悪の日に馬場ピルで
+        # 切り替えても脚質タグ・隊列チャートが良馬場のまま変わらない不整合があった)
+        real_label = track_cond_to_label(track_cond)
+        real_out = outs.get(real_label, first_out)
+
         n = len(horses)
-        c2 = first_out["c2"]
+        c2 = real_out["c2"]
         horses_out = [{
             "num": h["umaban"],
             "waku": umaban_to_waku(h["umaban"], n),
@@ -313,40 +338,54 @@ def _process_one_race(args):
             "style": c2[i]["style"],
         } for i, h in enumerate(horses)]
 
-        formation_out = {}
-        gaps_out = {}
-        for key, phase_label in STAGE_MAP:
-            order = first_out["formation"].get(phase_label)
-            if order is None:
-                continue
-            internal_key = first_out["phase_map"][phase_label]
-            sd_list = first_out["rank_sd"].get(internal_key)
-            tier_probs = first_out["tier_probs"].get(internal_key)
-            gfl_list = first_out["gap_from_leader"].get(internal_key)
-            surge_list = first_out["surge_p"] if key == "goal" else None
-            formation_out[key] = [{"num": horses[i]["umaban"],
-                                    "tier": rank_to_tier(rank, n),
-                                    "sd": round(sd_list[i], 2) if sd_list else None,
-                                    "tp": [round(x, 3) for x in tier_probs[i]] if tier_probs else None,
-                                    "gfl": round(gfl_list[i], 2) if gfl_list else None,
-                                    "surge": round(surge_list[i], 3) if surge_list else None}
-                                   for rank, i in enumerate(order)]
-            gb = first_out["gap_between"].get(internal_key)
-            gaps_out[key] = [round(x, 2) for x in gb] if gb else None
+        def _build_formation(out):
+            formation_out, gaps_out = {}, {}
+            for key, phase_label in STAGE_MAP:
+                order = out["formation"].get(phase_label)
+                if order is None:
+                    continue
+                internal_key = out["phase_map"][phase_label]
+                sd_list = out["rank_sd"].get(internal_key)
+                tier_probs = out["tier_probs"].get(internal_key)
+                gfl_list = out["gap_from_leader"].get(internal_key)
+                surge_list = out["surge_p"] if key == "goal" else None
+                formation_out[key] = [{"num": horses[i]["umaban"],
+                                        "tier": rank_to_tier(rank, n),
+                                        "sd": round(sd_list[i], 2) if sd_list else None,
+                                        "tp": [round(x, 3) for x in tier_probs[i]] if tier_probs else None,
+                                        "gfl": round(gfl_list[i], 2) if gfl_list else None,
+                                        "surge": round(surge_list[i], 3) if surge_list else None}
+                                       for rank, i in enumerate(order)]
+                gb = out["gap_between"].get(internal_key)
+                gaps_out[key] = [round(x, 2) for x in gb] if gb else None
+            return formation_out, gaps_out
+
+        # 馬場pillと連動させるため、隊列・ギャップ・入替度も3パターン分すべて保持する
+        # (predict_formationは既に3回実行済みのため追加計算コストはゼロ)
+        formation_by_track, gaps_by_track = {}, {}
+        churn_avg_by_track, churn_label_by_track = {}, {}
+        for label, out in outs.items():
+            formation_by_track[label], gaps_by_track[label] = _build_formation(out)
+            churn_avg_by_track[label] = round(out["churn_avg"], 3) if out["churn_avg"] is not None else None
+            churn_label_by_track[label] = out["churn_label"]
 
         race_json = {
             "race_id": race_id, "venue": venue, "rno": rno, "rname": rname,
             "surface": surface, "distance": distance, "n_horses": n,
             "start_time": start_time,
             "numbers_estimated": numbers_estimated,
-            "nige_count": first_out["nige_count"],
+            "nige_count": real_out["nige_count"],
             "pace": pace_patterns,
-            "comment": describe_pace(first_out["pace"], first_out["nige_count"], n, surface=surface),
+            "comment": describe_pace(real_out["pace"], real_out["nige_count"], n, surface=surface),
             "horses": horses_out,
-            "formation": formation_out,
-            "gaps_between": gaps_out,
-            "churn_avg": round(first_out["churn_avg"], 3) if first_out["churn_avg"] is not None else None,
-            "churn_label": first_out["churn_label"],
+            "formation": formation_by_track[real_label],
+            "formation_by_track": formation_by_track,
+            "gaps_between": gaps_by_track[real_label],
+            "gaps_between_by_track": gaps_by_track,
+            "churn_avg": churn_avg_by_track[real_label],
+            "churn_label": churn_label_by_track[real_label],
+            "churn_avg_by_track": churn_avg_by_track,
+            "churn_label_by_track": churn_label_by_track,
             "accuracy": get_accuracy_entry(venue, surface, distance),
         }
         return ("ok", f"{venue}{rno}R {rname} {surface}{distance}m {n}頭"

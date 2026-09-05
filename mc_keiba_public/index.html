@@ -520,18 +520,20 @@ let paceData = null, paceLoaded = false, paceDataLoaded = false, paceSel = {}, p
 // MC123(1〜3着内確率、情報提供専用)。pace_data.jsonとは完全独立のファイル+読込経路。
 // 取得に失敗しても展開予想側の表示には一切影響しない(グレースフルデグレード)
 let mc123Data = null;
-let mc123Loaded = false; // 取得を試みたかどうか(成功/失敗を問わず)。注目レースタブが単独で
-                          // 開かれた場合の二重フェッチを防ぐためのフラグ
+let mc123Loaded = false; // 取得に成功したかどうか(失敗時はfalseのままにして再訪問時に
+                          // 再フェッチできるようにする)。注目レースタブが単独で開かれた
+                          // 場合の二重フェッチを防ぐためのフラグ
 
 async function loadMc123Data() {
   try {
     const r = await fetch('mc123_data.json', {cache:'no-store'});
     if (!r.ok) throw new Error('HTTP ' + r.status);
     mc123Data = await r.json();
+    // 2026-09-05修正: 失敗時にtrueにしてしまうと、初回ロード時の一時的な取得失敗が
+    // リロードするまで固定されてしまう(paceDataLoadedと同じく成功時のみtrueにする)
+    mc123Loaded = true;
   } catch (e) {
     mc123Data = null;
-  } finally {
-    mc123Loaded = true;
   }
 }
 
@@ -563,7 +565,11 @@ async function loadFeaturedTab() {
 
 function buildPaceIndexByVenueRno() {
   const idx = new Map();
-  if (paceData && paceData.races) {
+  // 2026-09-05修正: venue+rnoだけの突合だと、mc123側だけ生成に失敗して古い日付の
+  // ファイルが残った場合に「別日のレースの合成カード」を表示してしまう恐れがあった。
+  // 日付が一致する時だけ突合する(不一致時は当該レースが注目レースから外れるだけの
+  // 安全側の挙動にする)。
+  if (paceData && paceData.races && mc123Data && paceData.date === mc123Data.date) {
     paceData.races.forEach(r => idx.set(r.venue + '|' + r.rno, r));
   }
   return idx;
@@ -697,6 +703,9 @@ function renderWin5Tab() {
     <div style="background:rgba(220,53,69,0.12);border:1px solid rgba(220,53,69,0.5);border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:14px">
       ⚠️ <strong>買い目ではなく参考情報です</strong>。本日のWIN5対象レース全${win5Data.n_races_target || races.length}レースについて、
       「本命」(v6.6予想ロジック)と「AI3着以内候補」(MC123シミュレーション、オッズ非考慮)を並べて表示しています。
+    </div>
+    <div class="pace-note mb-3">
+      ※「AI3着以内候補」は良馬場を想定した場合の参考値です。実際の馬場状態と異なる場合があります。
     </div>`;
   const header = `
     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
@@ -790,6 +799,13 @@ function paceRaceStarted(r) {
   if (!r.start_time) return false;
   const m = /^(\d{1,2}):(\d{2})/.exec(r.start_time);
   if (!m) return false;
+  // 2026-09-05修正: 時刻だけの比較だと、閲覧時点とpaceDataの日付が違う場合(デプロイは
+  // 土日05:00のみのため、平日は前回開催日のデータをそのまま見ることになる)に無意味な
+  // 判定になっていた(例: 月曜朝に日曜の15時発走レースが「未発走」として上位に残る)。
+  // 日付が一致する時だけ時刻ロジックを使い、日付が違う過去データは常に発走済み扱いにする。
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  if (paceData && paceData.date && paceData.date !== todayStr) return true;
   const t = new Date();
   t.setHours(Number(m[1]), Number(m[2]), 0, 0);
   return Date.now() >= t.getTime();
@@ -870,7 +886,7 @@ function renderPaceTab() {
       <span class="pace-note ms-auto">mc_dyn 展開シミュレーター(各${(paceData.n_sim||0).toLocaleString()}回試行)</span>
     </div>
     <div class="track-seg mb-3" style="margin-left:0">${venueTabs}</div>
-    <div class="pace-note mb-3">${paceData.note || ''} 隊列は良馬場想定です。発走済みのレースは一覧の下に移動します。</div>`;
+    <div class="pace-note mb-3">${paceData.note || ''} 発走済みのレースは一覧の下に移動します。</div>`;
   html += races.map(r => `<div id="pace-card-${r.race_id}" class="pace-card-anchor"></div>`).join('');
   c.innerHTML = html;
   races.forEach(r => renderPaceCard(r.race_id));
@@ -947,6 +963,7 @@ function renderPaceCard(rid) {
         <div class="mc123-head">
           <span class="mc123-title">AI予測(3着内確率)</span>
           <span class="pace-note">買い目ではなく参考情報です・オッズ未考慮</span>
+          ${mc123Race.numbers_estimated ? '<span class="pace-chip" style="color:#fbbf24">馬番は暫定(枠順確定前データ)</span>' : ''}
         </div>
         <div class="mc123-list">${rows}</div>
       </div>`;
@@ -973,7 +990,7 @@ function renderPaceCard(rid) {
       <span class="venue-badge">${race.venue}</span>
       <div style="min-width:0">
         <div class="fw-bold" style="font-size:14px">${race.rno}R ${race.rname}</div>
-        <div class="pace-note">${race.start_time ? (paceRaceStarted(race) ? `<span style="opacity:.6">${race.start_time}発走済</span>・` : `${race.start_time}発走・`) : ''}${race.surface}${race.distance}m・${race.n_horses}頭・逃げ${race.nige_count}頭</div>
+        <div class="pace-note">${race.start_time ? (paceRaceStarted(race) ? `<span style="opacity:.6">${race.start_time}発走済</span>・` : `${race.start_time}発走・`) : ''}${race.surface}${race.distance}m・${race.n_horses}頭・逃げ${p.nige_count != null ? p.nige_count : race.nige_count}頭</div>
       </div>
       ${estWarn}${accChip}
       <div class="track-seg">${pills}</div>
@@ -989,7 +1006,7 @@ function renderPaceCard(rid) {
       <div class="pace-comment">${p.comment || race.comment || ''}</div>
       ${refBlock}
       ${accDetail}
-      <div class="bump-wrap">${bumpChartSvg(race, wakuOf)}</div>
+      <div class="bump-wrap">${bumpChartSvg(race, wakuOf, track)}</div>
       <div class="pace-note" style="margin-top:4px">上の帯=先頭〜最後尾の推定馬身差、点線=隊列の切れ目、▲=終盤一気に進みそうな馬。馬番タップで位置の確からしさを表示</div>
       <div class="pace-horse-list">${horseList}</div>
       <div class="pace-note mt-2">※隊列予測は参考情報です。厳密な通過順ではなく大まかな位置取りの傾向としてご覧ください。買い目(MCロジック)とは独立した予測です。</div>
@@ -1028,8 +1045,11 @@ function hidePaceTierPopover() {
   if (pacePopoverEl) { pacePopoverEl.remove(); pacePopoverEl = null; }
 }
 
-function bumpChartSvg(race, wakuOf) {
-  const stages = PACE_STAGES.filter(([k]) => race.formation && race.formation[k]);
+function bumpChartSvg(race, wakuOf, track) {
+  const formation = (race.formation_by_track && race.formation_by_track[track]) || race.formation || {};
+  const gapsAll = (race.gaps_between_by_track && race.gaps_between_by_track[track]) || race.gaps_between || {};
+  const churnLabel = (race.churn_label_by_track && race.churn_label_by_track[track]) || race.churn_label;
+  const stages = PACE_STAGES.filter(([k]) => formation && formation[k]);
   if (!stages.length) return '<div class="pace-note">このコースは隊列チャート非対応です(直線競走など)</div>';
   const n = race.n_horses;
   const rowH = 26, colW = 150, mL = 58, mT = 44, mB = 8, badgeW = 26, badgeH = 20;
@@ -1044,7 +1064,7 @@ function bumpChartSvg(race, wakuOf) {
   // 位置(rank)テーブル: num -> stageごとのrank / sd / 区分確率(tp) / 馬群デプス(gfl) / 一気前進確率(surge)
   const rankOf = {}, sdOf = {}, tpOf = {}, gflOf = {}, surgeOf = {};
   stages.forEach(([k], si) => {
-    race.formation[k].forEach((e, rank) => {
+    formation[k].forEach((e, rank) => {
       (rankOf[e.num] = rankOf[e.num] || [])[si] = rank;
       (sdOf[e.num] = sdOf[e.num] || [])[si] = e.sd;
       (tpOf[e.num] = tpOf[e.num] || [])[si] = e.tp;
@@ -1067,7 +1087,6 @@ function bumpChartSvg(race, wakuOf) {
   });
 
   // (A) 馬群デプスバー+区切り線。gaps_between[stage] = 隣接順位間ギャップ(馬身)の配列(長さn-1)
-  const gapsAll = race.gaps_between || {};
   const maxDepth = Math.max(1, ...stages.map(([k]) => {
     const gb = gapsAll[k];
     return gb ? gb.reduce((a, b) => a + b, 0) : 0;
@@ -1099,12 +1118,12 @@ function bumpChartSvg(race, wakuOf) {
     `font-size="11" font-weight="600">${label}</text>`).join('');
   let churnChip = '';
   const goalIdx = stages.findIndex(([k]) => k === 'goal');
-  if (goalIdx > 0 && race.churn_label) {
+  if (goalIdx > 0 && churnLabel) {
     const cx = (xOf(goalIdx - 1) + xOf(goalIdx)) / 2 + badgeW / 2;
-    const churnColor = { '小': '#a1a1aa', '中': '#fb923c', '大': '#f87171' }[race.churn_label] || '#a1a1aa';
+    const churnColor = { '小': '#a1a1aa', '中': '#fb923c', '大': '#f87171' }[churnLabel] || '#a1a1aa';
     churnChip = `<g>
       <rect x="${cx - 20}" y="4" width="40" height="16" rx="8" fill="${churnColor}" fill-opacity="0.18"/>
-      <text x="${cx}" y="15" text-anchor="middle" fill="${churnColor}" font-size="10" font-weight="700">入替${race.churn_label}</text>
+      <text x="${cx}" y="15" text-anchor="middle" fill="${churnColor}" font-size="10" font-weight="700">入替${churnLabel}</text>
     </g>`;
   }
 
@@ -1112,8 +1131,8 @@ function bumpChartSvg(race, wakuOf) {
   // 密集時のバッジ衝突を避けるため、着差順に並べたあとbadgeH間隔を下回らないよう押し下げ、
   // 末尾が枠からはみ出す場合は間隔を均等に圧縮する(単純な貪欲ラベル配置アルゴリズム)
   const goalYOf = {};
-  if (goalIdx >= 0 && race.formation.goal) {
-    const targets = race.formation.goal.map(e => ({
+  if (goalIdx >= 0 && formation.goal) {
+    const targets = formation.goal.map(e => ({
       num: e.num,
       y: mT + Math.min(e.gfl || 0, maxDepth) / (maxDepth || 1) * (bodyH - badgeH) + badgeH / 2,
     }));

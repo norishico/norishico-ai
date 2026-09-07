@@ -88,9 +88,25 @@ def load_start_time_map():
     } for r in races if r.get('date') == TARGET_DATE}
 
 
+def load_tier_lookup(filename):
+    """会場×surface×距離の静的tierルックアップを読み込む(mc123_top1_reliability.json/
+    formation_accuracy.json。compute_*.pyが週次生成する日付非依存の統計テーブルで、
+    その日のmc123_data.json/pace_data.json生成より前でも参照できる)。
+    キー: (venue, surface, distance) -> tier文字列"""
+    p = Path(filename)
+    if not p.exists():
+        return {}
+    data = json.loads(p.read_text(encoding='utf-8'))
+    return {(c['venue'], c['surface'], c['distance']): c.get('tier') for c in data.get('cells', [])}
+
+
 def fetch_target_races():
-    """this_week_races.jsonから当日の対象レースを取得。
-    AYOkeiba(展開予想/MC123タブ)と同一基準: 芝・ダート全レース、新馬・障害のみ除外。"""
+    """this_week_races.jsonから当日の「注目レース」対象を取得。
+    2026-09-07: 全レース表示からAYOkeiba「注目レース」タブと同一基準(MC123信頼度tier=高
+    かつ展開予想精度tier=高)に変更(のりお要望)。ただし本スクリプトはパイプライン最上流で
+    その日のmc123_data.json/pace_data.jsonがまだ存在しないため、会場×surface×距離の
+    静的tierルックアップのみで判定する(その日固有のMC123 1着候補馬の的中実績等までは
+    見ていない近似。まれに本サイトの注目レースタブと1件ズレる可能性はあるが実用上十分)。"""
     st_map = load_start_time_map()
     print(f'発走時刻マップ: {len(st_map)}件 (this_week_races.json)')
 
@@ -106,14 +122,23 @@ def fetch_target_races():
     json_races = [r for r in json_races if is_valid_race(r)]
     print(f'新馬・障害除外後: {len(json_races)}件')
 
+    reliability_lut = load_tier_lookup('mc123_top1_reliability.json')
+    accuracy_lut = load_tier_lookup('formation_accuracy.json')
+
     out = []
+    n_skip_tier = 0
     for race in sorted(json_races, key=lambda r: (r.get('venue', ''), r.get('race_num', 0))):
         venue = race.get('venue', '')
         rno = race.get('race_num', 0)
+        surface = race.get('surface', '')
         dst = race.get('distance') or 1600
         rname = race.get('race_name') or f'{dst}mダート'
         n_horses = len(race.get('horses', []))
         if n_horses < 4:
+            continue
+        key = (venue, surface, dst)
+        if reliability_lut.get(key) != '高' or accuracy_lut.get(key) != '高':
+            n_skip_tier += 1
             continue
         info = st_map.get((venue, rno), {})
         st = info.get('start_time') or race.get('start_time') or f'{10 + rno // 2}:00'
@@ -122,6 +147,7 @@ def fetch_target_races():
             'venue': venue, 'rno': rno, 'rname': rname,
             'start_time': st, 'nk_id': nk_id,
         })
+    print(f'注目レース基準(tier=高×高)未達で除外: {n_skip_tier}件 / 対象: {len(out)}件')
     return out
 
 

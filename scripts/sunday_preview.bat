@@ -44,4 +44,36 @@ REM Step 3: Sanrenpuku jiku notification (Sunday)
 echo [%date% %time%] sanrenpuku jiku notify (sun) >> "%LOGFILE%"
 "%PYEXE%" -X utf8 notify_sanrenpuku_weekly.py --day sun >> "%LOGFILE%" 2>&1
 echo [%date% %time%] sanrenpuku rc=%ERRORLEVEL% >> "%LOGFILE%"
+
+REM Step 4: AYOkeiba (mc123/pace/widget/win5) early generation (added 2026-09-12)
+REM Frames are already confirmed and publish_weekend.py above has just refetched
+REM this_week_races.json / weekend_predictions.json for TOMORROW (Sunday's races),
+REM so there is no need to wait for the raceday-morning MCKeibaGenerate task anymore.
+REM generate_mc_record.py has its own staleness guard against weekend_predictions.json,
+REM so if publish_weekend.py failed above, this step fails loud here too (goto :ayoend
+REM skips pace/mc123/win5/deploy, same canary pattern as mc_keiba_generate.bat).
+REM The 05:00 raceday MCKeibaGenerate task is kept as-is to catch overnight scratches.
+for /f %%i in ('powershell -NoProfile -Command "(Get-Date).AddDays(1).ToString('yyyy-MM-dd')"') do set TOMORROW=%%i
+for /f %%i in ('powershell -NoProfile -Command "(Get-Date).AddDays(1).ToString('yyyyMMdd')"') do set TOMORROW_C=%%i
+
+echo [%date% %time%] AYOkeiba early generate start TOMORROW=%TOMORROW% >> "%LOGFILE%"
+"%PYEXE%" -X utf8 generate_mc_record.py %TOMORROW% >> "%LOGFILE%" 2>&1
+set RC3=%ERRORLEVEL%
+echo [%date% %time%] generate_mc_record rc=%RC3% >> "%LOGFILE%"
+if %RC3% NEQ 0 goto :ayoend
+
+"%PYEXE%" -X utf8 generate_pace_forecast.py %TOMORROW% >> "%LOGFILE%" 2>&1
+echo [%date% %time%] pace forecast rc=%ERRORLEVEL% >> "%LOGFILE%"
+
+"%PYEXE%" -X utf8 generate_mc123_forecast.py %TOMORROW% >> "%LOGFILE%" 2>&1
+echo [%date% %time%] mc123 forecast rc=%ERRORLEVEL% >> "%LOGFILE%"
+
+"%PYEXE%" -X utf8 generate_win5_data.py %TOMORROW_C% >> "%LOGFILE%" 2>&1
+echo [%date% %time%] win5 data rc=%ERRORLEVEL% >> "%LOGFILE%"
+
+echo [%date% %time%] Vercel deploy start >> "%LOGFILE%"
+vercel --cwd "%PROJ%\mc_keiba_public" --prod --yes >> "%LOGFILE%" 2>&1
+echo [%date% %time%] Vercel deploy rc=%ERRORLEVEL% >> "%LOGFILE%"
+:ayoend
+
 endlocal & exit /b %RC%

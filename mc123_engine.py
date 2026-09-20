@@ -26,6 +26,7 @@ K_L3F=0相当)」であるべきと判明。正しいbaseline(pooled avg_brier=0
 詳細はcalibration_result.json参照。
 """
 import hashlib
+import math
 import sqlite3
 import numpy as np
 
@@ -99,6 +100,24 @@ WIND_C_GUST = 0.15
 # 既に地力情報を織り込んだ後には残差として検出できないと判明。
 # K_WET_APT=0.0のままgainへの影響を完全に無効化し、導入前と数学的に同一の挙動を維持。
 K_WET_APT = 0.0
+
+# ── 脚質×距離較正項(2026-09-20 追加。較正前は全て現行相当=挙動不変) ──
+# 背景: 脚質別の全馬較正診断(project_ayokeiba_mc123.md/rules/ayokeiba-mc.md参照)で、
+# 短距離(ダ1200/芝1200)の逃げ過小評価・追込過大評価、芝2400m以上の先行過大評価・
+# 追込過小評価、重不良馬場の先行過大評価(較正比0.87)が確認された。この5係数は
+# calibrate_style_terms.py(座標降下法、train=2021-2022、既存8係数は凍結)で較正する。
+K_NIGE_LEVEL = 0.0     # 逃げのレベル項(距離非依存)。g += K_NIGE_LEVEL (st=="逃げ")
+K_OI_LEVEL = 0.0       # 追い込みのレベル項。g += K_OI_LEVEL (st=="追い込み")
+K_SDIST_FRONT = 0.0    # 前脚質の距離勾配: g += K_SDIST_FRONT * s * ln(1600/dist), s=逃げ1.0/先行0.5
+K_SDIST_CLOSER = 0.0   # 後脚質の距離勾配: g -= K_SDIST_CLOSER * s * ln(1600/dist), s=追い込み1.0/差し0.5
+HEAVY_SENKO = 0.6      # 重馬場の先行ボーナス係数(既存リテラル0.6の係数化。逃げ1.0/差し追込-0.5は不変)
+
+# ── K_LOWINFO(低情報馬の事前平均項、2026-09-20 追加。較正前は0=挙動不変) ──
+# 対象: n_runs_cta==0 または 有効過去走(rfa_rank_z算出に使う過去走)<2 の馬
+# (mc123_batch.precompute_horse_features_fastが"low_info"フラグとして計算)。
+# g += K_LOWINFO (該当馬のみ)。①の較正・採否判定が終わった後、①の係数を固定して
+# calibrate_style_terms.pyの同じハーネスで追加較正する(候補: {0,1,2,3})。
+K_LOWINFO = 0.0
 
 
 def hash64_seed(race_id: str) -> int:
@@ -176,6 +195,11 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
     n_front = sum(1 for h in horses if h["style"] in ("逃げ", "先行"))
     num_h = race_info.get("num_horses", n)
 
+    # ── 脚質×距離較正項用の距離依存項(レース単位で1回だけ計算) ──
+    ln_dist = math.log(1600.0 / max(800, dist))  # 1200m:+0.29 / 1600:0 / 2000:-0.22 / 2400:-0.41 / 3000:-0.63
+    _S_FRONT = {"逃げ": 1.0, "先行": 0.5}
+    _S_CLOSER = {"追い込み": 1.0, "差し": 0.5}
+
     pH, pM, pS = 0.25, 0.40, 0.35
     if n_nige >= 3:
         adj = min(0.20, 0.08 * (n_nige - 1))
@@ -229,6 +253,15 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
                 + h.get("l3f_z", 0.0) * K_L3F \
                 - K_LAYOFF * h.get("layoff_pen", 0.0)
 
+            # ── 脚質×距離較正項(2026-09-20追加、係数0でidentity) ──
+            if st == "逃げ":
+                g += K_NIGE_LEVEL
+            elif st == "追い込み":
+                g += K_OI_LEVEL
+            g += K_SDIST_FRONT * _S_FRONT.get(st, 0.0) * ln_dist - K_SDIST_CLOSER * _S_CLOSER.get(st, 0.0) * ln_dist
+            if h.get("low_info"):
+                g += K_LOWINFO
+
             bon = 0.0
             if P == "S":
                 if st == "逃げ":
@@ -246,7 +279,7 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
                 if st == "逃げ":
                     bon += hv
                 elif st == "先行":
-                    bon += hv * 0.6
+                    bon += hv * HEAVY_SENKO
                 elif st in ("差し", "追い込み"):
                     bon -= hv * 0.5
             if wet:

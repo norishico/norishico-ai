@@ -365,6 +365,15 @@ def precompute_horse_features_fast(horses, race_info, horse_hist, class_par, k_c
         cta_main, cta_full, n_runs = compute_cta_fast(hist_list, asof_date, class_par, k_cls, bias_map)
         h["cta_z"] = cta_main if cta_main is not None else 0.0
 
+        # low_info(2026-09-20追加、K_LOWINFO用): n_runs_cta==0 または有効過去走(rfa_rank_z
+        # と同じ定義: finish/num_horses>1が揃った過去走)<2 の馬。K_LOWINFO=0.0のうちは
+        # gainへ影響しない(識別のみ)。
+        n_valid_rank_runs = sum(
+            1 for e in hist_list
+            if e["date"] < asof_date and e["finish"] is not None and e["num_horses"] and e["num_horses"] > 1
+        )
+        h["low_info"] = (n_runs == 0) or (n_valid_rank_runs < 2)
+
         grit_h, grit_s = compute_pgr_fast(hist_list, asof_date, pace_baseline)
         h["grit_h"] = grit_h
         h["grit_s"] = grit_s

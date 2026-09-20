@@ -51,6 +51,15 @@ TARGET_DATE = sys.argv[1] if len(sys.argv) > 1 else _date.today().isoformat()
 N_MC = 10000
 TRACK_PATTERNS = [("良・稍重", "良"), ("重", "重"), ("不良", "不")]
 
+# 2026-09-21新設: AYOkeiba「注目レース」タブのオッズ取得ボタン用にnk_id(netkeiba race_id、
+# 12桁)を各レースへ付与する。場コードはjvlink_fetch.JYO_NAMEの値をそのまま複製したもの
+# (jvlink_fetch.py自体は32bit Python専用でwin32com.clientをimportするため、64bit側の
+# 本スクリプトからは直接importできない)。
+_VENUE_TO_CODE = {
+    "札幌": "01", "函館": "02", "福島": "03", "新潟": "04", "東京": "05",
+    "中山": "06", "中京": "07", "京都": "08", "阪神": "09", "小倉": "10",
+}
+
 # 2026-08-10新規/2026-08-13統計手法改訂: 会場×距離別のMC123 1位予想 複勝的中率の信頼性
 # (12人委員会承認、compute_mc123_top1_reliability.pyの出力をそのまま参照)。
 # 見つからないセルのみNoneを返す。n<15セルも縮小値を返すがdata_limited=Trueを付与し、
@@ -83,6 +92,47 @@ def get_top1_reliability_entry(venue, surface, distance):
         "tier": c["tier"], "place_rate": c["place_rate_shrunk"], "n": c["n"],
         "data_limited": bool(c.get("data_limited")),
     }
+
+
+def load_nk_id_map():
+    """this_week_races.jsonからvenue×race_num→nk_id(netkeiba race_id)のマップを返す。
+    generate_mc_record.load_start_time_mapと同じロジック(venue名+race_numでの突合)。"""
+    p = Path("this_week_races.json")
+    if not p.exists():
+        return {}
+    races = json.loads(p.read_text(encoding="utf-8"))
+    return {(r.get("venue", ""), r.get("race_num", 0)): r.get("race_id", "")
+            for r in races if r.get("date") == TARGET_DATE and r.get("race_id")}
+
+
+def resolve_nk_id(conn, nk_id_map, race_id, venue, rno):
+    """レースのnk_id(netkeiba race_id)を解決する。取得順:
+    1. this_week_races.json(venue+race_numで突合、load_nk_id_map())
+    2. results.kai/results.week_numから構築: {年}{場コード}{kai}{week_num}{race_num}
+    3. どちらも不可ならNone(フロント側はオッズ取得ボタンを非表示にする)"""
+    nk = nk_id_map.get((venue, rno))
+    if nk:
+        return nk
+    code = _VENUE_TO_CODE.get(venue)
+    if not code:
+        return None
+    row = conn.execute(
+        "SELECT kai, week_num FROM results WHERE race_id = ? LIMIT 1", (race_id,)
+    ).fetchone()
+    if not row or row[0] is None or row[1] is None:
+        row = conn.execute(
+            "SELECT kai, week_num FROM results WHERE date = ? AND venue = ? "
+            "AND kai IS NOT NULL AND week_num IS NOT NULL LIMIT 1",
+            (TARGET_DATE, venue),
+        ).fetchone()
+    if not row or row[0] is None or row[1] is None:
+        return None
+    kai, week_num = row
+    try:
+        year = int(TARGET_DATE[:4])
+        return f"{year}{code}{int(kai):02d}{int(week_num):02d}{int(rno):02d}"
+    except (ValueError, TypeError):
+        return None
 
 
 def umaban_to_gate(umaban):
@@ -217,6 +267,8 @@ def main():
     l3f_par = build_l3f_par(conn, cutoff_date=TARGET_DATE, verbose=False)
     print(f"構築完了({time.time()-t0:.1f}秒)")
 
+    nk_id_map = load_nk_id_map()
+
     races_out, n_skip_shinba, n_skip_jump, n_skip_err, n_skip_umaban = [], 0, 0, 0, 0
     for race_id, venue, rno, rname, surface, distance, n_ent, track_cond in day_races:
         if pace_cls_group(rname) == "新馬":
@@ -304,6 +356,7 @@ def main():
             "low_info_ratio": low_info_ratio,
             "horses": horses_out,
             "top1_reliability": get_top1_reliability_entry(venue, surface, distance),
+            "nk_id": resolve_nk_id(conn, nk_id_map, race_id, venue, rno),
         })
         print(f"  OK {venue}{rno}R {rname} {surface}{distance}m {n}頭"
               f"{' (馬番は推定)' if numbers_estimated else ''}")

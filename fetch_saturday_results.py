@@ -15,7 +15,6 @@ import argparse
 import datetime as dt
 import json
 import re
-import shutil
 import sqlite3
 import time
 from pathlib import Path
@@ -267,6 +266,22 @@ def fetch_result_sp(race_id):
     return info
 
 
+def _exec_with_retry(conn, sql, params, max_retries=6, wait_sec=5):
+    """書き込み競合(database is locked)に対しbusy_timeoutに加えアプリ層でも再試行する。
+    レース当日は常時稼働のNorishikoAI_RaceDayAutoRefresh(auto_refresh.py、±20%ロック
+    必須機構)がkeiba.dbに周期的に書き込むため、本スクリプトと稀に競合する
+    (2026-09-20確認)。auto_refresh.py側は一切変更・停止しないこと。"""
+    for attempt in range(max_retries):
+        try:
+            return conn.execute(sql, params)
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e).lower() and attempt < max_retries - 1:
+                print(f"    database is locked、{wait_sec}秒待って再試行({attempt + 1}/{max_retries})")
+                time.sleep(wait_sec)
+                continue
+            raise
+
+
 def update_db(conn, date_str, venue, race_num, race_info, dry_run=False):
     """results の各フィールドを horse_name照合で更新
     更新対象: finish, umaban, pos_col(枠番), time_sec(全馬), margin(着差), last3f(上がり3F), track_cond
@@ -285,7 +300,8 @@ def update_db(conn, date_str, venue, race_num, race_info, dry_run=False):
     track_cond = race_info['track_cond']
 
     if track_cond and not dry_run:
-        conn.execute(
+        _exec_with_retry(
+            conn,
             "UPDATE results SET track_cond=? WHERE race_id=? AND track_cond IS NULL",
             (track_cond, db_race_id)
         )
@@ -296,7 +312,8 @@ def update_db(conn, date_str, venue, race_num, race_info, dry_run=False):
             continue
         if not dry_run:
             # 各カラムがNULLの間だけ個別に暫定データを書き込む（JVLink後勝ちルール）
-            cur = conn.execute(
+            cur = _exec_with_retry(
+                conn,
                 """UPDATE results
                    SET finish=CASE WHEN finish IS NULL THEN ? ELSE finish END,
                        umaban=CASE WHEN umaban IS NULL THEN ? ELSE umaban END,
@@ -327,9 +344,17 @@ def update_db(conn, date_str, venue, race_num, race_info, dry_run=False):
 
 
 def backup_db():
+    """WALモードDBはshutil.copyで生ファイルをコピーすると未チェックポイントの
+    変更が欠落しうるため、sqlite3のbackup API(conn.backup)を使う(CLAUDE.mdルール4、
+    2026-09-20修正。旧shutil.copy2版は温存中のkeiba.db.bak_sat_results_20260920に
+    まだ残っているが実害は軽微=単に少し古いスナップショットになるだけ)。"""
     bak = DB_PATH.with_suffix(f".db.bak_sat_results_{dt.date.today().strftime('%Y%m%d')}")
     if not bak.exists():
-        shutil.copy2(str(DB_PATH), str(bak))
+        src = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        dst = sqlite3.connect(str(bak))
+        src.backup(dst)
+        dst.close()
+        src.close()
         print(f"Backup: {bak.name}")
 
 
@@ -407,6 +432,7 @@ def main():
           f"{'[DRY-RUN]' if args.dry_run else ''} ===")
 
     conn = sqlite3.connect(str(DB_PATH))
+    conn.execute("PRAGMA busy_timeout=30000")  # 他プロセスの書き込みロック競合時に最大30秒待機
 
     pending = []
     for d in date_list:

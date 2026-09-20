@@ -357,6 +357,17 @@
     .nav-tabs::-webkit-scrollbar { display: none; }
     .nav-tabs .nav-item { flex-shrink: 0; }
     .nav-tabs .nav-link { padding-left: 10px; padding-right: 10px; font-size: 13px; white-space: nowrap; }
+    /* オッズ列追加(S5)後に375px幅で馬名が0幅に潰れる実機確認済みの不具合を修正
+       (2026-09-21、iframeでの375px幅検証で発見・複数回の実測調整を経て確定)。
+       rank/waku/style-tag/バー×2/オッズ列がいずれもflex-shrink:0の固定幅で、合計が
+       画面幅を超えるため馬名を1行目に収められなかった。1着バー(視覚バーのみ、数値は
+       残す)を非表示にし、複勝バーの基準幅を最小値まで縮め、オッズ列は2行目全幅に
+       折り返す。margin-leftは付けない(flex-basis:100%と併用すると幅が加算されてしまい
+       行からはみ出すバグを実測で確認したため)。 */
+    .mc123-bar-wrap-p1 { display: none; }
+    .mc123-row { flex-wrap: wrap; row-gap: 2px; }
+    .mc123-bar-wrap { flex: 0 1 28px; }
+    .mc123-odds-cell { flex-basis: 100%; margin-left: 0; justify-content: flex-end; order: 99; }
   }
 </style>
 </head>
@@ -809,6 +820,14 @@ let mc123Loaded = false; // 取得に成功したかどうか(失敗時はfalse�
                           // 再フェッチできるようにする)。注目レースタブが単独で開かれた
                           // 場合の二重フェッチを防ぐためのフラグ
 
+// オッズ取得(2026-09-21追加、同日中にMC123fold内列表示へ再設計)。/api/odds(netkeiba
+// 単勝・複勝オッズ)をボタン押下時だけ呼び、MC123のp1(1着率)と組み合わせて期待回収率を
+// 表示する。買い目ではなく参考情報。自動再取得・ポーリングは一切しない。取得済みデータは
+// race_id単位でキャッシュし、馬場ピル切替(setPaceTrack)時の再計算はオッズを再取得せず
+// このキャッシュを使い回す(renderPaceCard→renderMc123FoldBody経由)
+let oddsDataCache = {}; // race_id -> /api/odds の最終取得成功レスポンス
+let oddsFetchError = {}; // race_id -> 直近の取得失敗メッセージ(取得成功でnullに戻す)
+
 async function loadMc123Data() {
   try {
     const r = await fetch('mc123_data.json', {cache:'no-store'});
@@ -899,13 +918,11 @@ function renderFeaturedTab() {
     c.innerHTML = '<div class="text-secondary py-5 text-center">本日は注目レースの対象がありません</div>';
     return;
   }
+  // 2026-09-21 UX再設計(S6): 129字の赤枠注記+26字の馬場注記 → 短いチップ2つ+ℹに統一
   const notice = `
-    <div style="background:rgba(220,53,69,0.12);border:1px solid rgba(220,53,69,0.5);border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:14px">
-      ⚠️ <strong>買い目ではなく参考情報です</strong>。MC123シミュレーションで1着候補馬の過去の的中実績が
-      信頼度「高」、かつ展開予想(隊列)の精度も「高」に区分されたレースを、発走時刻順に並べています。
-    </div>
-    <div class="pace-note mb-3">
-      ※良馬場を想定した場合の参考値です。実際の馬場状態と異なる場合があります。
+    <div class="d-flex gap-2 flex-wrap mb-3">
+      <span class="pace-chip" style="cursor:pointer" onclick="showInfo(event,'notice')">参考情報です・買い目ではありません <span style="opacity:.7">ⓘ</span></span>
+      <span class="pace-chip" style="cursor:pointer" onclick="showInfo(event,'mc123')">良馬場想定 <span style="opacity:.7">ⓘ</span></span>
     </div>`;
   const header = `
     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
@@ -916,6 +933,7 @@ function renderFeaturedTab() {
     </div>`;
   const cards = items.map((it, idx) => renderFeaturedCard(it, idx)).join('');
   c.innerHTML = header + notice + `<div class="featured-list">${cards}</div>`;
+  initFolds(c);
 }
 
 function renderFeaturedCard(it, idx) {
@@ -925,6 +943,11 @@ function renderFeaturedCard(it, idx) {
   const placeRate = Math.round((rel.place_rate || 0) * 100);
   const relLimitedNote = rel.data_limited ? '(参考値)' : '';
   const accLimitedNote = acc.data_limited ? '(参考値)' : '';
+  // 2026-09-21 S4: 独自のoddsパネル実装をやめ、「レース全体の予想を見る」fold(今日の予想
+  // タブと同一のrenderPaceCard)に一本化。オッズボタンはそのfoldを開いてMC123 fold内の
+  // オッズ取得を代行トリガーする(実装の二重化を解消)
+  const hostId = 'featured-detail-' + race.race_id;
+  const detailFold = renderRaceDetailFold(race.race_id, hostId);
   return `
   <div class="featured-card ${idx < 5 ? 'featured-top' : ''}">
     <div class="featured-rank">${idx + 1}</div>
@@ -954,113 +977,26 @@ function renderFeaturedCard(it, idx) {
         <div class="featured-stat"><span class="featured-stat-label">展開予想 精度(隊列)</span>
           <span class="featured-stat-val">高<span class="sub"> (n=${acc.n})${accLimitedNote}</span></span></div>
       </div>
-      <div class="odds-row">
-        <button class="odds-btn" onclick="fetchOddsFor('${race.race_id}','${race.nk_id || ''}',this)" ${!race.nk_id || race.numbers_estimated ? 'disabled' : ''}>オッズ取得</button>
-        <span class="pace-note" id="odds-meta-${race.race_id}"></span>
+      <div class="d-flex align-items-center gap-2 mt-2">
+        <button class="odds-btn" type="button" onclick="openRaceDetailAndFetchOdds('${race.race_id}','${hostId}',this)" ${!race.nk_id || race.numbers_estimated ? 'disabled' : ''}>オッズ取得</button>
+        <span class="pace-note">単勝オッズ・期待回収率をAI予測内に表示します</span>
       </div>
-      <div id="odds-panel-${race.race_id}" class="d-none mt-2"></div>
-      <div class="pace-note mt-2" style="cursor:pointer;color:#60a5fa"
-           onclick="toggleRaceDetail('${race.race_id}','featured-detail-${race.race_id}', this)">▾ このレース全体の予想を見る(馬場選択あり)</div>
-      <div id="featured-detail-${race.race_id}" class="d-none mt-2"></div>
+      ${detailFold}
     </div>
   </div>`;
 }
 
-// ── 注目レースタブ「オッズ取得」ボタン(2026-09-21追加) ─────────────────────────
-// /api/odds(netkeiba単勝・複勝オッズ)をボタン押下時だけ呼び、MC123のp1(1着率)と
-// 組み合わせて期待回収率を表示する。買い目ではなく参考情報(のりお個人の予想参考用)。
-// 自動再取得・ポーリングは一切しない。取得済みデータはrace_id単位でキャッシュし、
-// 馬場ピル切替(setPaceTrack)時の再計算はオッズを再取得せずこのキャッシュを使い回す。
-let oddsDataCache = {}; // race_id -> /api/odds の最終取得成功レスポンス
-
-async function fetchOddsFor(raceId, nkId, btn) {
-  if (!nkId) return;
-  const panel = document.getElementById('odds-panel-' + raceId);
-  const metaEl = document.getElementById('odds-meta-' + raceId);
-  if (btn) { btn.disabled = true; btn.textContent = '取得中…'; }
-  try {
-    const r = await fetch('/api/odds?nk_id=' + encodeURIComponent(nkId));
-    const data = await r.json().catch(() => null);
-    if (!r.ok || !data || data.error) {
-      throw new Error((data && (data.detail || data.error)) || ('HTTP ' + r.status));
-    }
-    oddsDataCache[raceId] = data;
-    if (panel) panel.classList.remove('d-none');
-    renderOddsPanel(raceId, data);
-    if (metaEl) {
-      const m = /T(\d{2}:\d{2}:\d{2})/.exec(data.fetched_at || '');
-      metaEl.textContent = m ? `(取得 ${m[1]})` : '';
-    }
-  } catch (e) {
-    if (panel) {
-      panel.classList.remove('d-none');
-      const t = new Date().toLocaleTimeString('ja-JP', { hour12: false });
-      panel.innerHTML = `<div class="pace-note" style="color:#f87171">オッズを取得できませんでした(${t})</div>`;
-    }
-    if (metaEl) metaEl.textContent = '(取得失敗)';
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = oddsDataCache[raceId] ? '再取得' : 'オッズ取得'; }
-  }
-}
-
-function renderOddsPanel(raceId, data) {
-  const panel = document.getElementById('odds-panel-' + raceId);
-  if (!panel || !data) return;
-  const track = paceSel[raceId] || TRACKS[0];
-
-  const disclaimer = `<div class="odds-disclaimer">⚠️ この表は買い目ではありません。期待回収率は「MC123の1着率×取得時点の単勝オッズ」を機械的に掛けた参考値です。1着率には数ポイントの誤差があり、人気薄では低め・人気馬では高めに出やすい癖があります。過去5年の検証では、この種の期待値が1.0を超える馬を買い続けても収支はプラスになりませんでした(MC123は的中率の情報提供用で、市場より有利な情報は含んでいません)。オッズは瞬間値で発走まで変動します。</div>`;
-
-  if (data.status === 'before') {
-    panel.innerHTML = disclaimer + `<div class="pace-note mt-1">発売前のためオッズ未提供です。</div>`;
-    return;
-  }
-
-  const mc123Race = mc123Data && mc123Data.races
-    ? mc123Data.races.find(r => r.race_id === raceId) : null;
-  if (!mc123Race) {
-    panel.innerHTML = disclaimer + `<div class="pace-note mt-1">MC123データが見つからないため表示できません。</div>`;
-    return;
-  }
-
-  const fmtHHMM = (iso) => {
-    const m = /(\d{2}):(\d{2})(?::\d{2})?\s*$/.exec(iso || '');
-    return m ? `${m[1]}:${m[2]}` : '--:--';
-  };
-  const fmtHHMMSS = (iso) => {
-    const m = /T(\d{2}:\d{2}:\d{2})/.exec(iso || '');
-    return m ? m[1] : '--:--:--';
-  };
-  const statusLabel = data.status === 'result'
-    ? `確定オッズ(${fmtHHMM(data.official_datetime)}時点)`
-    : `netkeiba ${fmtHHMM(data.official_datetime)}時点`;
-  const meta = `<div class="pace-note odds-meta">単勝オッズ: ${statusLabel} / 取得 ${fmtHHMMSS(data.fetched_at)} / 1着率は『${track}』想定</div>`;
-
-  // 並び順は既存のMC123ランキング(選択中の馬場パターンでのptop3降順)を維持する。
-  // 期待回収率での並べ替えはしない(推奨順位に見えるのを避けるため)
-  const rows = mc123Race.horses.slice()
-    .map(h => ({ h, pat: (h.patterns && (h.patterns[track] || h.patterns[TRACKS[0]])) || {} }))
-    .sort((a, b) => (b.pat.ptop3 || 0) - (a.pat.ptop3 || 0))
-    .map(({ h, pat }) => {
-      const p1 = pat.p1 || 0;
-      const t = data.tansho ? data.tansho[String(h.num)] : null;
-      if (!t) {
-        return `<tr><td><span class="wk wk${h.waku}">${h.num}</span></td><td>${h.name}</td>
-          <td>${Math.round(p1 * 100)}%</td><td class="text-secondary" colspan="3">取消・未発売</td></tr>`;
-      }
-      const ev = p1 * t.odds;
-      const breakEven = p1 > 0 ? 1 / p1 : null;
-      return `<tr><td><span class="wk wk${h.waku}">${h.num}</span></td><td>${h.name}</td>
-        <td>${Math.round(p1 * 100)}%</td><td>${t.odds.toFixed(1)}</td>
-        <td>${ev.toFixed(2)}</td><td>${breakEven != null ? breakEven.toFixed(1) : '-'}</td></tr>`;
-    }).join('');
-
-  panel.innerHTML = disclaimer + meta + `
-    <div class="odds-table-wrap">
-      <table class="odds-table">
-        <thead><tr><th>馬番</th><th>馬名</th><th>1着率</th><th>単勝オッズ</th><th>期待回収率</th><th>損益分岐オッズ</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+// 注目レース・WIN5タブの「オッズ取得」クイックボタン用(2026-09-21 S4)。「このレース全体の
+// 予想を見る」foldを開き、その中に埋め込まれたrenderPaceCard内のMC123 foldに対して
+// fetchOddsForを代行実行する(実装の二重化を避けるための一本化)
+async function openRaceDetailAndFetchOdds(raceId, ownerHostId, btn) {
+  const rdId = raceDetailFoldId(ownerHostId);
+  toggleFold(rdId, true);
+  // renderRaceDetailFoldBody()が生成する入れ子pace-cardのhostIdは `${racedetail fold自身のid}-pacecard`
+  // (renderRaceDetailFoldBody内の実装と必ず一致させる。ownerHostIdそのものに'-pacecard'を
+  // 付けるのは誤り=2026-09-21のブラウザ確認で発見・修正)
+  const innerHostId = rdId + '-pacecard';
+  await mc123FoldOddsClick(raceId, innerHostId, btn);
 }
 
 // ══ WIN5タブ (2026-08-22追加、2026-09-06本命ブロック削除) ═══════════════════════
@@ -1114,13 +1050,11 @@ function renderWin5Tab() {
       '<br><span style="font-size:11px">(最新取得日: ' + win5Data.date + ')</span></div>';
     return;
   }
+  // 2026-09-21 UX再設計(S6): 長い赤枠注記+馬場注記 → 短いチップ2つ+ℹに統一
   const notice = `
-    <div style="background:rgba(220,53,69,0.12);border:1px solid rgba(220,53,69,0.5);border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:14px">
-      ⚠️ <strong>買い目ではなく参考情報です</strong>。本日のWIN5対象レース全${win5Data.n_races_target || races.length}レースについて、
-      「AI3着以内候補」(MC123シミュレーション、オッズ非考慮)を表示しています。
-    </div>
-    <div class="pace-note mb-3">
-      ※「AI3着以内候補」は良馬場を想定した場合の参考値です。実際の馬場状態と異なる場合があります。
+    <div class="d-flex gap-2 flex-wrap mb-3">
+      <span class="pace-chip" style="cursor:pointer" onclick="showInfo(event,'notice')">参考情報です・買い目ではありません <span style="opacity:.7">ⓘ</span></span>
+      <span class="pace-chip" style="cursor:pointer" onclick="showInfo(event,'mc123')">良馬場想定 <span style="opacity:.7">ⓘ</span></span>
     </div>`;
   const header = `
     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
@@ -1130,6 +1064,7 @@ function renderWin5Tab() {
     </div>`;
   const cards = races.map(r => renderWin5Card(r)).join('');
   c.innerHTML = header + notice + `<div class="featured-list">${cards}</div>`;
+  initFolds(c);
 }
 
 function renderWin5Card(r) {
@@ -1158,11 +1093,8 @@ function renderWin5Card(r) {
   }
 
   const paceMatch = findPaceRaceByVenueRno(r.venue, r.race_num);
-  const detailId = `win5-detail-${r.leg}`;
-  const detailToggle = paceMatch ? `
-      <div class="pace-note mt-2" style="cursor:pointer;color:#60a5fa"
-           onclick="toggleRaceDetail('${paceMatch.race_id}','${detailId}', this)">▾ このレース全体の予想を見る(馬場選択あり)</div>
-      <div id="${detailId}" class="d-none mt-2"></div>` : '';
+  const hostId = `win5-detail-${r.leg}`;
+  const detailToggle = paceMatch ? renderRaceDetailFold(paceMatch.race_id, hostId) : '';
 
   return `
   <div class="featured-card">
@@ -1289,6 +1221,9 @@ function renderPaceTab() {
       <span class="pace-note ms-auto">mc_dyn 展開シミュレーター(各${(paceData.n_sim||0).toLocaleString()}回試行)</span>
     </div>
     <div class="track-seg mb-3" style="margin-left:0">${venueTabs}</div>
+    <div class="d-flex gap-2 flex-wrap mb-3">
+      <span class="pace-chip" style="cursor:pointer" onclick="showInfo(event,'notice')">参考情報です <span style="opacity:.7">ⓘ</span></span>
+    </div>
     <div class="pace-note mb-3">${paceData.note || ''} 発走済みのレースは一覧の下に移動します。</div>`;
   html += races.map(r => `<div id="pace-card-${r.race_id}" class="pace-card-anchor"></div>`).join('');
   c.innerHTML = html;
@@ -1297,28 +1232,11 @@ function renderPaceTab() {
 
 function setPaceTrack(rid, t, hostId) {
   paceSel[rid] = t;
+  // カード全体を再描画するだけでよい: MC123 foldは開いていれば初期化パスで自動的に
+  // renderMc123FoldBody()が呼ばれ、取得済みオッズ(oddsDataCache)があればそれを使い回して
+  // 選択中の馬場パターンでp1・期待回収率だけ再計算する(オッズ自体の再取得はしない、
+  // 2026-09-21のUX再設計で旧odds-panel直接操作から一本化)
   renderPaceCard(rid, hostId);
-  // 2026-09-21追加: 注目レースのオッズ取得パネルが開いていれば、取得済みオッズを
-  // 使い回して1着率だけ選択中の馬場パターンで再計算する(オッズ自体の再取得はしない)
-  const oddsPanel = document.getElementById('odds-panel-' + rid);
-  if (oddsPanel && !oddsPanel.classList.contains('d-none') && oddsDataCache[rid]) {
-    renderOddsPanel(rid, oddsDataCache[rid]);
-  }
-}
-
-// 注目レース・WIN5タブから「レース全体の予想」を展開表示するための共通トグル。
-// 初回展開時のみrenderPaceCard()を実行し、以降は表示/非表示の切替のみ行う
-// (2026-09-06のりお要望: 注目レース/WIN5からその場でレース全体+馬場選択を見たい)
-function toggleRaceDetail(raceId, hostId, btnEl) {
-  const host = document.getElementById(hostId);
-  if (!host) return;
-  const opening = host.classList.contains('d-none');
-  host.classList.toggle('d-none');
-  if (btnEl) btnEl.textContent = opening ? '▴ 閉じる' : '▾ このレース全体の予想を見る(馬場選択あり)';
-  if (opening && !host.dataset.rendered) {
-    host.dataset.rendered = '1';
-    renderPaceCard(raceId, hostId);
-  }
 }
 
 // WIN5はrace_idの形式がpace_data.json/mc123_data.jsonと異なる(netkeiba由来の12桁数値)ため、
@@ -1335,6 +1253,249 @@ function paceVerdict(p) {
   return ['ミドルペース中心', '#a1a1aa'];
 }
 
+// ── MC123 fold (AI予測: 1〜3着内確率) ─────────────────────────────────────────
+// 初期表示は複勝内率(ptop3)20%以上の馬のみ(案C'、のりお確定事項1)。0頭にならないよう
+// 1位予想馬は常に表示する安全策を入れている(「2頭〜8頭程度」という想定と矛盾しないための
+// 実装判断)。「残りn頭を表示」はfold自体の開閉とは別のセッション内トグル(記憶しない)。
+// オッズ列はoddsDataCache[rid]の有無で出し分ける(取得前は列自体を出さない、S5要件)
+function mc123FoldId(hostId) { return 'mc123-fold-' + hostId; }
+function formationFoldId(hostId) { return 'formation-fold-' + hostId; }
+function accDetailFoldId(hostId) { return 'accdetail-fold-' + hostId; }
+function raceDetailFoldId(hostId) { return 'racedetail-fold-' + hostId; }
+
+function fmtMcPct(v) {
+  // 0%は「絶対来ない」に見えるため、丸めでゼロになる場合は<1%表記にする(委員会みなみ指摘)
+  const raw = Math.round((v || 0) * 100);
+  return { raw, label: (raw === 0 && (v || 0) > 0) ? '<1%' : raw + '%' };
+}
+
+function mc123RowsData(rid, track) {
+  const mc123Race = mc123Data && mc123Data.races ? mc123Data.races.find(r => r.race_id === rid) : null;
+  if (!mc123Race) return null;
+  const rows = mc123Race.horses.slice()
+    .map(h => ({ h, pat: (h.patterns && (h.patterns[track] || h.patterns[TRACKS[0]])) || {} }))
+    .sort((a, b) => (b.pat.ptop3 || 0) - (a.pat.ptop3 || 0))
+    .map(({ h, pat }, idx) => ({ h, pat, rank: idx + 1, top3: fmtMcPct(pat.ptop3), p1: fmtMcPct(pat.p1) }));
+  return { mc123Race, rows };
+}
+
+function mc123InitialShownCount(rows) {
+  let n = 0;
+  rows.forEach((r, i) => { if (i === 0 || (r.pat.ptop3 || 0) >= 0.20) n++; });
+  return Math.max(1, n);
+}
+
+function mc123RowHtml(r, idx, shownN, oddsInfo) {
+  const { h, pat, rank, top3, p1 } = r;
+  let oddsHtml = '';
+  if (oddsInfo && oddsInfo.status !== 'before') {
+    const t = oddsInfo.tansho ? oddsInfo.tansho[String(h.num)] : null;
+    if (!t) {
+      oddsHtml = `<span class="mc123-odds-cell text-secondary" style="font-size:11px">取消・未発売</span>`;
+    } else {
+      const ev = (pat.p1 || 0) * t.odds;
+      oddsHtml = `<span class="mc123-odds-cell"><span class="mc123-odds-val">${t.odds.toFixed(1)}倍</span><span class="mc123-odds-ev">期待${ev.toFixed(2)}</span></span>`;
+    }
+  }
+  return `<div class="mc123-row ${rank <= 3 ? 'mc123-top' : ''} ${idx >= shownN ? 'mc123-extra d-none' : ''}">
+    <span class="mc123-rank">${rank}</span>
+    <span class="wk wk${h.waku}">${h.num}</span>
+    <span class="nm">${h.name}</span>
+    <span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style || ''}</span>
+    <div class="mc123-bar-wrap"><div class="mc123-bar" style="width:${top3.raw}%"></div></div>
+    <span class="mc123-pct">${top3.label}</span>
+    <div class="mc123-bar-wrap-p1"><div class="mc123-bar-p1" style="width:${p1.raw}%"></div></div>
+    <span class="mc123-pct-p1">${p1.label}</span>
+    ${oddsHtml}
+  </div>`;
+}
+
+function toggleMc123Extra(hostId, btn) {
+  const list = document.getElementById('mc123-list-' + hostId);
+  if (!list || !btn) return;
+  const extras = Array.from(list.querySelectorAll('.mc123-extra'));
+  if (!extras.length) return;
+  const isHidden = extras[0].classList.contains('d-none');
+  extras.forEach(el => el.classList.toggle('d-none', !isHidden));
+  btn.textContent = isHidden ? '▴ 隠す' : `残り${extras.length}頭を表示`;
+}
+
+function renderMc123FoldContent(rid, hostId, track) {
+  const data = mc123RowsData(rid, track);
+  if (!data) return '<div class="pace-note">MC123データがありません</div>';
+  const { rows } = data;
+  const shownN = mc123InitialShownCount(rows);
+  const restN = rows.length - shownN;
+  const oddsInfo = oddsDataCache[rid];
+  const oddsErr = oddsFetchError[rid];
+  const rowsHtml = rows.map((r, idx) => mc123RowHtml(r, idx, shownN, oddsInfo)).join('');
+  const moreBtn = restN > 0
+    ? `<button type="button" class="mc123-more-btn" onclick="toggleMc123Extra('${hostId}', this)">残り${restN}頭を表示</button>` : '';
+  let oddsNote = '';
+  if (oddsInfo && oddsInfo.status === 'before') {
+    oddsNote = `<div class="pace-note mt-1">発売前のためオッズ未提供です。</div>`;
+  } else if (oddsInfo) {
+    const m = /T(\d{2}:\d{2}:\d{2})/.exec(oddsInfo.fetched_at || '');
+    oddsNote = `<div class="pace-note mt-1">単勝オッズ・期待回収率を表示中(取得 ${m ? m[1] : '--:--:--'})
+      <span class="info-link" role="button" tabindex="0" onclick="showInfo(event,'odds')">ⓘ</span></div>`;
+  } else if (oddsErr) {
+    oddsNote = `<div class="pace-note mt-1" style="color:#f87171">オッズを取得できませんでした</div>`;
+  }
+  return `
+    <div class="mc123-list" id="mc123-list-${hostId}">${rowsHtml}</div>
+    ${moreBtn ? `<div class="mt-1">${moreBtn}</div>` : ''}
+    ${oddsNote}`;
+}
+
+function renderMc123FoldBody(el, contentEl) {
+  const rid = el.dataset.raceId, hostId = el.dataset.hostId;
+  const track = paceSel[rid] || TRACKS[0];
+  contentEl.innerHTML = renderMc123FoldContent(rid, hostId, track);
+}
+
+async function mc123FoldOddsClick(rid, hostId, btn) {
+  toggleFold(mc123FoldId(hostId), true);
+  await fetchOddsFor(rid, hostId, btn);
+}
+
+async function fetchOddsFor(rid, hostId, btn) {
+  const mc123Race = mc123Data && mc123Data.races ? mc123Data.races.find(r => r.race_id === rid) : null;
+  const nkId = mc123Race && mc123Race.nk_id;
+  if (!nkId) return;
+  if (btn) { btn.disabled = true; btn.textContent = '取得中…'; }
+  try {
+    const r = await fetch('/api/odds?nk_id=' + encodeURIComponent(nkId));
+    const data = await r.json().catch(() => null);
+    if (!r.ok || !data || data.error) {
+      throw new Error((data && (data.detail || data.error)) || ('HTTP ' + r.status));
+    }
+    oddsDataCache[rid] = data;
+    oddsFetchError[rid] = null;
+  } catch (e) {
+    oddsFetchError[rid] = (e && e.message) || String(e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = oddsDataCache[rid] ? '再取得' : 'オッズ取得'; }
+    const foldEl = document.getElementById(mc123FoldId(hostId));
+    const contentEl = foldEl && document.getElementById(mc123FoldId(hostId) + '-content');
+    if (foldEl && contentEl) renderMc123FoldBody(foldEl, contentEl);
+  }
+}
+
+function mc123SummaryText(rows) {
+  return rows.slice(0, 3).map(r => `${r.h.name}${r.top3.label}`).join('・');
+}
+
+function renderMc123Fold(rid, hostId, track, forceClosed) {
+  const data = mc123RowsData(rid, track);
+  if (!data) return '';
+  const { mc123Race, rows } = data;
+  const summary = mc123SummaryText(rows);
+  const oddsCached = !!oddsDataCache[rid];
+  const canFetchOdds = !!mc123Race.nk_id && !mc123Race.numbers_estimated;
+  const headExtra = `<button class="odds-btn" type="button" style="margin-left:auto;padding:5px 10px;font-size:11px"
+    onclick="event.stopPropagation(); mc123FoldOddsClick('${rid}','${hostId}',this)" ${canFetchOdds ? '' : 'disabled'}>${oddsCached ? '再取得' : 'オッズ取得'}</button>`;
+  const note = `${track}想定 <span class="info-link" role="button" tabindex="0" onclick="event.stopPropagation(); showInfo(event,'mc123')">ⓘ</span>`;
+  return foldHtml({
+    id: mc123FoldId(hostId), kind: 'mc123', title: 'AI予測(1〜3着内確率)',
+    summary, note, headExtra, raceId: rid, hostId, forceClosed
+  });
+}
+
+// ── formation fold (隊列予想) ────────────────────────────────────────────────
+function formationSummaryText(race, track) {
+  const formation = (race.formation_by_track && race.formation_by_track[track]) || race.formation || {};
+  const startArr = formation.start;
+  if (!startArr || !startArr.length) return '';
+  const nums = startArr.slice(0, 5).map(e => e.num);
+  return nums.join('→') + (startArr.length > 5 ? '…' : '');
+}
+
+function renderFormationFoldContent(rid, track) {
+  const race = paceData.races.find(r => r.race_id === rid);
+  if (!race) return '<div class="pace-note">データがありません</div>';
+  const wakuOf = {};
+  race.horses.forEach(h => wakuOf[h.num] = h.waku);
+  const horseList = race.horses.map(h =>
+    `<div class="pace-horse"><span class="wk wk${h.waku}">${h.num}</span>
+      <span class="nm">${h.name}</span>
+      <span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style}</span>
+    </div>`).join('');
+  return `
+    <div class="bump-wrap">${bumpChartSvg(race, wakuOf, track)}</div>
+    <div class="pace-note" style="margin-top:4px">帯=馬身差・点線=切れ目・▲=終盤伸び</div>
+    <div class="pace-horse-list">${horseList}</div>`;
+}
+
+function renderFormationFoldBody(el, contentEl) {
+  const rid = el.dataset.raceId;
+  const track = paceSel[rid] || TRACKS[0];
+  contentEl.innerHTML = renderFormationFoldContent(rid, track);
+}
+
+function renderFormationFold(rid, hostId, track, forceClosed) {
+  const race = paceData.races.find(r => r.race_id === rid);
+  if (!race) return '';
+  const summary = formationSummaryText(race, track);
+  const note = `<span class="info-link" role="button" tabindex="0" onclick="event.stopPropagation(); showInfo(event,'formation')">ⓘ</span>`;
+  return foldHtml({
+    id: formationFoldId(hostId), kind: 'formation', title: '隊列予想(通過順)',
+    summary, note, raceId: rid, hostId, forceClosed
+  });
+}
+
+// ── accdetail fold (精度チップの詳細) ─────────────────────────────────────────
+// 見出し(fold-head)は持たず、ヘッダーの精度チップ自体がトリガーになる軽量版。
+// toggleFold/foldDefault/saveFoldPref/renderFoldBodyの共通経路にはそのまま乗る
+const ACC_WORD = { '高': '当たりやすい部類', '中': '標準的な当たりやすさ', '低': 'やや当たりにくい部類' };
+
+function renderAccDetailFoldContent(rid) {
+  const race = paceData.races.find(r => r.race_id === rid);
+  const acc = race && race.accuracy;
+  if (!acc) return '';
+  return `<div class="pace-note">
+    この会場・距離(${race.venue}${race.surface}${race.distance}m)の隊列予測は${ACC_WORD[acc.tier]}です
+    (2024年以降の${acc.n}レースで検証)。ただし最終着順の予想は、通過順の予想より当たりにくい傾向があります
+    (全体平均で通過順の当たりやすさの4割程度)。買い目(MCロジック)とは無関係の参考情報です。
+    ${acc.data_limited ? 'このセルはサンプル数が少なく、推定の不確実性が大きい参考値です。' : ''}
+    <span class="info-link" role="button" tabindex="0" onclick="showInfo(event,'reliability')">ⓘ</span>
+  </div>`;
+}
+
+function renderAccDetailFoldBody(el, contentEl) {
+  contentEl.innerHTML = renderAccDetailFoldContent(el.dataset.raceId);
+}
+
+function renderAccDetailFoldWrapper(rid, hostId, forceClosed) {
+  const id = accDetailFoldId(hostId);
+  const open = forceClosed ? false : foldDefault('accdetail');
+  return `<div class="fold" id="${id}" data-kind="accdetail" data-race-id="${rid}" data-host-id="${hostId}" aria-expanded="${open ? 'true' : 'false'}">
+    <div class="fold-body">
+      <div class="fold-inner" id="${id}-inner">
+        <div id="${id}-content"></div>
+        <div class="fold-foot"><button type="button" onclick="toggleFold('${id}', false)">▴ 閉じる</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── racedetail fold (注目レース・WIN5の「このレース全体の予想を見る」) ───────────────
+// 開くとrenderPaceCard()をそのまま呼び出し、今日の予想タブと同じカード(MC123/隊列foldごと)を
+// 埋め込む。これにより「オッズ」ボタンの実装が二重化しない(2026-09-21 S4で一本化)
+function renderRaceDetailFold(paceRaceId, ownerHostId) {
+  if (!paceRaceId) return '';
+  return foldHtml({
+    id: raceDetailFoldId(ownerHostId), kind: 'racedetail', title: 'このレース全体の予想を見る',
+    summary: '馬場選択・AI予測・隊列予想', raceId: paceRaceId, hostId: ownerHostId
+  });
+}
+
+function renderRaceDetailFoldBody(el, contentEl) {
+  const rid = el.dataset.raceId;
+  const innerHostId = el.id + '-pacecard';
+  contentEl.innerHTML = `<div id="${innerHostId}"></div>`;
+  renderPaceCard(rid, innerHostId);
+}
+
 function renderPaceCard(rid, hostId) {
   hostId = hostId || ('pace-card-' + rid);
   const race = paceData.races.find(r => r.race_id === rid);
@@ -1343,119 +1504,66 @@ function renderPaceCard(rid, hostId) {
   const track = paceSel[rid] || TRACKS[0];
   const p = race.pace[track] || race.pace[TRACKS[0]] || {};
   const [verdict, vcolor] = paceVerdict(p);
+  const started = paceRaceStarted(race);
   const pills = TRACKS.map(t =>
     `<button class="track-pill ${t === track ? 'active' : ''}" onclick="setPaceTrack('${rid}','${t}','${hostId}')">${t}</button>`).join('');
   const seg = (v, cls, label) => {
     const pct = Math.round((v||0) * 100);
     return `<div class="pace-seg ${cls}" style="width:${pct}%" title="${label} ${pct}%">${pct >= 12 ? label + ' ' + pct + '%' : ''}</div>`;
   };
-  const wakuOf = {};
-  race.horses.forEach(h => wakuOf[h.num] = h.waku);
-  const horseList = race.horses.map(h =>
-    `<div class="pace-horse"><span class="wk wk${h.waku}">${h.num}</span>
-      <span class="nm">${h.name}</span>
-      <span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style}</span>
-    </div>`).join('');
   const estWarn = race.numbers_estimated
     ? `<span class="pace-chip" style="color:#fbbf24">馬番は暫定(枠順確定前データ)</span>` : '';
   const acc = race.accuracy;
   const ACC_COLOR = { '高': '#2dd4bf', '中': '#94a3b8', '低': '#facc15' };
-  const ACC_WORD = { '高': '当たりやすい部類', '中': '標準的な当たりやすさ', '低': 'やや当たりにくい部類' };
   const accChip = acc
     ? `<span class="pace-chip acc-chip" style="color:${ACC_COLOR[acc.tier]};cursor:pointer"
-         onclick="this.closest('.pace-card').querySelector('.acc-detail').classList.toggle('d-none')">隊列 精度:${acc.tier}${acc.data_limited ? '(参考)' : ''}</span>`
+         onclick="toggleFold('${accDetailFoldId(hostId)}')">隊列 精度:${acc.tier}${acc.data_limited ? '(参考)' : ''}</span>`
     : '';
-  const accDetail = acc
-    ? `<div class="pace-note acc-detail d-none" style="margin-top:6px;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:8px">
-         この会場・距離(${race.venue}${race.surface}${race.distance}m)の隊列予測は${ACC_WORD[acc.tier]}です
-         (2024年以降の${acc.n}レースで検証)。ただし最終着順の予想は、通過順の予想より当たりにくい傾向があります
-         (全体平均で通過順の当たりやすさの4割程度)。買い目(MCロジック)とは無関係の参考情報です。
-         ${acc.data_limited ? 'このセルはサンプル数が少なく、推定の不確実性が大きい参考値です。' : ''}
-       </div>` : '';
-  // MC123ランキング(1〜3着内確率、情報提供専用)。pace_data.jsonとは別ファイルのため
-  // 取得できていない場合は静かに省略する(グレースフルデグレード)
+  const accDetailWrap = acc ? renderAccDetailFoldWrapper(rid, hostId, started) : '';
   const mc123Race = mc123Data && mc123Data.races
     ? mc123Data.races.find(r => r.race_id === rid) : null;
-  let mc123Html = '';
-  if (mc123Race) {
-    // 0%は「絶対来ない」に見えるため、丸めでゼロになる場合は<1%表記にする(委員会みなみ指摘)
-    const fmtMcPct = (v) => {
-      const raw = Math.round((v || 0) * 100);
-      return { raw, label: (raw === 0 && (v || 0) > 0) ? '<1%' : raw + '%' };
-    };
-    const rows = mc123Race.horses.slice()
-      .map(h => ({ h, pat: h.patterns[track] || h.patterns[TRACKS[0]] || {} }))
-      .sort((a, b) => (b.pat.ptop3 || 0) - (a.pat.ptop3 || 0))
-      .map(({ h, pat }, idx) => {
-        const rank = idx + 1;
-        const top3 = fmtMcPct(pat.ptop3);
-        const p1 = fmtMcPct(pat.p1);
-        return `<div class="mc123-row ${rank <= 3 ? 'mc123-top' : ''}">
-          <span class="mc123-rank">${rank}</span>
-          <span class="wk wk${h.waku}">${h.num}</span>
-          <span class="nm">${h.name}</span>
-          <span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style || ''}</span>
-          <div class="mc123-bar-wrap"><div class="mc123-bar" style="width:${top3.raw}%"></div></div>
-          <span class="mc123-pct">${top3.label}</span>
-          <div class="mc123-bar-wrap-p1"><div class="mc123-bar-p1" style="width:${p1.raw}%"></div></div>
-          <span class="mc123-pct-p1">${p1.label}</span>
-        </div>`;
-      }).join('');
-    mc123Html = `
-      <div class="mc123-block">
-        <div class="mc123-head">
-          <span class="mc123-title">AI予測(1〜3着内確率)</span>
-          <span class="mc123-legend"><span class="mc123-legend-swatch top3"></span>複勝内<span class="mc123-legend-swatch p1"></span>1着</span>
-          ${mc123Race.numbers_estimated ? '<span class="pace-chip" style="color:#fbbf24">馬番は暫定(枠順確定前データ)</span>' : ''}
-        </div>
-        <div class="pace-note">買い目ではなく参考情報です・オッズ未考慮・馬場選択(上のタブ)で数値は変わります。各馬の1着率の合計はおおむね100%です(四捨五入で前後することがあります)</div>
-        <div class="mc123-list">${rows}</div>
-      </div>`;
-  }
-  // 参考(過去傾向)ブロック: Sペース条件+会場×距離の統計的信頼性(12人委員会承認、
-  // 2026-08-13改訂: 会場×距離は全セルに常時経験ベイズ縮小を適用した上で高/低のみ表示。
-  // n<15の小標本セルはdata_limited=trueが付き、表示する場合は注記を追加する)
-  const refNotes = [];
+  const mc123Fold = mc123Race ? renderMc123Fold(rid, hostId, track, started) : '';
+  const formationFold = renderFormationFold(rid, hostId, track, started);
+
+  // 参考(過去傾向)チップ: 旧実装は文章1〜2文をベタ書きしていたが、短いチップ+ℹに変更
+  // (12人委員会承認、2026-08-13改訂のロジック自体は変更なし)
+  const chips = [];
   if ((p.s || 0) >= 0.6) {
-    refNotes.push('終盤スパート濃厚な展開のレースでは、MC123の1位予想馬の複勝的中率は過去平均62%でした(全体平均53%、2024年以降n=652)。');
+    chips.push(`<span class="pace-chip" style="cursor:pointer" onclick="showInfo(event,'reliability')">終盤スパート濃厚:複勝的中率62%(n=652) <span style="opacity:.7">ⓘ</span></span>`);
   }
   const rel = mc123Race && mc123Race.top1_reliability;
   if (rel && (rel.tier === '高' || rel.tier === '低')) {
-    const word = rel.tier === '高' ? 'やや高い部類でした' : 'やや低い部類でした';
-    const limitedNote = rel.data_limited ? '(サンプルが少なく参考程度)' : '';
-    refNotes.push(`この会場・距離(${race.venue}${race.surface}${race.distance}m)は、過去のMC123 1位予想の複勝的中率が${word}(2024年以降n=${rel.n})${limitedNote}。`);
+    const word = rel.tier === '高' ? 'やや高い部類' : 'やや低い部類';
+    chips.push(`<span class="pace-chip" style="cursor:pointer" onclick="showInfo(event,'reliability')">過去の的中率:${word}(n=${rel.n}) <span style="opacity:.7">ⓘ</span></span>`);
   }
-  const refBlock = refNotes.length
-    ? `<div class="pace-note" style="margin-top:2px">参考(過去傾向): ${refNotes.join(' ')}相関であり、今後を保証するものではありません。</div>`
-    : '';
+  const refChipsHtml = chips.length ? `<div class="d-flex gap-2 flex-wrap mt-2">${chips.join('')}</div>` : '';
+
   host.innerHTML = `
-  <div class="pace-card">
+  <div class="pace-card ${started ? 'pace-card-started' : ''}">
     <div class="pace-card-head">
       <span class="venue-badge">${race.venue}</span>
       <div style="min-width:0">
         <div class="fw-bold" style="font-size:14px">${race.rno}R ${race.rname}</div>
-        <div class="pace-note">${race.start_time ? (paceRaceStarted(race) ? `<span style="opacity:.6">${race.start_time}発走済</span>・` : `${race.start_time}発走・`) : ''}${race.surface}${race.distance}m・${race.n_horses}頭・逃げ${p.nige_count != null ? p.nige_count : race.nige_count}頭</div>
+        <div class="pace-note">${race.start_time ? (started ? `<span style="opacity:.6">${race.start_time}発走済</span>・` : `${race.start_time}発走・`) : ''}${race.surface}${race.distance}m・${race.n_horses}頭・逃げ${p.nige_count != null ? p.nige_count : race.nige_count}頭</div>
       </div>
       ${estWarn}${accChip}
       <div class="track-seg">${pills}</div>
     </div>
     <div class="pace-body">
-      ${mc123Html}
-      <div class="d-flex align-items-center gap-3 flex-wrap">
+      ${mc123Fold}
+      <div class="d-flex align-items-center gap-3 flex-wrap mt-2">
         <span class="pace-verdict" style="color:${vcolor}">${verdict}</span>
         <div class="pace-gauge flex-fill" style="min-width:220px">
           ${seg(p.h, 'pace-seg-h', 'ハイ')}${seg(p.m, 'pace-seg-m', 'ミドル')}${seg(p.s, 'pace-seg-s', 'スロー')}
         </div>
       </div>
       <div class="pace-comment">${p.comment || race.comment || ''}</div>
-      ${refBlock}
-      ${accDetail}
-      <div class="bump-wrap">${bumpChartSvg(race, wakuOf, track)}</div>
-      <div class="pace-note" style="margin-top:4px">上の帯=先頭〜最後尾の推定馬身差、点線=隊列の切れ目、▲=終盤一気に進みそうな馬。馬番タップで位置の確からしさを表示</div>
-      <div class="pace-horse-list">${horseList}</div>
-      <div class="pace-note mt-2">※隊列予測は参考情報です。厳密な通過順ではなく大まかな位置取りの傾向としてご覧ください。買い目(MCロジック)とは独立した予測です。</div>
+      ${refChipsHtml}
+      ${formationFold}
+      ${accDetailWrap}
     </div>
   </div>`;
+  initFolds(host);
 }
 
 const STYLE_CLASS_PACE = {

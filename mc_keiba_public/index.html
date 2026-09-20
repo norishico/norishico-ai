@@ -274,6 +274,26 @@
   .featured-stat-label { font-size:11px; color:var(--bs-secondary-color); }
   .featured-stat-val { font-size:15px; font-weight:700; color:#818cf8; }
   .featured-stat-val .sub { font-weight:400; font-size:11px; color:var(--bs-secondary-color); }
+  /* オッズ取得ボタン・期待回収率テーブル(2026-09-21追加)。mc123-block同様インディゴ系に
+     揃え、金銀銅のような「当たり馬券」を連想させる装飾は避ける */
+  .odds-row { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .odds-btn { font-size:12px; font-weight:600; padding:7px 14px; border-radius:8px;
+    background:rgba(129,140,248,.12); color:#818cf8; border:1px solid rgba(129,140,248,.35);
+    cursor:pointer; transition:background .12s; }
+  .odds-btn:hover:not(:disabled) { background:rgba(129,140,248,.2); }
+  .odds-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .odds-disclaimer { font-size:11px; color:var(--bs-secondary-color); line-height:1.6;
+    background:rgba(255,255,255,.04); border-left:2px solid rgba(255,255,255,.15);
+    padding:8px 10px; border-radius:0 6px 6px 0; margin-bottom:8px; }
+  .odds-meta { display:block; margin-bottom:6px; }
+  .odds-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .odds-table { width:100%; border-collapse:collapse; font-size:12px; min-width:420px; }
+  .odds-table th, .odds-table td { padding:6px 8px; text-align:right; white-space:nowrap; }
+  .odds-table th:nth-child(2), .odds-table td:nth-child(2) { text-align:left; white-space:normal; }
+  .odds-table th:first-child, .odds-table td:first-child { text-align:center; }
+  .odds-table th { font-weight:600; color:var(--bs-secondary-color); font-size:11px;
+    border-bottom:1px solid rgba(255,255,255,.1); }
+  .odds-table tbody tr { border-bottom:1px solid rgba(255,255,255,.05); }
   /* WIN5タブ (2026-08-22追加、2026-09-06本命ブロック削除)。featured-card/featured-rank/
      featured-body/featured-headは注目レースタブと共用。「AI3着以内候補(MC123)」を表示する */
   .win5-pred-block { margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,.06); }
@@ -680,11 +700,113 @@ function renderFeaturedCard(it, idx) {
         <div class="featured-stat"><span class="featured-stat-label">展開予想 精度(隊列)</span>
           <span class="featured-stat-val">高<span class="sub"> (n=${acc.n})${accLimitedNote}</span></span></div>
       </div>
+      <div class="odds-row">
+        <button class="odds-btn" onclick="fetchOddsFor('${race.race_id}','${race.nk_id || ''}',this)" ${!race.nk_id || race.numbers_estimated ? 'disabled' : ''}>オッズ取得</button>
+        <span class="pace-note" id="odds-meta-${race.race_id}"></span>
+      </div>
+      <div id="odds-panel-${race.race_id}" class="d-none mt-2"></div>
       <div class="pace-note mt-2" style="cursor:pointer;color:#60a5fa"
            onclick="toggleRaceDetail('${race.race_id}','featured-detail-${race.race_id}', this)">▾ このレース全体の予想を見る(馬場選択あり)</div>
       <div id="featured-detail-${race.race_id}" class="d-none mt-2"></div>
     </div>
   </div>`;
+}
+
+// ── 注目レースタブ「オッズ取得」ボタン(2026-09-21追加) ─────────────────────────
+// /api/odds(netkeiba単勝・複勝オッズ)をボタン押下時だけ呼び、MC123のp1(1着率)と
+// 組み合わせて期待回収率を表示する。買い目ではなく参考情報(のりお個人の予想参考用)。
+// 自動再取得・ポーリングは一切しない。取得済みデータはrace_id単位でキャッシュし、
+// 馬場ピル切替(setPaceTrack)時の再計算はオッズを再取得せずこのキャッシュを使い回す。
+let oddsDataCache = {}; // race_id -> /api/odds の最終取得成功レスポンス
+
+async function fetchOddsFor(raceId, nkId, btn) {
+  if (!nkId) return;
+  const panel = document.getElementById('odds-panel-' + raceId);
+  const metaEl = document.getElementById('odds-meta-' + raceId);
+  if (btn) { btn.disabled = true; btn.textContent = '取得中…'; }
+  try {
+    const r = await fetch('/api/odds?nk_id=' + encodeURIComponent(nkId));
+    const data = await r.json().catch(() => null);
+    if (!r.ok || !data || data.error) {
+      throw new Error((data && (data.detail || data.error)) || ('HTTP ' + r.status));
+    }
+    oddsDataCache[raceId] = data;
+    if (panel) panel.classList.remove('d-none');
+    renderOddsPanel(raceId, data);
+    if (metaEl) {
+      const m = /T(\d{2}:\d{2}:\d{2})/.exec(data.fetched_at || '');
+      metaEl.textContent = m ? `(取得 ${m[1]})` : '';
+    }
+  } catch (e) {
+    if (panel) {
+      panel.classList.remove('d-none');
+      const t = new Date().toLocaleTimeString('ja-JP', { hour12: false });
+      panel.innerHTML = `<div class="pace-note" style="color:#f87171">オッズを取得できませんでした(${t})</div>`;
+    }
+    if (metaEl) metaEl.textContent = '(取得失敗)';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = oddsDataCache[raceId] ? '再取得' : 'オッズ取得'; }
+  }
+}
+
+function renderOddsPanel(raceId, data) {
+  const panel = document.getElementById('odds-panel-' + raceId);
+  if (!panel || !data) return;
+  const track = paceSel[raceId] || TRACKS[0];
+
+  const disclaimer = `<div class="odds-disclaimer">⚠️ この表は買い目ではありません。期待回収率は「MC123の1着率×取得時点の単勝オッズ」を機械的に掛けた参考値です。1着率には数ポイントの誤差があり、人気薄では低め・人気馬では高めに出やすい癖があります。過去5年の検証では、この種の期待値が1.0を超える馬を買い続けても収支はプラスになりませんでした(MC123は的中率の情報提供用で、市場より有利な情報は含んでいません)。オッズは瞬間値で発走まで変動します。</div>`;
+
+  if (data.status === 'before') {
+    panel.innerHTML = disclaimer + `<div class="pace-note mt-1">発売前のためオッズ未提供です。</div>`;
+    return;
+  }
+
+  const mc123Race = mc123Data && mc123Data.races
+    ? mc123Data.races.find(r => r.race_id === raceId) : null;
+  if (!mc123Race) {
+    panel.innerHTML = disclaimer + `<div class="pace-note mt-1">MC123データが見つからないため表示できません。</div>`;
+    return;
+  }
+
+  const fmtHHMM = (iso) => {
+    const m = /(\d{2}):(\d{2})(?::\d{2})?\s*$/.exec(iso || '');
+    return m ? `${m[1]}:${m[2]}` : '--:--';
+  };
+  const fmtHHMMSS = (iso) => {
+    const m = /T(\d{2}:\d{2}:\d{2})/.exec(iso || '');
+    return m ? m[1] : '--:--:--';
+  };
+  const statusLabel = data.status === 'result'
+    ? `確定オッズ(${fmtHHMM(data.official_datetime)}時点)`
+    : `netkeiba ${fmtHHMM(data.official_datetime)}時点`;
+  const meta = `<div class="pace-note odds-meta">単勝オッズ: ${statusLabel} / 取得 ${fmtHHMMSS(data.fetched_at)} / 1着率は『${track}』想定</div>`;
+
+  // 並び順は既存のMC123ランキング(選択中の馬場パターンでのptop3降順)を維持する。
+  // 期待回収率での並べ替えはしない(推奨順位に見えるのを避けるため)
+  const rows = mc123Race.horses.slice()
+    .map(h => ({ h, pat: (h.patterns && (h.patterns[track] || h.patterns[TRACKS[0]])) || {} }))
+    .sort((a, b) => (b.pat.ptop3 || 0) - (a.pat.ptop3 || 0))
+    .map(({ h, pat }) => {
+      const p1 = pat.p1 || 0;
+      const t = data.tansho ? data.tansho[String(h.num)] : null;
+      if (!t) {
+        return `<tr><td><span class="wk wk${h.waku}">${h.num}</span></td><td>${h.name}</td>
+          <td>${Math.round(p1 * 100)}%</td><td class="text-secondary" colspan="3">取消・未発売</td></tr>`;
+      }
+      const ev = p1 * t.odds;
+      const breakEven = p1 > 0 ? 1 / p1 : null;
+      return `<tr><td><span class="wk wk${h.waku}">${h.num}</span></td><td>${h.name}</td>
+        <td>${Math.round(p1 * 100)}%</td><td>${t.odds.toFixed(1)}</td>
+        <td>${ev.toFixed(2)}</td><td>${breakEven != null ? breakEven.toFixed(1) : '-'}</td></tr>`;
+    }).join('');
+
+  panel.innerHTML = disclaimer + meta + `
+    <div class="odds-table-wrap">
+      <table class="odds-table">
+        <thead><tr><th>馬番</th><th>馬名</th><th>1着率</th><th>単勝オッズ</th><th>期待回収率</th><th>損益分岐オッズ</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 // ══ WIN5タブ (2026-08-22追加、2026-09-06本命ブロック削除) ═══════════════════════
@@ -919,7 +1041,16 @@ function renderPaceTab() {
   races.forEach(r => renderPaceCard(r.race_id));
 }
 
-function setPaceTrack(rid, t, hostId) { paceSel[rid] = t; renderPaceCard(rid, hostId); }
+function setPaceTrack(rid, t, hostId) {
+  paceSel[rid] = t;
+  renderPaceCard(rid, hostId);
+  // 2026-09-21追加: 注目レースのオッズ取得パネルが開いていれば、取得済みオッズを
+  // 使い回して1着率だけ選択中の馬場パターンで再計算する(オッズ自体の再取得はしない)
+  const oddsPanel = document.getElementById('odds-panel-' + rid);
+  if (oddsPanel && !oddsPanel.classList.contains('d-none') && oddsDataCache[rid]) {
+    renderOddsPanel(rid, oddsDataCache[rid]);
+  }
+}
 
 // 注目レース・WIN5タブから「レース全体の予想」を展開表示するための共通トグル。
 // 初回展開時のみrenderPaceCard()を実行し、以降は表示/非表示の切替のみ行う

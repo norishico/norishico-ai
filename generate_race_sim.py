@@ -1071,9 +1071,10 @@ function computeScenario(P){{
     if(effP==="S"){{ if(h.style==="逃げ") bonus=2.0; else if(h.style==="先行") bonus=0.5; }}
 
     // 重馬場補正: 不良>重で前有利拡大（実測: 良+10.7pt→不良+13.8pt）
+    // 2026-09-20: DB主流の1文字表記"不"も追加(既知の表記混在対応)
     const _tc = DATA.meta.track_cond || "良";
-    if(_tc === "重" || _tc === "不良") {{
-      const _hv = _tc === "不良" ? 3.0 : 2.0;
+    if(_tc === "重" || _tc === "不良" || _tc === "不") {{
+      const _hv = (_tc === "不良" || _tc === "不") ? 3.0 : 2.0;
       if(h.style==="逃げ") bonus += _hv;
       else if(h.style==="先行") bonus += _hv * 0.6;
       else if(h.style==="差し"||h.style==="追い込み") bonus -= _hv * 0.5;

@@ -32,6 +32,9 @@ Track A・Track Bいずれの事前登録基準も未達で不採用(係数は�
 直上のコメント参照)。③(K_LOWINFO)はTrack B(較正修正)基準を余裕を持ってクリアし
 K_LOWINFO=3.0で採用(mc123_bt_results_v2.json再生成済み)。詳細は各定数直上のコメント、
 style_terms_calibration_result.json / lowinfo_calibration_result.json参照。
+
+【2026-09-20 track_cond"不"判定漏れ修正】heavy/wet判定がDB主流の1文字表記"不"を
+拾えていなかった(2文字表記"不良"のみ一致)ため、normalize_track_cond()で正規化。
 """
 import hashlib
 import math
@@ -163,6 +166,19 @@ HEAVY_SENKO = 0.6      # 重馬場の先行ボーナス係数(既存リテラル
 # 詳細はlowinfo_calibration_result.json / lowinfo_diagnosis.json参照(スクラッチパッド)。
 K_LOWINFO = 3.0
 
+# 【2026-09-20 track_cond"不"判定漏れ修正】DBの馬場状態コードは1文字表記(良/稍/重/不)
+# が主流。JV-Link等一部データのみ2文字表記(不良/稍重)で来ることがあるため、
+# 別名として正規化してから判定する。
+_TC_ALIAS = {"不良": "不", "稍重": "稍"}
+
+
+def normalize_track_cond(tc):
+    """DB主流の1文字表記(良/稍/重/不)に正規化。2文字表記(不良/稍重、JV-Link・
+    this_week_races由来)は別名として受理。"""
+    if not tc:
+        return "良"
+    return _TC_ALIAS.get(tc, tc)
+
 
 def hash64_seed(race_id: str) -> int:
     """race_idから決定的な32bit seedを生成する(PYTHONHASHSEED依存のbuiltin hash()は
@@ -228,13 +244,13 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
         seed = hash64_seed(race_info.get("race_id", "unknown"))
     rng = np.random.default_rng(seed)
 
-    tc = race_info.get("track_cond", "良")
+    tc = normalize_track_cond(race_info.get("track_cond", "良"))
     venue = race_info.get("venue", "")
     dist = race_info.get("distance", 1600)
     c_adj = COURSE_ADV.get(venue, {}).get(dist, 0)
-    heavy = tc in ("重", "不良")
-    hv = 3.0 if tc == "不良" else 2.0
-    wet = tc in ("稍", "重", "不良")  # K_WET_APT用。heavyより広い(稍を含む)
+    heavy = tc in ("重", "不")
+    hv = 3.0 if tc == "不" else 2.0
+    wet = tc in ("稍", "重", "不")  # K_WET_APT用。heavyより広い(稍を含む)
     n_nige = sum(1 for h in horses if h["style"] == "逃げ")
     n_front = sum(1 for h in horses if h["style"] in ("逃げ", "先行"))
     num_h = race_info.get("num_horses", n)

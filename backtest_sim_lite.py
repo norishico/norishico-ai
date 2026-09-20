@@ -42,8 +42,8 @@ def run_mc_lite(horses, race_info, n_mc=N_MC):
         '阪神': {1800: 3}, '中京': {1800: 3, 2000: 3}
     }
     c_adj = COURSE_ADV.get(venue, {}).get(distance, 0)
-    heavy = tc in ('重', '不良')
-    heavy_v = 3.0 if tc == '不良' else 2.0
+    heavy = tc in ('重', '不良', '不')  # 2026-09-20: DB主流の1文字表記"不"も追加(既知の表記混在対応)
+    heavy_v = 3.0 if tc in ('不良', '不') else 2.0
     rng = np.random.default_rng()
 
     # ── 動的ペース確率 ───────────────────────────────────────────

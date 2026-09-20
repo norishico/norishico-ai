@@ -62,3 +62,4 @@ MC123のtop1予想馬(ptop3最大)について「複勝は当たるが1着は当
 - `predict_race_formation.py`は当該レースの実測pos4等を一切使わない(循環参照防止、脚質入力はclassify_style_c2の凍結モデル)
 - `pace_data.json`はgit管理外・毎日上書きのため過去分の履歴保存なし。churnの歴史検証をするなら再シミュレーションが必要(コストに見合わないため非推奨)
 - `analyze_mc123_top1_conditions.py`の障害レース除外は`'障害' in race_name`だけでは不十分(JV-Link由来のレース名切り詰めで漏れる)。距離ベースのJUMP_DISTANCES併用が必須(2026-09-20修正済み)
+- `track_cond`はDB主流が1文字(良/稍/重/不)。JV-Link等一部データのみ2文字(不良/稍重)。エンジン判定は必ず`mc123_engine.normalize_track_cond()`経由にすること(2026-09-20、"不"判定漏れバグ修正)

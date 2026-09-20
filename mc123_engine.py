@@ -24,6 +24,14 @@ K_L3F=0相当)」であるべきと判明。正しいbaseline(pooled avg_brier=0
   年別: 2023=1.60% / 2024=1.30% / 2025=1.39%(3年とも個別改善かつ前回実績0.22%を大幅に上回る)
 この訂正後の数値で事前登録の採否基準を明確にクリアしたため、本反映に至った。
 詳細はcalibration_result.json参照。
+
+【2026-09-20 脚質較正2件(①脚質×距離較正項/③K_LOWINFO)較正実施】
+脚質別の全馬較正診断で見つかった誤較正(短距離の逃げ過小/追込過大、長距離の先行過大/
+追込過小、重馬場の先行過大、低情報馬の過小評価)への対応。①(K_NIGE_LEVEL等5係数)は
+Track A・Track Bいずれの事前登録基準も未達で不採用(係数は現行値のまま、詳細は各定数
+直上のコメント参照)。③(K_LOWINFO)はTrack B(較正修正)基準を余裕を持ってクリアし
+K_LOWINFO=3.0で採用(mc123_bt_results_v2.json再生成済み)。詳細は各定数直上のコメント、
+style_terms_calibration_result.json / lowinfo_calibration_result.json参照。
 """
 import hashlib
 import math
@@ -105,19 +113,55 @@ K_WET_APT = 0.0
 # 背景: 脚質別の全馬較正診断(project_ayokeiba_mc123.md/rules/ayokeiba-mc.md参照)で、
 # 短距離(ダ1200/芝1200)の逃げ過小評価・追込過大評価、芝2400m以上の先行過大評価・
 # 追込過小評価、重不良馬場の先行過大評価(較正比0.87)が確認された。この5係数は
-# calibrate_style_terms.py(座標降下法、train=2021-2022、既存8係数は凍結)で較正する。
+# calibrate_style_terms.py(座標降下法、train=2021-2022、既存8係数は凍結)で較正した。
+#
+# 【2026-09-20 較正実施→不採用】座標降下法(train=2021-2022, n_mc=200, 23回評価)で
+# K_NIGE_LEVEL=0.5 / K_OI_LEVEL=0.0 / K_SDIST_FRONT=3.0 / K_SDIST_CLOSER=3.0 /
+# HEAVY_SENKO=0.3 が最良候補として見つかったが、OOS評価(2023/2024/2025、n_mc=500、
+# MCノイズ床 pooled eps_Brier(win)=0.000003)で以下の通りTrack A・Track Bいずれの
+# 事前登録基準も未達:
+#   Track A(精度改善、閾値0.44%): pooled相対Brier(win)改善=0.054%で大幅未達
+#     (年別: 2023=+0.130% / 2024=+0.041% / 2025=-0.010%)
+#   Track B(較正修正、閾値=D pooledで40%以上減少 かつ3年中2年以上で減少):
+#     非劣化条件は満たす(pooled Brier(win) -0.054%・Brier(place) -0.058%、全年改善
+#     または誤差範囲内の悪化)が、較正比D(脚質xsurfacex距離帯、n>=300セル)の
+#     pooled削減率は35.1%(閾値40%に未達)。年別では2023=37.1%・2025=31.2%減少した
+#     一方、2024年はD自体が34.7%悪化(0.00818->0.01101)しており、年別頑健性にも
+#     疑義が残る(3年中2年減少という数のみは満たすが、pooled閾値未達のため不採用)。
+#     最大|ln較正比|は0.4165->0.3746に減少。top1交代率11.84%。
+# 詳細はstyle_terms_calibration_result.json参照(スクラッチパッド)。
+# 5係数=0(HEAVY_SENKOのみ0.6)のまま、gainへの影響を完全に無効化し、この機能導入前
+# と数学的に同一の挙動に戻す。
 K_NIGE_LEVEL = 0.0     # 逃げのレベル項(距離非依存)。g += K_NIGE_LEVEL (st=="逃げ")
 K_OI_LEVEL = 0.0       # 追い込みのレベル項。g += K_OI_LEVEL (st=="追い込み")
 K_SDIST_FRONT = 0.0    # 前脚質の距離勾配: g += K_SDIST_FRONT * s * ln(1600/dist), s=逃げ1.0/先行0.5
 K_SDIST_CLOSER = 0.0   # 後脚質の距離勾配: g -= K_SDIST_CLOSER * s * ln(1600/dist), s=追い込み1.0/差し0.5
 HEAVY_SENKO = 0.6      # 重馬場の先行ボーナス係数(既存リテラル0.6の係数化。逃げ1.0/差し追込-0.5は不変)
 
-# ── K_LOWINFO(低情報馬の事前平均項、2026-09-20 追加。較正前は0=挙動不変) ──
-# 対象: n_runs_cta==0 または 有効過去走(rfa_rank_z算出に使う過去走)<2 の馬
+# ── K_LOWINFO(低情報馬の事前平均項、2026-09-20 追加・較正・採用) ──
+# 対象: 有効過去走(rfa_rank_z算出に使う、finish/num_horses>1が揃った過去走)<2 の馬
 # (mc123_batch.precompute_horse_features_fastが"low_info"フラグとして計算)。
-# g += K_LOWINFO (該当馬のみ)。①の較正・採否判定が終わった後、①の係数を固定して
-# calibrate_style_terms.pyの同じハーネスで追加較正する(候補: {0,1,2,3})。
-K_LOWINFO = 0.0
+# 【事前診断による絞り込み】当初案は「n_runs_cta==0 または有効過去走<2」だったが、
+# n_runs_cta==0単独条件はCTA計算ギャップ(class_par参照失敗等)によりベテラン馬
+# (有効過去走10+)を誤って12.5%混入させることが判明したため削除し、この条件のみとした
+# (lowinfo_diagnosis.py、2024年サンプル20頭のresultsテーブル照合で確認)。
+#
+# 【2026-09-20 較正実施→Track B(較正修正)で採用】①の係数固定(不採用のため全て
+# デフォルト)の下、K_LOWINFOを座標降下法(train=2021-2022, n_mc=200, 候補{0,1,2,3})
+# で較正した。Brier(win)がK=0から3まで単調改善したため候補上限のK=3.0を採用
+# (グリッド上限での選択であり、より大きな値の余地は今回の事前登録範囲外)。
+# OOS評価(2023/2024/2025、n_mc=500、CRN)結果:
+#   Track A(閾値0.44%): pooled相対Brier(win)改善=0.163%で未達(年別+0.10/+0.23/+0.16%)
+#   Track B(閾値: 較正比D=ln(win_rate/mean_p1)^2 が pooledで40%以上減少 かつ
+#     3年中2年以上で減少): 非劣化(pooled Brier(win) -0.163%改善・Brier(place)も
+#     3年とも改善、悪化なし)を満たした上で、low_info集団の較正比(実勝率/予測p1)が
+#     pooled 2.979->1.591 (D=1.191->0.216、削減率81.9%)、年別も2023=90.8%・
+#     2024=74.7%・2025=82.1%減少と3年とも大幅減少。max|ln比|も1.09->0.47に減少。
+#     Track B基準を余裕を持ってクリアしたため採用。top1交代率0.69%(低頻度)。
+#   (①のD定義は脚質x surface x距離帯の多セル集計だったが、③は低情報馬という単一
+#   セグメントが対象のため、同じln(比)^2の考え方をこの1セグメントに適用した。)
+# 詳細はlowinfo_calibration_result.json / lowinfo_diagnosis.json参照(スクラッチパッド)。
+K_LOWINFO = 3.0
 
 
 def hash64_seed(race_id: str) -> int:

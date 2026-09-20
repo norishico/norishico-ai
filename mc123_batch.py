@@ -365,14 +365,22 @@ def precompute_horse_features_fast(horses, race_info, horse_hist, class_par, k_c
         cta_main, cta_full, n_runs = compute_cta_fast(hist_list, asof_date, class_par, k_cls, bias_map)
         h["cta_z"] = cta_main if cta_main is not None else 0.0
 
-        # low_info(2026-09-20追加、K_LOWINFO用): n_runs_cta==0 または有効過去走(rfa_rank_z
-        # と同じ定義: finish/num_horses>1が揃った過去走)<2 の馬。K_LOWINFO=0.0のうちは
-        # gainへ影響しない(識別のみ)。
+        # low_info(2026-09-20追加、K_LOWINFO用)。
+        # 【事前診断で条件を絞り込み済み】当初案の「n_runs_cta==0 または有効過去走<2」
+        # (OR条件)をlowinfo_diagnosis.py(2024年、25,279頭)で検証したところ、
+        # n_runs_cta==0で捕捉された224頭のうち74頭(33%、全低情報馬590頭の12.5%)が
+        # 有効過去走10+を含むベテラン馬(例: 天皇賞春G1出走馬で過去22走)だった。
+        # これはclass_par参照失敗等のCTA計算ギャップによる誤フラグであり、休養明け・
+        # 地方転入とは別種の混同だが、意図した「低情報馬」母集団の汚染という点は同じ。
+        # 対応: n_runs_cta==0の単独条件を削除し、「有効過去走(rfa_rank_zと同じ定義:
+        # finish/num_horses>1が揃った過去走)<2」のみに絞り込んだ。この条件のみで
+        # n_runs_cta==0かつ有効過去走0-1の真の低情報馬は引き続き捕捉される。
+        # K_LOWINFO=0.0のうちはgainへ影響しない(識別のみ)。
         n_valid_rank_runs = sum(
             1 for e in hist_list
             if e["date"] < asof_date and e["finish"] is not None and e["num_horses"] and e["num_horses"] > 1
         )
-        h["low_info"] = (n_runs == 0) or (n_valid_rank_runs < 2)
+        h["low_info"] = n_valid_rank_runs < 2
 
         grit_h, grit_s = compute_pgr_fast(hist_list, asof_date, pace_baseline)
         h["grit_h"] = grit_h

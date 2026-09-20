@@ -202,6 +202,53 @@
   .pace-verdict { font-size:13px; font-weight:700; white-space:nowrap; }
   .pace-comment { font-size:12px; color:var(--bs-secondary-color); line-height:1.6; margin:8px 0 0; }
   .pace-note { font-size:11px; color:var(--bs-secondary-color); }
+
+  /* ══ 共通折りたたみ(fold)部品 (2026-09-21 UX再設計で追加) ══
+     MC123ランキング/隊列チャート/精度詳細/レース全体表示(注目レース・WIN5)の3+1種類の
+     開閉UIをこれに統一する。.mc123-titleと同じインディゴ系トーン、金銀銅のような
+     「当たり馬券」を連想させる装飾は避ける既存方針を踏襲(のりお確定事項2) */
+  .fold { border-top:1px solid rgba(255,255,255,.06); padding-top:10px; margin-top:10px; }
+  .fold:first-child { border-top:none; padding-top:0; margin-top:0; }
+  .fold-head { min-height:40px; background:none; border:0; width:100%;
+    display:flex; gap:8px; align-items:center; text-align:left; cursor:pointer;
+    padding:4px 0; color:inherit; }
+  .fold-caret { display:inline-block; transition:transform .2s ease; color:#818cf8;
+    font-size:11px; flex-shrink:0; }
+  .fold[aria-expanded="true"] .fold-caret { transform:rotate(90deg); }
+  .fold-title { font-size:12px; font-weight:700; color:#818cf8; flex-shrink:0; white-space:nowrap; }
+  .fold-summary { font-size:11px; color:var(--bs-secondary-color); overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
+  .fold[aria-expanded="true"] .fold-summary { display:none; }
+  .fold-note { font-size:11px; color:var(--bs-secondary-color); margin:2px 0 0; }
+  .fold-body { display:grid; grid-template-rows:0fr; transition:grid-template-rows .25s ease; }
+  .fold[aria-expanded="true"] .fold-body { grid-template-rows:1fr; }
+  .fold-inner { overflow:hidden; }
+  .fold-foot { text-align:center; padding-top:6px; }
+  .fold-foot button { background:none; border:0; color:#60a5fa; font-size:11px; cursor:pointer; padding:6px 10px; }
+  @media (prefers-reduced-motion: reduce) {
+    .fold-body { transition:none; }
+    .fold-caret { transition:none; }
+  }
+  /* ⓘ情報リンク: カード上の免責・注記文をポップオーバー要約+「AIについて」タブへの
+     導線に置き換える(のりお確定事項3、文言自体は削除せず置き場所を変えるだけ) */
+  .info-link { display:inline-flex; align-items:center; justify-content:center;
+    width:20px; height:20px; min-width:20px; border-radius:50%; color:#818cf8;
+    font-size:13px; line-height:1; cursor:pointer; border:0; background:none; padding:0; flex-shrink:0; }
+  .info-pop { position:fixed; z-index:1100; max-width:280px; background:#18181b; color:#e4e4e7;
+    font-size:12px; line-height:1.7; padding:12px 14px; border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.1); }
+  .info-pop a { color:#818cf8; font-weight:700; cursor:pointer; }
+  .info-pop-close { float:right; background:none; border:0; color:var(--bs-secondary-color);
+    font-size:15px; cursor:pointer; line-height:1; padding:0 0 8px 10px; }
+  /* 発走済みレースのカード(2026-09-21追加): 全fold閉+カード自体をやや薄く表示 */
+  .pace-card.pace-card-started { opacity:.76; }
+  .mc123-more-btn { font-size:11px; color:#60a5fa; background:none; border:0; cursor:pointer; padding:4px 2px; }
+  .mc123-odds-cell { display:flex; gap:6px; margin-left:auto; flex-shrink:0; }
+  .mc123-odds-val { width:44px; text-align:right; font-size:11px; color:var(--bs-secondary-color);
+    flex-shrink:0; font-variant-numeric:tabular-nums; }
+  .mc123-odds-ev { width:58px; text-align:right; font-size:11px; color:var(--bs-secondary-color);
+    flex-shrink:0; font-variant-numeric:tabular-nums; }
+
   .bump-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; margin-top:10px; }
   /* JRA枠番配色バッジ */
   .wk { display:inline-flex; align-items:center; justify-content:center; width:22px;
@@ -274,26 +321,16 @@
   .featured-stat-label { font-size:11px; color:var(--bs-secondary-color); }
   .featured-stat-val { font-size:15px; font-weight:700; color:#818cf8; }
   .featured-stat-val .sub { font-weight:400; font-size:11px; color:var(--bs-secondary-color); }
-  /* オッズ取得ボタン・期待回収率テーブル(2026-09-21追加)。mc123-block同様インディゴ系に
-     揃え、金銀銅のような「当たり馬券」を連想させる装飾は避ける */
-  .odds-row { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  /* オッズ取得ボタン(2026-09-21追加、同日中にMC123行内列表示へ再設計)。
+     mc123-block同様インディゴ系に揃え、金銀銅のような「当たり馬券」を連想させる装飾は避ける。
+     表示は別テーブルではなくMC123ランキングの各行に列として追加する形に変更したため、
+     .odds-table系(別テーブル用)・.odds-disclaimer(カード直書き注記)は撤去し、
+     免責文言は「AIについて」タブ#about-odds + ⓘポップオーバー(INFO_TEXT.odds)に集約した */
   .odds-btn { font-size:12px; font-weight:600; padding:7px 14px; border-radius:8px;
     background:rgba(129,140,248,.12); color:#818cf8; border:1px solid rgba(129,140,248,.35);
     cursor:pointer; transition:background .12s; }
   .odds-btn:hover:not(:disabled) { background:rgba(129,140,248,.2); }
   .odds-btn:disabled { opacity:.4; cursor:not-allowed; }
-  .odds-disclaimer { font-size:11px; color:var(--bs-secondary-color); line-height:1.6;
-    background:rgba(255,255,255,.04); border-left:2px solid rgba(255,255,255,.15);
-    padding:8px 10px; border-radius:0 6px 6px 0; margin-bottom:8px; }
-  .odds-meta { display:block; margin-bottom:6px; }
-  .odds-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .odds-table { width:100%; border-collapse:collapse; font-size:12px; min-width:420px; }
-  .odds-table th, .odds-table td { padding:6px 8px; text-align:right; white-space:nowrap; }
-  .odds-table th:nth-child(2), .odds-table td:nth-child(2) { text-align:left; white-space:normal; }
-  .odds-table th:first-child, .odds-table td:first-child { text-align:center; }
-  .odds-table th { font-weight:600; color:var(--bs-secondary-color); font-size:11px;
-    border-bottom:1px solid rgba(255,255,255,.1); }
-  .odds-table tbody tr { border-bottom:1px solid rgba(255,255,255,.05); }
   /* WIN5タブ (2026-08-22追加、2026-09-06本命ブロック削除)。featured-card/featured-rank/
      featured-body/featured-headは注目レースタブと共用。「AI3着以内候補(MC123)」を表示する */
   .win5-pred-block { margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,.06); }
@@ -387,8 +424,9 @@
       <div class="logic-hero-sub">各馬の1〜3着内確率(MC123)と、レース展開シミュレーター(mc_dyn)の仕組み</div>
     </div>
 
-    <!-- 位置づけ(最重要) -->
-    <div class="mb-4">
+    <!-- 位置づけ(最重要)。2026-09-21 UX再設計: 各カード上の長文注記をここへ集約する
+         「受け皿」構成に変更(id="about-*"はℹポップオーバーの「詳しく見る」リンク先) -->
+    <div class="mb-4" id="about-notice">
       <div style="background:rgba(220,53,69,0.12);border:1px solid rgba(220,53,69,0.5);border-radius:8px;padding:12px 14px;font-size:13px">
         ⚠️ <strong>このサイトは「買い目」を提示していません</strong>。「今日の予想」タブに表示される
         確率・順位・展開予測は、すべて参考情報です。AIモデル(MC123)は、実際に「賭けて勝てるか」を
@@ -399,7 +437,7 @@
     </div>
 
     <!-- MC123 -->
-    <div class="mb-4">
+    <div class="mb-4" id="about-mc123">
       <div class="logic-section-title">MC123: 各馬の1〜3着内確率</div>
       <div class="logic-step">
         <div class="step-body">
@@ -426,7 +464,7 @@
     </div>
 
     <!-- mc_dyn -->
-    <div class="mb-4">
+    <div class="mb-4" id="about-formation">
       <div class="logic-section-title">展開予想: mc_dynシミュレーター</div>
       <div class="logic-step">
         <div class="step-body">
@@ -439,11 +477,28 @@
       </div>
       <div class="logic-step">
         <div class="step-body">
-          <div class="step-title">隊列チャートの見方</div>
+          <div class="step-title">隊列チャートの見方(旧: カード上に直書きしていた凡例・注記を統合)</div>
           <div class="step-desc">各フェーズ上部の帯は先頭〜最後尾の推定馬身差、点線は隊列の切れ目、
-          ▲マークは終盤に一気に順位を上げそうな馬です。ゴール列だけは着差(馬身)に比例した間隔で
-          表示され、馬群がまとまる/横並びになる様子が見た目にも分かるようにしています。馬番を
-          タップすると、その地点での区分(先頭/先団/中団/後方)確率を確認できます。</div>
+          ▲マークは終盤に一気に順位を上げそうな馬です(カード上の短縮凡例「帯=馬身差・点線=切れ目・
+          ▲=終盤伸び」の元の説明)。ゴール列だけは着差(馬身)に比例した間隔で表示され、馬群がまとまる/
+          横並びになる様子が見た目にも分かるようにしています。馬番をタップすると、その地点での区分
+          (先頭/先団/中団/後方)確率を確認できます。隊列予測はあくまで参考情報で、厳密な通過順では
+          なく大まかな位置取りの傾向としてご覧ください。買い目(MCロジック)とは独立した予測です。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 会場×距離の的中実績・精度チップ・終盤スパート型(2026-09-21新規:
+         MC123信頼度チップ/隊列精度チップ/参考傾向チップのℹポップオーバーの飛び先を統合) -->
+    <div class="mb-4" id="about-reliability">
+      <div class="logic-section-title">当たりやすさの参考統計</div>
+      <div class="logic-step">
+        <div class="step-body">
+          <div class="step-title">MC123信頼度(会場×距離の的中実績)</div>
+          <div class="step-desc">会場・距離の組み合わせごとに、MC123が1位に予想した馬が実際に
+          複勝圏内(3着以内)に入っていたか(2024年以降のレースで集計)を示します。「やや高い部類」
+          「やや低い部類」は過去平均との比較で、サンプル数が少ないセルには経験ベイズ縮小を適用した
+          上で(参考値)と注記します。あくまで過去の相関であり、今後の的中を保証するものではありません。</div>
         </div>
       </div>
       <div class="logic-step">
@@ -453,6 +508,34 @@
           実際にどれだけ当たっていたか(2024年以降のレースで検証)を示します。ただし最終着順の
           予測は通過順の予測より当たりにくい傾向があります(全体平均で通過順の当たりやすさの
           4割程度)。</div>
+        </div>
+      </div>
+      <div class="logic-step">
+        <div class="step-body">
+          <div class="step-title">終盤スパート型</div>
+          <div class="step-desc">終盤(ゴール前)に一気にペースが上がる「Sペース比率60%以上」の
+          展開になったレースでは、MC123の1位予想馬の複勝的中率は過去平均62%でした(全体平均53%、
+          2024年以降n=652)。これも相関であり、個別レースでの的中を保証するものではありません。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- オッズ・期待回収率(2026-09-21新規: カード上に225字前後で直書きしていた免責文言を
+         ここへ移設し、カード上はℹリンクのみに変更) -->
+    <div class="mb-4" id="about-odds">
+      <div class="logic-section-title">オッズ・期待回収率について</div>
+      <div class="logic-step">
+        <div class="step-body">
+          <div class="step-title">「オッズ取得」ボタンで何が出るか</div>
+          <div class="step-desc">netkeibaの単勝オッズを取得時点のスナップショットとして表示し、
+          MC123ランキングの各馬の行に「単勝オッズ」「期待回収率」列を追加します。
+          期待回収率 = 1着率(MC123のp1) × 単勝オッズ、損益分岐オッズ = 1 ÷ 1着率、
+          で計算した機械的な参考値です。</div>
+          <div class="step-note">⚠️ この表は買い目ではありません。期待回収率は「MC123の1着率×
+          取得時点の単勝オッズ」を機械的に掛けた参考値です。1着率には数ポイントの誤差があり、
+          人気薄では低め・人気馬では高めに出やすい癖があります。過去5年の検証では、この種の
+          期待値が1.0を超える馬を買い続けても収支はプラスになりませんでした(MC123は的中率の
+          情報提供用で、市場より有利な情報は含んでいません)。オッズは瞬間値で発走まで変動します。</div>
         </div>
       </div>
     </div>
@@ -482,6 +565,18 @@
           <summary class="faq-q">馬場ピルはどう使う？</summary>
           <div class="faq-a">発走前に現地の馬場状態を確認して選択してください。MC123のランキングと
           展開予想(ペース・隊列)の両方が、選んだ馬場状態に連動して切り替わります。</div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">オッズ取得ボタンは何をする？</summary>
+          <div class="faq-a">netkeibaの単勝オッズをその場で取得し、MC123ランキングに「単勝オッズ」
+          「期待回収率」の列を追加表示します。自動更新・自動取得はせず、ボタンを押した時点の
+          スナップショットです。詳しくは上記「オッズ・期待回収率について」をご覧ください。</div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">隊列やランキングを最初から開いた状態にしたい</summary>
+          <div class="faq-a">各項目の開閉状態はお使いの端末に記憶されます。一度開けば、次回以降
+          その項目は開いた状態で表示されます(閉じれば次回から閉じた状態になります)。項目ごとに
+          個別に記憶される仕組みです。</div>
         </details>
       </div>
     </div>
@@ -547,6 +642,165 @@ const WAKU_FILL = {1:'#f4f4f5',2:'#18181b',3:'#dc2626',4:'#2563eb',5:'#eab308',6
 const WAKU_TEXT = {1:'#18181b',2:'#ffffff',3:'#ffffff',4:'#ffffff',5:'#1c1917',6:'#ffffff',7:'#ffffff',8:'#ffffff'};
 const WAKU_LINE = {1:'#d4d4d8',2:'#8b8b94',3:'#ef4444',4:'#3b82f6',5:'#eab308',6:'#22c55e',7:'#f97316',8:'#ec4899'};
 const PACE_STAGES = [['start','スタート後'],['corner3','3コーナー'],['corner4','4コーナー'],['goal','ゴール']];
+
+// ══ 共通折りたたみ(fold)部品 (2026-09-21 UX再設計で追加) ══════════════════════════════
+// MC123ランキング/隊列チャート/精度詳細/レース全体表示(注目レース・WIN5)の開閉UIを統一する。
+// 旧実装(精度チップのonclick直書き・toggleRaceDetail・オッズパネルのd-none操作)を置き換える。
+// 開閉状態はkind別にlocalStorageへ記憶し(saveFoldPref/foldDefault)、次回以降の既定値にする。
+// localStorage操作は全てtry/catchで包み、プライベートブラウズ等で使えない場合はデフォルト
+// 動作(記憶なし)へ静かにフォールバックする(のりお確定事項2)。
+const FOLD_PREF_KEY = 'ayo_fold_pref_v1';
+const FOLD_KIND_DEFAULT_OPEN = { mc123: false, formation: false, odds: false, accdetail: false, racedetail: false };
+
+function loadFoldPrefs() {
+  try {
+    const raw = localStorage.getItem(FOLD_PREF_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+
+function saveFoldPref(kind, open) {
+  if (!kind) return;
+  try {
+    const prefs = loadFoldPrefs();
+    prefs[kind] = !!open;
+    localStorage.setItem(FOLD_PREF_KEY, JSON.stringify(prefs));
+  } catch (e) { /* プライベートモード等: 記憶せず処理を続ける */ }
+}
+
+// kind別の既定開閉状態。localStorageに記憶値があればそれを優先する
+function foldDefault(kind) {
+  const prefs = loadFoldPrefs();
+  if (Object.prototype.hasOwnProperty.call(prefs, kind)) return !!prefs[kind];
+  return !!FOLD_KIND_DEFAULT_OPEN[kind];
+}
+
+// foldHtml({id, kind, title, summary, note, headExtra, raceId, hostId, forceClosed}):
+// 骨格HTMLを返す。本文(fold-inner内の#{id}-content)は空のプレースホルダで、初回展開時に
+// renderFoldBody()が描画する(隊列SVG等の重い描画を遅延させる)。forceClosedは発走済み
+// レースのカードで「記憶に関わらず必ず閉」にするためのオーバーライド(S3要件7)。
+function foldHtml({ id, kind, title, summary, note, headExtra, raceId, hostId, forceClosed }) {
+  const open = forceClosed ? false : foldDefault(kind);
+  return `
+  <div class="fold" id="${id}" data-kind="${kind}" data-race-id="${raceId || ''}" data-host-id="${hostId || ''}" aria-expanded="${open ? 'true' : 'false'}">
+    <div class="fold-head" role="button" tabindex="0" aria-expanded="${open ? 'true' : 'false'}" aria-controls="${id}-inner"
+         onclick="toggleFold('${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFold('${id}');}">
+      <span class="fold-caret">▸</span>
+      <span class="fold-title">${title}</span>
+      <span class="fold-summary">${summary || ''}</span>
+      ${headExtra || ''}
+    </div>
+    ${note ? `<div class="fold-note">${note}</div>` : ''}
+    <div class="fold-body">
+      <div class="fold-inner" id="${id}-inner">
+        <div id="${id}-content"></div>
+        <div class="fold-foot"><button type="button" onclick="toggleFold('${id}', false)">▴ 閉じる</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// toggleFold(id, force): aria-expandedを反転(forceが渡されればその状態に強制)。開く時、
+// 初回のみrenderFoldBody(id)を呼ぶ(dataset.renderedで管理)。開閉状態はkind別に記憶する
+function toggleFold(id, force) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isOpen = el.getAttribute('aria-expanded') === 'true';
+  const next = (force === undefined) ? !isOpen : !!force;
+  el.setAttribute('aria-expanded', next ? 'true' : 'false');
+  const head = el.querySelector('.fold-head');
+  if (head) head.setAttribute('aria-expanded', next ? 'true' : 'false');
+  if (next && el.dataset.rendered !== '1') {
+    el.dataset.rendered = '1';
+    renderFoldBody(id);
+  }
+  saveFoldPref(el.dataset.kind, next);
+}
+
+// renderFoldBody(id): data-kind属性で分岐し、既存の該当描画ロジックを呼び出す
+function renderFoldBody(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const contentEl = document.getElementById(id + '-content');
+  if (!contentEl) return;
+  const kind = el.dataset.kind;
+  if (kind === 'mc123') renderMc123FoldBody(el, contentEl);
+  else if (kind === 'formation') renderFormationFoldBody(el, contentEl);
+  else if (kind === 'accdetail') renderAccDetailFoldBody(el, contentEl);
+  else if (kind === 'racedetail') renderRaceDetailFoldBody(el, contentEl);
+  // kind==='odds'は2026-09-21のUX再設計でMC123fold内の列表示(S5)に統合したため、
+  // 独立したfold本体を持たない(オッズボタンはMC123foldのheadExtraとして実装)。
+  // foldDefault/localStorageのkind一覧には将来の再分離に備えて残してある
+}
+
+// ページ内に新しくfold要素が挿入された後に呼ぶ。記憶によって「開」がデフォルトになっている
+// foldは、クリックイベントを経由しないため明示的に初回描画をキックする必要がある
+function initFolds(root) {
+  if (!root) return;
+  const list = [];
+  if (root.classList && root.classList.contains('fold')) list.push(root);
+  root.querySelectorAll('.fold').forEach(el => list.push(el));
+  list.forEach(el => {
+    if (el.getAttribute('aria-expanded') === 'true' && el.dataset.rendered !== '1') {
+      el.dataset.rendered = '1';
+      renderFoldBody(el.id);
+    }
+  });
+}
+
+// ⓘ情報リンク: カード上の免責・注記文をポップオーバー要約+「AIについて」タブへの導線に
+// 置き換える(のりお確定事項3)。INFO_TEXTが要約(120〜200字)の一元管理場所。全文は
+// tab-logic側の#about-*に残している(情報の削除ではなく置き場所の変更)
+const INFO_TEXT = {
+  notice: 'このサイトは「買い目」を提示していません。表示される確率・順位・展開予測はすべて参考情報です。AI(MC123)は実際に賭けて勝てるかを4年分の実データで検証しましたが、市場のオッズを上回る収益性は確認できませんでした。買い目の推奨ではなく、レースの見方を広げるための情報としてご利用ください。',
+  mc123: '各馬の過去成績(実力指数・脚質別ペース応答・騎手や種牡馬の傾向等)からモンテカルロ法(1レース10,000回試行)で1〜3着内確率を算出したものです。順位付けの目安として当たりやすいことと、賭けて儲かることは別問題で、4年ウォークフォワード検証でROI61.0%と市場を上回れていません。',
+  formation: '各馬の脚質構成とコース形状から、発走〜ゴールまでのレース展開・隊列(順位)を物理シミュレーションで予測したものです(1レース5,000回試行)。最終着順の当たりやすさは通過順の予測より当たりにくく、全体平均で4割程度です。買い目ロジックとは無関係の独立した参考情報です。',
+  reliability: 'MC123・隊列予測とも、会場×距離ごとに過去どれだけ当たっていたかを2024年以降のレースで検証した参考統計です。「終盤スパート型」はSペース比率60%以上のレースでMC123 1位予想馬の複勝的中率が過去平均62%だった(全体平均53%、n=652)という参考値です。',
+  odds: 'この表は買い目ではありません。期待回収率=1着率×単勝オッズ、損益分岐オッズ=1÷1着率です。1着率は人気薄で低め・人気馬で高めに出やすい癖があり、過去5年の検証ではこの期待値が1.0を超える馬を買い続けても収支はプラスになりませんでした。オッズは瞬間値で発走まで変動します。'
+};
+
+let infoPopEl = null;
+function showInfo(evt, key) {
+  if (evt) evt.stopPropagation();
+  hideInfo();
+  const text = INFO_TEXT[key];
+  if (!text) return;
+  const div = document.createElement('div');
+  div.className = 'info-pop';
+  div.innerHTML = `<button class="info-pop-close" type="button" onclick="hideInfo()" aria-label="閉じる">×</button>` +
+    `<div>${text}</div><div class="mt-2"><a onclick="openAbout('${key}')">詳しく見る(AIについて) →</a></div>`;
+  document.body.appendChild(div);
+  const anchor = evt && evt.currentTarget;
+  const vw = window.innerWidth, vh = window.innerHeight, popW = 280;
+  let top = vh / 2 - 60, left = vw / 2 - popW / 2;
+  if (anchor && anchor.getBoundingClientRect) {
+    const r = anchor.getBoundingClientRect();
+    top = r.bottom + 6;
+    left = r.left;
+  }
+  left = Math.max(8, Math.min(left, vw - popW - 8));
+  top = Math.max(8, Math.min(top, vh - 8));
+  div.style.left = left + 'px';
+  div.style.top = top + 'px';
+  infoPopEl = div;
+  setTimeout(() => document.addEventListener('click', hideInfoOutside), 0);
+}
+function hideInfoOutside(e) {
+  if (infoPopEl && !infoPopEl.contains(e.target)) hideInfo();
+}
+function hideInfo() {
+  if (infoPopEl) { infoPopEl.remove(); infoPopEl = null; }
+  document.removeEventListener('click', hideInfoOutside);
+}
+function openAbout(key) {
+  hideInfo();
+  switchTab('logic');
+  setTimeout(() => {
+    const el = document.getElementById('about-' + key);
+    if (el) el.scrollIntoView({ block: 'start' });
+  }, 30);
+}
+
 let paceData = null, paceLoaded = false, paceDataLoaded = false, paceSel = {}, paceVenueFilter = 'all';
 // MC123(1〜3着内確率、情報提供専用)。pace_data.jsonとは完全独立のファイル+読込経路。
 // 取得に失敗しても展開予想側の表示には一切影響しない(グレースフルデグレード)

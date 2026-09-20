@@ -141,12 +141,20 @@ def fetch_day_races(conn):
     いた。「umaban NULLかつfinish NOT NULLの行が無いこと」に緩和し、取消馬(finish NULL)は
     許容しつつ、finish確定済みなのにumaban欠損という本来のバグケースだけを除外対象に絞る。
     """
+    # 【2026-09-21緊急修正】F1修正のHAVING句「umaban NULLかつfinish NOT NULLの行が
+    # 無いこと」は、1頭も結果が確定していない完全な未来レース(finish全行NULL)だと
+    # 条件が自明にTrue(0件)になってしまい、「results側で完結済み」と誤判定していた。
+    # 実際には全馬umaban NULLのままDB経路に流れ込み、fetch_horses()が出走順連番へ
+    # フォールバックして馬番が全滅(numbers_estimated=True)していた(9/21異例開催の
+    # 生成で発覚)。「確定済み(finish NOT NULL)の行が1件以上あること」を追加条件にし、
+    # 完全な未来レースはライブ経路(this_week_races.json、実馬番)に確実に委ねる。
     rows = conn.execute("""
         SELECT race_id, venue, race_num, MAX(race_name), surface, distance,
                COUNT(*), MAX(track_cond)
         FROM results WHERE date = ?
         GROUP BY race_id
         HAVING SUM(CASE WHEN umaban IS NULL AND finish IS NOT NULL THEN 1 ELSE 0 END) = 0
+           AND SUM(CASE WHEN finish IS NOT NULL THEN 1 ELSE 0 END) > 0
         ORDER BY venue, race_num
     """, (TARGET_DATE,)).fetchall()
     return rows

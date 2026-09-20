@@ -220,8 +220,13 @@
     text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
   .fold[aria-expanded="true"] .fold-summary { display:none; }
   .fold-note { font-size:11px; color:var(--bs-secondary-color); margin:2px 0 0; }
-  .fold-body { display:grid; grid-template-rows:0fr; transition:grid-template-rows .25s ease; }
-  .fold[aria-expanded="true"] .fold-body { grid-template-rows:1fr; }
+  /* 開閉アニメーションはCSS gridのgrid-template-rows:0fr→1frトリックを当初採用したが、
+     実機確認(claude-in-chrome)でChromiumがfr単位同士の遷移を正しく解決できず、
+     コンテンツを追加しても高さ0に固まったまま開かない不具合を確認したため、
+     より確実なmax-height方式に変更(2026-09-21)。含みうる最大コンテンツ(18頭のMC123
+     リストや隊列チャート)を見込んで余裕を持たせた値にしている */
+  .fold-body { overflow:hidden; max-height:0; transition:max-height .3s ease; }
+  .fold[aria-expanded="true"] .fold-body { max-height:2400px; }
   .fold-inner { overflow:hidden; }
   .fold-foot { text-align:center; padding-top:6px; }
   .fold-foot button { background:none; border:0; color:#60a5fa; font-size:11px; cursor:pointer; padding:6px 10px; }
@@ -718,13 +723,17 @@ function toggleFold(id, force) {
   if (!el) return;
   const isOpen = el.getAttribute('aria-expanded') === 'true';
   const next = (force === undefined) ? !isOpen : !!force;
-  el.setAttribute('aria-expanded', next ? 'true' : 'false');
-  const head = el.querySelector('.fold-head');
-  if (head) head.setAttribute('aria-expanded', next ? 'true' : 'false');
+  // 初回展開はaria-expanded切り替え(CSS gridの0fr→1frトランジション開始)より先に
+  // renderFoldBody()で中身を描画する。同時に行うと、トランジション開始時点でまだ
+  // 中身が空のためgrid-template-rows:1frの解決高さが0に固まる(実機確認済みの不具合、
+  // 2026-09-21)。開く前に中身を用意しておけば、あとは開閉するだけで正しい高さに広がる
   if (next && el.dataset.rendered !== '1') {
     el.dataset.rendered = '1';
     renderFoldBody(id);
   }
+  el.setAttribute('aria-expanded', next ? 'true' : 'false');
+  const head = el.querySelector('.fold-head');
+  if (head) head.setAttribute('aria-expanded', next ? 'true' : 'false');
   saveFoldPref(el.dataset.kind, next);
 }
 

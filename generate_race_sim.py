@@ -39,6 +39,13 @@ STYLE_DEFAULTS = {
 # 新馬・外国馬などデータ不足時のデフォルト
 FALLBACK_DEFAULTS = {"speed": 75, "sprint": 80, "stamina": 70, "pace": {"H": 60, "M": 70, "S": 60}}
 
+# 2026-09-20 F7修正: jockey_pace_style.json(騎手脚質傾向データ)は「中団」「差し追込」を
+# 含む3分類で作られており、classify_style()の4分類(逃げ/先行/差し/追い込み)と語彙が
+# 食い違う。この不一致に気づかずSTYLE_DEFAULTS.get(style, STYLE_DEFAULTS["先行"])を通すと
+# 無言のうちに「先行」扱いになり、実際のペース適性情報が失われていた
+# (本番のclassify_style_c2は無関係、過去データ検証用のBTキャッシュのみに影響)。
+_STYLE_NORMALIZE = {"中団": "差し", "差し追込": "差し"}
+
 
 # 騎手脚質傾向データ（jockey_pace_style.json）
 _JOCKEY_STYLE: dict = {}
@@ -422,7 +429,8 @@ def classify_style(history: list[dict], target_distance: int,
         # 騎手傾向フォールバック
         jkey = (jockey, surface)
         if jkey in _JOCKEY_STYLE:
-            return _JOCKEY_STYLE[jkey]["style"]
+            raw_style = _JOCKEY_STYLE[jkey]["style"]
+            return _STYLE_NORMALIZE.get(raw_style, raw_style)
         return "先行"
 
     # avg_pos4 / num_horses

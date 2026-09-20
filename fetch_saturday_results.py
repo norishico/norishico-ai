@@ -6,8 +6,9 @@
 - JVLink正式データ(23:30 fetch_and_build)が来るまでの暫定補完
 
 Usage:
-  python fetch_saturday_results.py               # 昨日
+  python fetch_saturday_results.py               # 昨日を終端に過去LOOKBACK_DAYS日分を再チェック
   python fetch_saturday_results.py --date 20260425
+  python fetch_saturday_results.py --lookback-days 3
   python fetch_saturday_results.py --dry-run
 """
 import argparse
@@ -332,24 +333,20 @@ def backup_db():
         print(f"Backup: {bak.name}")
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--date', default=None, help='YYYYMMDD (default: yesterday)')
-    ap.add_argument('--dry-run', action='store_true')
-    args = ap.parse_args()
+# 【2026-09-20追加】本タスク(NorishikoAI_SaturdayResultsScrape)は土曜17:30に週1回だけ
+# 実行され、しかも常に「当日」を対象にする。しかしJV-Linkの夜間取込(23:30)より前なので
+# その日のresults行自体がまだ0件(total_count=0)のことがほとんどで、null_count==0の
+# 早期成功判定に引っかかり「処理不要」で毎回スキップされていた(日曜分に至っては
+# 対応するタスク自体が存在しない)。2026-09-05〜09-19の3週連続でこの状態を確認。
+# 実害はゼロ(results.umabanは死んだコード経由以外で本番から参照されない、v6.6・
+# AYOkeiba/MC123ともにthis_week_races.json由来の出走表を使う)だが、DBのデータ
+# 完全性の問題として、--dateを含め直近LOOKBACK_DAYS日分をまとめて毎回再チェックする
+# 自己修復方式に変更。次に本タスクが走った時点でJV-Link取込済みの日は自動的に埋まる。
+LOOKBACK_DAYS = 9
 
-    if args.date:
-        target_date = dt.datetime.strptime(args.date, '%Y%m%d').date()
-    else:
-        target_date = dt.date.today() - dt.timedelta(days=1)
 
-    date_str = target_date.strftime('%Y-%m-%d')
-
-    print(f"=== fetch_saturday_results.py: {date_str} {'[DRY-RUN]' if args.dry_run else ''} ===")
-
-    conn = sqlite3.connect(str(DB_PATH))
-    # 【2026-08-31修正】finish IS NULLのみで判定すると、finishはJV-Link経由で確定済み
-    # だがumabanが未確定、というケースを「処理不要」で見逃してしまう(update_db()参照)。
+def check_date(conn, date_str):
+    """指定日の(総件数, finish/umaban未確定件数)を返す。"""
     null_count = conn.execute(
         "SELECT COUNT(*) FROM results WHERE date=? AND (finish IS NULL OR umaban IS NULL)",
         (date_str,)
@@ -357,26 +354,18 @@ def main():
     total_count = conn.execute(
         "SELECT COUNT(*) FROM results WHERE date=?", (date_str,)
     ).fetchone()[0]
-    print(f"DB: {date_str} results={total_count}件 / finish or umaban 未確定={null_count}件")
+    return total_count, null_count
 
-    if null_count == 0:
-        print("全レースfinish・umaban済み。処理不要。")
-        conn.close()
-        return 0
 
+def process_date(conn, date_str, dry_run=False):
+    """1日分のスクレイプ・更新。戻り値: (処理レース数, finish更新数, umaban更新数)。
+    race_listが取得できなければNone。"""
     race_list = get_race_ids_for_date(date_str)
     if not race_list:
-        print(f"this_week_races.jsonに{date_str}のデータなし")
-        conn.close()
-        return 1
+        print(f"  this_week_races.json/Seleniumともに{date_str}のデータなし。スキップ")
+        return None
 
-    if not args.dry_run:
-        backup_db()
-
-    total_finish = 0
-    total_umaban = 0
-    total_races = 0
-
+    total_finish = total_umaban = total_races = 0
     for race in race_list:
         rid = race['race_id']
         venue = race['venue']
@@ -390,24 +379,72 @@ def main():
             print(f"    skip: no data")
             continue
 
-        n_finish, n_umaban = update_db(conn, date_str, venue, race_num, result, dry_run=args.dry_run)
+        n_finish, n_umaban = update_db(conn, date_str, venue, race_num, result, dry_run=dry_run)
         total_finish += n_finish
         total_umaban += n_umaban
         total_races += 1
         print(f"    → finish更新 {n_finish}件 / umaban更新 {n_umaban}件")
 
-    conn.close()
+    return total_races, total_finish, total_umaban
 
-    print(f"\n=== 完了 ===")
-    print(f"処理レース: {total_races}R / finish更新: {total_finish}件 / umaban更新: {total_umaban}件")
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--date', default=None, help='YYYYMMDD (default: yesterday)。過去チェックの終端日')
+    ap.add_argument('--lookback-days', type=int, default=LOOKBACK_DAYS,
+                     help=f'--dateを含め過去何日分をまとめて再チェックするか(default: {LOOKBACK_DAYS})')
+    ap.add_argument('--dry-run', action='store_true')
+    args = ap.parse_args()
+
+    if args.date:
+        target_date = dt.datetime.strptime(args.date, '%Y%m%d').date()
+    else:
+        target_date = dt.date.today() - dt.timedelta(days=1)
+
+    date_list = [target_date - dt.timedelta(days=i) for i in range(args.lookback_days, -1, -1)]
+
+    print(f"=== fetch_saturday_results.py: {date_list[0]}〜{date_list[-1]} "
+          f"{'[DRY-RUN]' if args.dry_run else ''} ===")
+
+    conn = sqlite3.connect(str(DB_PATH))
+
+    pending = []
+    for d in date_list:
+        date_str = d.strftime('%Y-%m-%d')
+        total_count, null_count = check_date(conn, date_str)
+        if total_count == 0:
+            print(f"{date_str}: results未着(JV-Link未取込) — 今回はスキップ、次回に再チェック")
+        elif null_count == 0:
+            print(f"{date_str}: finish・umaban済み({total_count}件)")
+        else:
+            print(f"{date_str}: results={total_count}件 / finish or umaban 未確定={null_count}件 — 処理対象")
+            pending.append(date_str)
+
+    if not pending:
+        print("処理対象日なし。終了。")
+        conn.close()
+        return 0
 
     if not args.dry_run:
-        conn2 = sqlite3.connect(str(DB_PATH))
-        still_null = conn2.execute(
-            "SELECT COUNT(*) FROM results WHERE date=? AND finish IS NULL", (date_str,)
-        ).fetchone()[0]
-        conn2.close()
-        print(f"残りNULL: {still_null}件")
+        backup_db()
+
+    grand_races = grand_finish = grand_umaban = 0
+    for date_str in pending:
+        print(f"\n--- {date_str} 処理開始 ---")
+        result = process_date(conn, date_str, dry_run=args.dry_run)
+        if result is None:
+            continue
+        n_races, n_finish, n_umaban = result
+        grand_races += n_races
+        grand_finish += n_finish
+        grand_umaban += n_umaban
+        print(f"  → {date_str}: 処理レース{n_races}R / finish更新{n_finish}件 / umaban更新{n_umaban}件")
+
+    conn.close()
+
+    print(f"\n=== 全体完了 ===")
+    print(f"対象日数: {len(pending)} / 処理レース: {grand_races}R / "
+          f"finish更新: {grand_finish}件 / umaban更新: {grand_umaban}件")
 
     return 0
 

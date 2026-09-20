@@ -728,6 +728,16 @@ function renderWin5Tab() {
     c.innerHTML = '<div class="text-secondary py-5 text-center">本日はWIN5データを取得できませんでした</div>';
     return;
   }
+  // 2026-09-20 F6修正: generate_win5_data.py側がnetkeiba接続失敗時に「対象なし」で
+  // 正常終了するようになったため、フロント側でも日付不一致(=古いデータのまま残留)を
+  // 検知して明示的に案内する(pace側のtodayStr算出パターンを踏襲)
+  const _today = new Date();
+  const _todayStr = `${_today.getFullYear()}-${String(_today.getMonth() + 1).padStart(2, '0')}-${String(_today.getDate()).padStart(2, '0')}`;
+  if (win5Data.date && win5Data.date !== _todayStr) {
+    c.innerHTML = '<div class="text-secondary py-5 text-center">本日のWIN5データはまだありません' +
+      '<br><span style="font-size:11px">(最新取得日: ' + win5Data.date + ')</span></div>';
+    return;
+  }
   const notice = `
     <div style="background:rgba(220,53,69,0.12);border:1px solid rgba(220,53,69,0.5);border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:14px">
       ⚠️ <strong>買い目ではなく参考情報です</strong>。本日のWIN5対象レース全${win5Data.n_races_target || races.length}レースについて、

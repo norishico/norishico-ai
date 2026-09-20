@@ -53,8 +53,17 @@ def fetch_win5_target_races(date_str):
     2026-08-22確認: このページはUTF-8で配信される(過去のfetch_win5_history.pyが結果
     取得に使っていたeuc-jpとは異なる。実際にeuc-jpでデコードすると文字化けすることを
     実機取得で確認済み)。取得できない/対象レースが無い日はNoneを返す(ex: 平日開催なし)。
+
+    2026-09-20 F6修正: requests.get自体にtry/exceptが無く、接続失敗(タイムアウト/DNS/
+    netkeiba側の一時的なブロック等)で例外が飛ぶと本スクリプトが異常終了し、win5_data.json
+    が更新されないまま古いデータが残り続けていた。他の「対象なし」ケースと同じ
+    (None, 理由文字列)を返す構造に合わせ、mainがfetch_error付きの空payloadをrc=0で
+    書き出せるようにする。
     """
-    r = requests.get(WIN5_URL, headers=HEADERS, timeout=15)
+    try:
+        r = requests.get(WIN5_URL, headers=HEADERS, timeout=15)
+    except requests.exceptions.RequestException as e:
+        return None, f"接続失敗: {e}"
     if r.status_code != 200:
         return None, f"HTTP {r.status_code}"
     html = r.content.decode("utf-8", errors="replace")

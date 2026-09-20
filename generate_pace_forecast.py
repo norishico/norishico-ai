@@ -400,21 +400,29 @@ def main():
 
     conn = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
     conn.execute("PRAGMA cache_size=-65536")
-    day_races = fetch_day_races(conn)
-    live_mode = False
-    if not day_races:
-        day_races = fetch_day_races_live()
-        live_mode = bool(day_races)
-        if live_mode:
-            print(f"{TARGET_DATE}: resultsに未反映のためthis_week_races.jsonのライブ経路を使用")
+    # 2026-09-20修正: 従来は「resultsに1件でも(umaban完備の)レースがあれば当日全部を
+    # resultsのみで処理」という二択だったため、同日の一部レースだけ終了しumaban確定済み・
+    # 残りは未確定(=これから行われる側)という状態だと未確定側が丸ごと欠落していた
+    # (mc123側と同じ不具合、generate_mc123_forecast.py参照)。race_id単位でマージし、
+    # レースごとにresults/ライブどちらの経路かを個別に記憶する。
+    results_races = fetch_day_races(conn)
+    results_ids = {r[0] for r in results_races}
+    live_races_list = fetch_day_races_live()
+    extra_live = [r for r in live_races_list if r[0] not in results_ids]
+    day_races = sorted(list(results_races) + extra_live, key=lambda x: (x[1], x[2]))
+    live_mode_by_id = {r[0]: False for r in results_races}
+    live_mode_by_id.update({r[0]: True for r in extra_live})
     conn.close()
-    print(f"{TARGET_DATE}: {len(day_races)}レース" + ("(ライブ)" if live_mode else ""))
+    if extra_live:
+        print(f"{TARGET_DATE}: 未終了{len(extra_live)}レースはthis_week_races.jsonのライブ経路を併用")
+    print(f"{TARGET_DATE}: {len(day_races)}レース"
+          + (f"(うちライブ{len(extra_live)})" if extra_live else ""))
 
     # 【2026-08-23追加】出走馬データはここ(メインプロセス)で1回だけ取得する。
     # 以前は各ワーカーがthis_week_races.jsonを個別に読み直しており、開催当日に
     # auto_refresh.pyが同ファイルを非アトミックに書き換え続ける影響で、多数ワーカーが
     # 同時アクセスした際に稀に不整合な内容を読んで馬番と馬名の対応がズレる不具合があった。
-    horses_conn = sqlite3.connect(f"file:{DB}?mode=ro", uri=True) if not live_mode else None
+    horses_conn = sqlite3.connect(f"file:{DB}?mode=ro", uri=True) if results_races else None
 
     # 【2026-08-23追加】this_week_races.jsonはauto_refresh.pyが開催当日ずっと
     # 非アトミックに書き換え続けている(with open(...,'w')で即時truncateしてから書く
@@ -454,17 +462,18 @@ def main():
             n_skip_jump += 1
             print(f"  SKIP {venue}{rno}R {rname}(障害または非対応surface)")
             continue
-        horses, numbers_estimated = (_fetch_with_retry(race_id) if live_mode
+        race_live = live_mode_by_id[race_id]
+        horses, numbers_estimated = (_fetch_with_retry(race_id) if race_live
                                       else fetch_horses(horses_conn, race_id))
         if len(horses) < 2:
             n_skip_horses += 1
             continue
-        if live_mode and numbers_estimated:
+        if race_live and numbers_estimated:
             n_skip_umaban += 1
             print(f"  SKIP {venue}{rno}R {rname}(リトライ後も馬番欠損、誤表示防止のため今回は見送り)")
             continue
         st = load_start_time_map().get((venue, rno), "")
-        targets.append((race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode, st,
+        targets.append((race_id, venue, rno, rname, surface, distance, n_ent, track_cond, race_live, st,
                         horses, numbers_estimated))
     if horses_conn is not None:
         horses_conn.close()

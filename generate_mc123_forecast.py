@@ -164,14 +164,23 @@ def main():
     conn.execute("PRAGMA temp_store=MEMORY")
     conn.execute("PRAGMA mmap_size=268435456")
 
-    day_races = fetch_day_races(conn)
-    live_mode = False
-    if not day_races:
-        day_races = fetch_day_races_live()
-        live_mode = bool(day_races)
-        if live_mode:
-            print(f"{TARGET_DATE}: resultsに未反映のためthis_week_races.jsonのライブ経路を使用")
-    print(f"{TARGET_DATE}: {len(day_races)}レース" + ("(ライブ)" if live_mode else ""))
+    # 2026-09-20修正: 従来は「resultsに1件でも(umaban完備の)レースがあれば当日全部を
+    # resultsのみで処理」という二択だったため、同日の一部レースだけ終了しumaban確定済み・
+    # 残りは未確定(=これから行われる、予想として最も価値がある側)という状態だと、未確定側が
+    # 丸ごと欠落していた(fetch_saturday_results.pyのumaban遅延バグ修正の副作用で表面化)。
+    # results側(umaban完備)とライブ側(this_week_races.json)をrace_id単位でマージし、
+    # 各レースごとにどちらの経路から来たかを個別に記憶して使い分ける。
+    results_races = fetch_day_races(conn)
+    results_ids = {r[0] for r in results_races}
+    live_races = fetch_day_races_live()
+    extra_live = [r for r in live_races if r[0] not in results_ids]
+    day_races = sorted(list(results_races) + extra_live, key=lambda x: (x[1], x[2]))
+    live_mode_by_id = {r[0]: False for r in results_races}
+    live_mode_by_id.update({r[0]: True for r in extra_live})
+    if extra_live:
+        print(f"{TARGET_DATE}: 未終了{len(extra_live)}レースはthis_week_races.jsonのライブ経路を併用")
+    print(f"{TARGET_DATE}: {len(day_races)}レース"
+          + (f"(うちライブ{len(extra_live)})" if extra_live else ""))
 
     print("構造テーブル構築中...")
     t0 = time.time()
@@ -193,11 +202,11 @@ def main():
         if "障害" in (rname or "") or surface not in ("芝", "ダ"):
             n_skip_jump += 1
             continue
-        horses, numbers_estimated = _fetch_horses_with_retry(conn, race_id, live_mode)
+        horses, numbers_estimated = _fetch_horses_with_retry(conn, race_id, live_mode_by_id[race_id])
         if len(horses) < 3:
             n_skip_err += 1
             continue
-        if live_mode and numbers_estimated:
+        if live_mode_by_id[race_id] and numbers_estimated:
             n_skip_umaban += 1
             print(f"  SKIP {venue}{rno}R {rname}(リトライ後も馬番欠損、誤表示防止のため今回は見送り)")
             continue

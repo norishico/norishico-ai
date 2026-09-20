@@ -27,30 +27,46 @@ set LOGFILE=%LOGDIR%\mc_keiba_generate_%STAMP%.log
 
 for /f %%i in ('powershell -command "Get-Date -Format yyyy-MM-dd"') do set TODAY=%%i
 
+REM 2026-09-20 F5修正: 各ステップの失敗を蓄積し、最終的な終了コードに反映させる
+REM (タスクスケジューラの成功/失敗監視だけで検知できるようにするため。個別の失敗では
+REM デプロイ自体は止めない設計は維持しつつ、終了コードには必ず反映する)。
+set FAIL=0
+
 cd /d "%PROJ%"
 echo [%date% %time%] MC Keiba generate start TODAY=%TODAY% >> "%LOGFILE%"
 "%PYEXE%" -X utf8 generate_mc_record.py %TODAY% >> "%LOGFILE%" 2>&1
 set RC=%ERRORLEVEL%
 echo [%date% %time%] generate rc=%RC% >> "%LOGFILE%"
 
-if %RC% NEQ 0 goto :end
+if %RC% NEQ 0 (
+  set FAIL=1
+  goto :end
+)
 
 echo [%date% %time%] pace forecast start >> "%LOGFILE%"
 "%PYEXE%" -X utf8 generate_pace_forecast.py %TODAY% >> "%LOGFILE%" 2>&1
-echo [%date% %time%] pace forecast rc=%ERRORLEVEL% >> "%LOGFILE%"
+set RC_PACE=%ERRORLEVEL%
+echo [%date% %time%] pace forecast rc=%RC_PACE% >> "%LOGFILE%"
+if %RC_PACE% NEQ 0 set FAIL=1
 
 echo [%date% %time%] mc123 forecast start >> "%LOGFILE%"
 "%PYEXE%" -X utf8 generate_mc123_forecast.py %TODAY% >> "%LOGFILE%" 2>&1
-echo [%date% %time%] mc123 forecast rc=%ERRORLEVEL% >> "%LOGFILE%"
+set RC_MC123=%ERRORLEVEL%
+echo [%date% %time%] mc123 forecast rc=%RC_MC123% >> "%LOGFILE%"
+if %RC_MC123% NEQ 0 set FAIL=1
 
 echo [%date% %time%] win5 data start >> "%LOGFILE%"
 "%PYEXE%" -X utf8 generate_win5_data.py >> "%LOGFILE%" 2>&1
-echo [%date% %time%] win5 data rc=%ERRORLEVEL% >> "%LOGFILE%"
+set RC_WIN5=%ERRORLEVEL%
+echo [%date% %time%] win5 data rc=%RC_WIN5% >> "%LOGFILE%"
+if %RC_WIN5% NEQ 0 set FAIL=1
 
 echo [%date% %time%] Vercel deploy start >> "%LOGFILE%"
 vercel --cwd "%PROJ%\mc_keiba_public" --prod --yes >> "%LOGFILE%" 2>&1
 set RC2=%ERRORLEVEL%
 echo [%date% %time%] Vercel deploy rc=%RC2% >> "%LOGFILE%"
+if %RC2% NEQ 0 set FAIL=1
 
 :end
-endlocal & exit /b %RC%
+echo [%date% %time%] MC Keiba generate done FAIL=%FAIL% >> "%LOGFILE%"
+endlocal & exit /b %FAIL%

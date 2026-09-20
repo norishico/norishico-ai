@@ -218,10 +218,18 @@ def main():
         mc123_race = mc123_lut.get((r["venue"], r["race_num"]))
         if mc123_race is not None:
             entry["matched_mc123"] = True
+            # 2026-09-20 潜在項目修正: race_nameは「falsyなら上書き」判定なのに、surface/
+            # distanceはdict.setdefault()(キーが未存在の時だけ上書き、既存キーの値がNone
+            # でも上書きしない)で方式が食い違っていた。weekend_predictions.json側の
+            # race_info.get("surface")がNoneを返すケース(matched_predictionはTrueだが
+            # 値自体が欠損)だとsurface/distanceだけmc123側の値に補完されず、race_nameだけ
+            # 補完されるという不整合が起きうるため、全て同じfalsy判定に揃える。
             if not entry.get("race_name"):
                 entry["race_name"] = mc123_race.get("rname")
-            entry.setdefault("surface", mc123_race.get("surface"))
-            entry.setdefault("distance", mc123_race.get("distance"))
+            if not entry.get("surface"):
+                entry["surface"] = mc123_race.get("surface")
+            if not entry.get("distance"):
+                entry["distance"] = mc123_race.get("distance")
             entry["mc123_top3"] = build_mc123_top3(mc123_race)
             n_matched_mc123 += 1
         else:

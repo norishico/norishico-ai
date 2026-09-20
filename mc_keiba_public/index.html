@@ -242,6 +242,18 @@
   .mc123-bar { height:100%; background:#818cf8; border-radius:3px; }
   .mc123-pct { width:32px; text-align:right; font-size:11px; color:var(--bs-secondary-color);
     flex-shrink:0; font-variant-numeric:tabular-nums; }
+  /* 1着率(p1)表示(2026-09-19追加、委員会承認済み)。ptop3より一段地味な扱いにし
+     "AIの本命"に見えすぎないようにする(委員会ゆきこ指摘): バーを薄く・細く、文字を小さく */
+  .mc123-bar-wrap-p1 { flex:0 1 40px; min-width:20px; height:4px; background:rgba(255,255,255,.05);
+    border-radius:2px; overflow:hidden; margin-left:2px; }
+  .mc123-bar-p1 { height:100%; background:#a5b4fc; border-radius:2px; opacity:.75; }
+  .mc123-pct-p1 { width:30px; text-align:right; font-size:10px; color:#a5b4fc;
+    flex-shrink:0; font-variant-numeric:tabular-nums; }
+  .mc123-legend { display:flex; align-items:center; gap:3px; font-size:10px;
+    color:var(--bs-secondary-color); }
+  .mc123-legend-swatch { display:inline-block; width:7px; height:7px; border-radius:2px; }
+  .mc123-legend-swatch.top3 { background:#818cf8; }
+  .mc123-legend-swatch.p1 { background:#a5b4fc; margin-left:5px; }
   /* 注目レースタブ (2026-08-22追加、MC123 top1_reliability=「高」抽出)。買い目ロジックとも
      mc123-blockのインディゴ配色を踏襲しつつ、金銀銅のような「当たり馬券」を連想させる
      装飾は避ける(mc123-block同様の委員会方針を踏襲) */
@@ -969,28 +981,37 @@ function renderPaceCard(rid, hostId) {
     ? mc123Data.races.find(r => r.race_id === rid) : null;
   let mc123Html = '';
   if (mc123Race) {
+    // 0%は「絶対来ない」に見えるため、丸めでゼロになる場合は<1%表記にする(委員会みなみ指摘)
+    const fmtMcPct = (v) => {
+      const raw = Math.round((v || 0) * 100);
+      return { raw, label: (raw === 0 && (v || 0) > 0) ? '<1%' : raw + '%' };
+    };
     const rows = mc123Race.horses.slice()
       .map(h => ({ h, pat: h.patterns[track] || h.patterns[TRACKS[0]] || {} }))
       .sort((a, b) => (b.pat.ptop3 || 0) - (a.pat.ptop3 || 0))
       .map(({ h, pat }, idx) => {
         const rank = idx + 1;
-        const pct = Math.round((pat.ptop3 || 0) * 100);
+        const top3 = fmtMcPct(pat.ptop3);
+        const p1 = fmtMcPct(pat.p1);
         return `<div class="mc123-row ${rank <= 3 ? 'mc123-top' : ''}">
           <span class="mc123-rank">${rank}</span>
           <span class="wk wk${h.waku}">${h.num}</span>
           <span class="nm">${h.name}</span>
           <span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style || ''}</span>
-          <div class="mc123-bar-wrap"><div class="mc123-bar" style="width:${pct}%"></div></div>
-          <span class="mc123-pct">${pct}%</span>
+          <div class="mc123-bar-wrap"><div class="mc123-bar" style="width:${top3.raw}%"></div></div>
+          <span class="mc123-pct">${top3.label}</span>
+          <div class="mc123-bar-wrap-p1"><div class="mc123-bar-p1" style="width:${p1.raw}%"></div></div>
+          <span class="mc123-pct-p1">${p1.label}</span>
         </div>`;
       }).join('');
     mc123Html = `
       <div class="mc123-block">
         <div class="mc123-head">
-          <span class="mc123-title">AI予測(3着内確率)</span>
-          <span class="pace-note">買い目ではなく参考情報です・オッズ未考慮</span>
+          <span class="mc123-title">AI予測(1〜3着内確率)</span>
+          <span class="mc123-legend"><span class="mc123-legend-swatch top3"></span>複勝内<span class="mc123-legend-swatch p1"></span>1着</span>
           ${mc123Race.numbers_estimated ? '<span class="pace-chip" style="color:#fbbf24">馬番は暫定(枠順確定前データ)</span>' : ''}
         </div>
+        <div class="pace-note">買い目ではなく参考情報です・オッズ未考慮・馬場選択(上のタブ)で数値は変わります。各馬の1着率の合計はおおむね100%です(四捨五入で前後することがあります)</div>
         <div class="mc123-list">${rows}</div>
       </div>`;
   }

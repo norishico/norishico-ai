@@ -343,19 +343,47 @@ def update_db(conn, date_str, venue, race_num, race_info, dry_run=False):
     return finish_updated, finish_updated  # 後方互換のため2値返却
 
 
-def backup_db():
+def backup_db(max_retries=6, wait_sec=5):
     """WALモードDBはshutil.copyで生ファイルをコピーすると未チェックポイントの
     変更が欠落しうるため、sqlite3のbackup API(conn.backup)を使う(CLAUDE.mdルール4、
     2026-09-20修正。旧shutil.copy2版は温存中のkeiba.db.bak_sat_results_20260920に
-    まだ残っているが実害は軽微=単に少し古いスナップショットになるだけ)。"""
+    まだ残っているが実害は軽微=単に少し古いスナップショットになるだけ)。
+
+    【2026-09-20 F4修正】_exec_with_retry()はUPDATE文のロック競合には対応済みだが、
+    このbackup_db()自体はレース日終日稼働のauto_refresh.py(±20%ロック必須機構、
+    停止・変更禁止)との書き込み競合の対象外だった(busy_timeoutもtry/exceptも無く、
+    バックアップだけが例外で落ちてmain()全体が異常終了する恐れがあった)。src/dst両方に
+    busy_timeoutを設定し、_exec_with_retryと同じ方針でリトライを行う。それでも失敗した
+    場合は「バックアップなしで書き込み処理を続行しない」という既存方針を守るため、
+    例外をそのまま送出してmain()をエラー終了させる(呼び出し元で握りつぶさない)。"""
     bak = DB_PATH.with_suffix(f".db.bak_sat_results_{dt.date.today().strftime('%Y%m%d')}")
-    if not bak.exists():
+    if bak.exists():
+        return
+    for attempt in range(max_retries):
         src = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        src.execute("PRAGMA busy_timeout=30000")
         dst = sqlite3.connect(str(bak))
-        src.backup(dst)
-        dst.close()
-        src.close()
-        print(f"Backup: {bak.name}")
+        dst.execute("PRAGMA busy_timeout=30000")
+        try:
+            src.backup(dst)
+            dst.close()
+            src.close()
+            print(f"Backup: {bak.name}")
+            return
+        except sqlite3.OperationalError as e:
+            dst.close()
+            src.close()
+            if "locked" in str(e).lower() and attempt < max_retries - 1:
+                print(f"    backup失敗(database is locked)、{wait_sec}秒待って再試行"
+                      f"({attempt + 1}/{max_retries})")
+                # 途中まで書かれた不完全なバックアップファイルを消してから再試行する
+                try:
+                    bak.unlink()
+                except FileNotFoundError:
+                    pass
+                time.sleep(wait_sec)
+                continue
+            raise
 
 
 # 【2026-09-20追加】本タスク(NorishikoAI_SaturdayResultsScrape)は土曜17:30に週1回だけ

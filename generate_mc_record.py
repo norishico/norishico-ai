@@ -146,11 +146,16 @@ def fetch_target_races():
             n_skip_tier += 1
             continue
         info = st_map.get((venue, rno), {})
-        st = info.get('start_time') or race.get('start_time') or f'{10 + rno // 2}:00'
+        # 2026-09-20 潜在項目修正: st_realが両方とも無い場合のf'{10+rno//2}:00'は
+        # 実データではなく架空の推定時刻(レース番号から機械的に算出)。フロント/ウィジェット側で
+        # 「実際の発走時刻か推定か」を区別できるようフラグを付与する。
+        st_real = info.get('start_time') or race.get('start_time')
+        st = st_real or f'{10 + rno // 2}:00'
         nk_id = info.get('nk_id', '') or race.get('race_id', '')
         out.append({
             'venue': venue, 'rno': rno, 'rname': rname,
             'start_time': st, 'nk_id': nk_id,
+            'start_time_estimated': not bool(st_real),
         })
     print(f'注目レース基準(tier=高×高)未達で除外: {n_skip_tier}件 / 対象: {len(out)}件')
     return out

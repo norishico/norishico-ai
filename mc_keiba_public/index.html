@@ -712,7 +712,9 @@ async function loadWin5Tab() {
     await Promise.all(sideTasks);
     renderWin5Tab();
   } catch (e) {
-    win5Loaded = true;
+    // 2026-09-20 F3修正: catch内でwin5Loaded=trueにすると初回失敗後は再読み込み(F5キー等)まで
+    // 二度とリトライしなくなる(pace側のfetchPaceDataは成功時のみtrueにする設計、他タブも同様)。
+    // ここは失敗を記録するだけにし、タブを開き直せば再取得を試みるようにする。
     win5Data = null;
     renderWin5Tab();
   }

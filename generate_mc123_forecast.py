@@ -104,15 +104,26 @@ def fetch_horses_for_mc123(conn, race_id, live_mode):
     # 狭間読み→馬番と馬名の対応がズレる」不具合(2026-08-23、中京1R等で発覚)への
     # ガードがmc123側だけ欠けていた。numbers_estimatedを返すようにし、呼び出し側で
     # pace側と同じリトライ・スキップ判断ができるようにする。
+    # 2026-09-20 F1修正: 取消・除外馬を除外する。ライブ経路はfetch_shutsuba.py/
+    # fetch_shutsuba_sp.pyが付与するscratchedフラグで判定(weekend_predictions.jsonは
+    # this_week_races.jsonのhorsesをそのまま透過するため、この時点でflag済み)。
+    # DB経路はレースが1頭でも確定済み(finish NOT NULL)なら、そのレース自体は既に
+    # 終わっているとみなし、finish NULLの残り行は「未確定(これから出走)」ではなく
+    # 「取消馬」として除外する(旧ロジックは両者を区別できず取消馬を出走馬として
+    # 予想に混ぜてしまっていた。2026-09-20中山3R オオルリで実際に発生を確認)。
     if live_mode:
         live = _load_live_races()
         r = live.get(race_id)
         if r is None:
-            return [], False
+            return [], False, 0
         rows = r.get("horses", [])
         out = []
         numbers_estimated = False
+        n_scratched = 0
         for hi, h in enumerate(rows):
+            if h.get("scratched"):
+                n_scratched += 1
+                continue
             uma = h.get("umaban")
             if not uma:
                 uma = hi + 1
@@ -124,10 +135,21 @@ def fetch_horses_for_mc123(conn, race_id, live_mode):
             out.append({"horse_name": (h.get("name") or "").strip(), "umaban": uma,
                         "jockey": (h.get("jockey") or "").strip(), "gate": umaban_to_gate(uma),
                         "weight_kg": wkg, "style": None, "finish": None})
-        return out, numbers_estimated
-    rows = conn.execute("""
+        return out, numbers_estimated, n_scratched
+    has_confirmed = conn.execute(
+        "SELECT 1 FROM results WHERE race_id = ? AND finish IS NOT NULL LIMIT 1", (race_id,)
+    ).fetchone() is not None
+    if has_confirmed:
+        finish_filter = "finish IS NOT NULL AND finish < 90"
+        n_scratched = conn.execute(
+            "SELECT COUNT(*) FROM results WHERE race_id = ? AND finish IS NULL", (race_id,)
+        ).fetchone()[0]
+    else:
+        finish_filter = "finish IS NULL OR finish < 90"
+        n_scratched = 0
+    rows = conn.execute(f"""
         SELECT TRIM(horse_name), jockey, umaban, weight_kg
-        FROM results WHERE race_id = ? AND (finish IS NULL OR finish < 90)
+        FROM results WHERE race_id = ? AND ({finish_filter})
         ORDER BY (umaban IS NULL), umaban, horse_name
     """, (race_id,)).fetchall()
     out = []
@@ -139,7 +161,7 @@ def fetch_horses_for_mc123(conn, race_id, live_mode):
             numbers_estimated = True
         out.append({"horse_name": r[0], "umaban": uma, "jockey": r[1] or "",
                     "gate": umaban_to_gate(uma), "weight_kg": r[3], "style": None, "finish": None})
-    return out, numbers_estimated
+    return out, numbers_estimated, n_scratched
 
 
 def _fetch_horses_with_retry(conn, race_id, live_mode, max_retry=3, wait_sec=5):
@@ -148,15 +170,15 @@ def _fetch_horses_with_retry(conn, race_id, live_mode, max_retry=3, wait_sec=5):
     書き換え続けている狭間を読んでしまった異常事態のサインであり、そのまま出すと馬番と馬名が
     食い違った誤ったデータを公開してしまう(2026-08-23、中京1R等でpace側にて実際に発生)。"""
     for attempt in range(max_retry + 1):
-        horses, est = fetch_horses_for_mc123(conn, race_id, live_mode)
+        horses, est, n_scratched = fetch_horses_for_mc123(conn, race_id, live_mode)
         if not live_mode or not est or not horses:
-            return horses, est
+            return horses, est, n_scratched
         if attempt < max_retry:
             print(f"  ⚠ {race_id}: 馬番が推定値(欠損スナップショットの疑い)、"
                   f"{wait_sec}秒待って読み直します(試行{attempt+1}/{max_retry})")
             time.sleep(wait_sec)
             reset_live_races_cache()
-    return horses, est
+    return horses, est, n_scratched
 
 
 def main():
@@ -205,7 +227,7 @@ def main():
         if is_jump_race(rname, surface, distance) or surface not in ("芝", "ダ"):
             n_skip_jump += 1
             continue
-        horses, numbers_estimated = _fetch_horses_with_retry(conn, race_id, live_mode_by_id[race_id])
+        horses, numbers_estimated, n_scratched = _fetch_horses_with_retry(conn, race_id, live_mode_by_id[race_id])
         if len(horses) < 3:
             n_skip_err += 1
             continue
@@ -267,7 +289,7 @@ def main():
         races_out.append({
             "race_id": race_id, "venue": venue, "rno": rno, "rname": rname,
             "surface": surface, "distance": distance, "n_horses": n,
-            "numbers_estimated": numbers_estimated,
+            "numbers_estimated": numbers_estimated, "n_scratched": n_scratched,
             "horses": horses_out,
             "top1_reliability": get_top1_reliability_entry(venue, surface, distance),
         })

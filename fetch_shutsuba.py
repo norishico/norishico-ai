@@ -209,6 +209,26 @@ def fetch_shutsuba(driver, race_id):
                 except:
                     horse['popularity'] = ''
 
+                # 取消・除外馬の検出(2026-09-20 F1追加)
+                # netkeiba結果ページ(race/result.html)の実マークアップを本日実機確認済み:
+                # 該当行は<tr class="Torikeshi HorseList">、着順欄に「取消/除外/中止/失格」を表示。
+                # 出馬表(shutuba)ページは本日生成時点で全レース終了済みのため、発走前に取消が
+                # 出た瞬間の実マークアップまでは確認できなかった(要: 次回発走前取消の実例で
+                # 再確認)。同じnetkeiba命名規則を踏襲し、行class+行テキストの二重チェックで
+                # 検出する(Cancel系クラス名 or 取消/除外の文字列)。
+                try:
+                    row_class = row.get_attribute('class') or ''
+                except Exception:
+                    row_class = ''
+                try:
+                    row_text = row.text or ''
+                except Exception:
+                    row_text = ''
+                horse['scratched'] = bool(
+                    'Torikeshi' in row_class or 'Cancel' in row_class
+                    or '取消' in row_text or '除外' in row_text
+                )
+
                 if horse['name']:
                     race_info['horses'].append(horse)
 

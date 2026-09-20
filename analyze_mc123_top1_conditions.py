@@ -99,7 +99,7 @@ def _worker(args):
 
     conn = _CTX["conn"]
     try:
-        horses_pf, _est = gpf.fetch_horses(conn, race_id)
+        horses_pf, _est, _n_scr = gpf.fetch_horses(conn, race_id)
         if len(horses_pf) < 6:
             return None
         race = {"date": race_date, "venue": venue, "surface": surface, "distance": distance,

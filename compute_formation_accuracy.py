@@ -81,7 +81,7 @@ def _worker(args):
     conn = _sq.connect(f"file:{DB_PATH}?mode=ro", uri=True)
     conn.row_factory = _sq.Row
     try:
-        horses, _est = gpf.fetch_horses(conn, race_id)
+        horses, _est, _n_scr = gpf.fetch_horses(conn, race_id)
         if len(horses) < 6:
             return None
         race = {"date": race_date, "venue": venue, "surface": surface,

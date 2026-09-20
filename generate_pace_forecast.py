@@ -133,24 +133,49 @@ def fetch_day_races(conn):
     一致する保証がなく、weekend_predictions.jsonの正しい馬番と食い違う実害を2026-08-30に
     再確認した(中京1R等)。そのためumaban不完全なレースは丸ごと除外し、
     fetch_day_races_live()(weekend_predictions.json、馬番確実)に委ねる設計とする。
+
+    【2026-09-20 F1修正】上記HAVING句は「umaban NULLの馬が1頭でもいれば除外」だったため、
+    取消馬(finish・umaban共にNULL、JV-Link既知仕様)が1頭混ざっただけでレース全体が
+    ライブ経路(this_week_races.json)に丸ごと落ちてしまい、fetch_horses()側の取消馬除外
+    ロジック(finish確定済みレースはfinish NULL行を取消として除外)が一切効かなくなって
+    いた。「umaban NULLかつfinish NOT NULLの行が無いこと」に緩和し、取消馬(finish NULL)は
+    許容しつつ、finish確定済みなのにumaban欠損という本来のバグケースだけを除外対象に絞る。
     """
     rows = conn.execute("""
         SELECT race_id, venue, race_num, MAX(race_name), surface, distance,
                COUNT(*), MAX(track_cond)
         FROM results WHERE date = ?
         GROUP BY race_id
-        HAVING SUM(CASE WHEN umaban IS NULL THEN 1 ELSE 0 END) = 0
+        HAVING SUM(CASE WHEN umaban IS NULL AND finish IS NOT NULL THEN 1 ELSE 0 END) = 0
         ORDER BY venue, race_num
     """, (TARGET_DATE,)).fetchall()
     return rows
 
 
 def fetch_horses(conn, race_id):
-    """出走馬(未確定レースはfinish NULLのまま取得。取消・中止(finish>=90)のみ除外)。"""
-    rows = conn.execute("""
+    """出走馬(未確定レースはfinish NULLのまま取得。取消・中止(finish>=90)のみ除外)。
+
+    【2026-09-20 F1修正】従来はfinish NULLを常に「未確定(これから出走)」として含めていた
+    ため、レースが既に確定済み(=finish NOT NULLの行が1件以上存在)なのにfinish NULLのまま
+    残っている行(=取消馬、umabanもNULLのことが多い)まで出走馬として予想に混ぜてしまって
+    いた(2026-09-20 中山3R オオルリで実際に発生を確認)。そのレースに確定済み行が
+    1つでもあれば、finish NULLの行は取消馬とみなして除外する(レースが丸ごと未確定なら
+    従来通り全馬含める)。"""
+    has_confirmed = conn.execute(
+        "SELECT 1 FROM results WHERE race_id = ? AND finish IS NOT NULL LIMIT 1", (race_id,)
+    ).fetchone() is not None
+    if has_confirmed:
+        finish_filter = "finish IS NOT NULL AND finish < 90"
+        n_scratched = conn.execute(
+            "SELECT COUNT(*) FROM results WHERE race_id = ? AND finish IS NULL", (race_id,)
+        ).fetchone()[0]
+    else:
+        finish_filter = "finish IS NULL OR finish < 90"
+        n_scratched = 0
+    rows = conn.execute(f"""
         SELECT TRIM(horse_name), jockey, TRIM(sire), umaban, weight_kg,
                horse_weight, pos3, pos4, finish, pos1, pos2
-        FROM results WHERE race_id = ? AND (finish IS NULL OR finish < 90)
+        FROM results WHERE race_id = ? AND ({finish_filter})
         ORDER BY (umaban IS NULL), umaban, horse_name
     """, (race_id,)).fetchall()
     horses = []
@@ -164,7 +189,7 @@ def fetch_horses(conn, race_id):
                        "umaban": uma, "weight_kg": r[4], "horse_weight": r[5],
                        "pos3": r[6], "pos4": r[7], "finish": r[8],
                        "pos1": r[9], "pos2": r[10]})
-    return horses, numbers_estimated
+    return horses, numbers_estimated, n_scratched
 
 
 # 【2026-08-08追加】当日ライブフォールバック: 開催当日はJV-Link経由のresults反映が
@@ -255,13 +280,19 @@ def load_start_time_map():
 
 def fetch_horses_live(race_id):
     """this_week_races.jsonの出走表から未確定レース用のhorsesを組み立てる。
-    sire/horse_weightは省略(classify_style_c2側がDB直近値・欠損フラグで自動補完する)。"""
+    sire/horse_weightは省略(classify_style_c2側がDB直近値・欠損フラグで自動補完する)。
+
+    【2026-09-20 F1修正】fetch_shutsuba.py/fetch_shutsuba_sp.pyが付与するscratchedフラグ
+    (取消・除外馬)を持つ馬は除外する。"""
     live = _load_live_races()
     r = live.get(race_id)
     if r is None:
-        return [], False
-    horses, numbers_estimated = [], False
+        return [], False, 0
+    horses, numbers_estimated, n_scratched = [], False, 0
     for hi, h in enumerate(r.get("horses", [])):
+        if h.get("scratched"):
+            n_scratched += 1
+            continue
         uma = h.get("umaban")
         if not uma:
             uma = hi + 1
@@ -273,7 +304,7 @@ def fetch_horses_live(race_id):
         horses.append({"horse_name": (h.get("name") or "").strip(), "jockey": (h.get("jockey") or "").strip(),
                        "sire": None, "umaban": uma, "weight_kg": wkg, "horse_weight": None,
                        "pos3": None, "pos4": None, "finish": None, "pos1": None, "pos2": None})
-    return horses, numbers_estimated
+    return horses, numbers_estimated, n_scratched
 
 
 def _process_one_race(args):
@@ -283,7 +314,7 @@ def _process_one_race(args):
     auto_refresh.pyが同ファイルを非アトミックに書き換え続けるため、多数ワーカーが同時に
     読みに行くと稀に不整合な内容を読んでしまい、馬番と馬名の対応がズレるバグがあった
     <2026-08-23、中京1R等で発覚>)。"""
-    race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode, start_time, horses, numbers_estimated = args
+    race_id, venue, rno, rname, surface, distance, n_ent, track_cond, live_mode, start_time, horses, numbers_estimated, n_scratched = args
     # Windows spawnワーカーでのstdout競合対策(compute_formation_accuracy.pyと同一の対処)
     import os as _os
     global _keep_alive_ref
@@ -373,7 +404,7 @@ def _process_one_race(args):
             "race_id": race_id, "venue": venue, "rno": rno, "rname": rname,
             "surface": surface, "distance": distance, "n_horses": n,
             "start_time": start_time,
-            "numbers_estimated": numbers_estimated,
+            "numbers_estimated": numbers_estimated, "n_scratched": n_scratched,
             "nige_count": real_out["nige_count"],
             "pace": pace_patterns,
             "comment": describe_pace(real_out["pace"], real_out["nige_count"], n, surface=surface),
@@ -437,16 +468,16 @@ def main():
 
     def _fetch_with_retry(race_id, max_retry=3, wait_sec=5):
         for attempt in range(max_retry + 1):
-            horses, est = fetch_horses_live(race_id)
+            horses, est, n_scratched = fetch_horses_live(race_id)
             if not est or not horses:
-                return horses, est
+                return horses, est, n_scratched
             if attempt < max_retry:
                 print(f"  ⚠ {race_id}: 馬番が推定値(欠損スナップショットの疑い)、"
                       f"{wait_sec}秒待って読み直します(試行{attempt+1}/{max_retry})")
                 _time.sleep(wait_sec)
                 global _LIVE_RACES_CACHE
                 _LIVE_RACES_CACHE = None  # 強制リロード
-        return horses, est
+        return horses, est, n_scratched
 
     targets = []
     n_skip_shinba = n_skip_jump = n_skip_horses = n_skip_umaban = 0
@@ -465,7 +496,7 @@ def main():
             print(f"  SKIP {venue}{rno}R {rname}(障害または非対応surface)")
             continue
         race_live = live_mode_by_id[race_id]
-        horses, numbers_estimated = (_fetch_with_retry(race_id) if race_live
+        horses, numbers_estimated, n_scratched = (_fetch_with_retry(race_id) if race_live
                                       else fetch_horses(horses_conn, race_id))
         if len(horses) < 2:
             n_skip_horses += 1
@@ -476,7 +507,7 @@ def main():
             continue
         st = load_start_time_map().get((venue, rno), "")
         targets.append((race_id, venue, rno, rname, surface, distance, n_ent, track_cond, race_live, st,
-                        horses, numbers_estimated))
+                        horses, numbers_estimated, n_scratched))
     if horses_conn is not None:
         horses_conn.close()
 

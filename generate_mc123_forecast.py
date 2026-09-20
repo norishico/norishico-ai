@@ -278,6 +278,17 @@ def main():
             n_skip_err += 1
             continue
 
+        # 2026-09-20 F8修正: K_LOWINFO(低情報馬補正)は馬名の完全一致で履歴照合するため、
+        # 表記ゆれで誤って「低情報馬」と判定される場合、レース単位で比率が異常に高くなる
+        # はず。precompute_horse_features_fast()がhorses各要素に立てるlow_infoフラグを
+        # 集計し、40%を超えたら警告ログを出す(今日時点の実測では誤検知ゼロを確認済みだが、
+        # 将来のデータ品質劣化を検知するための予防ガード)。
+        n_low_info = sum(1 for h in horses if h.get("low_info"))
+        low_info_ratio = round(n_low_info / n, 3) if n else 0.0
+        if low_info_ratio > 0.4:
+            print(f"  ⚠ {venue}{rno}R {rname}: low_info_ratio={low_info_ratio:.0%} "
+                  f"({n_low_info}/{n}頭) — 馬名照合の表記ゆれ等の可能性、要確認")
+
         order = sorted(range(n), key=lambda i: -first_result[i]["ptop3"])
         horses_out = [{
             "num": horses[i]["umaban"], "waku": umaban_to_waku(horses[i]["umaban"], n),
@@ -290,6 +301,7 @@ def main():
             "race_id": race_id, "venue": venue, "rno": rno, "rname": rname,
             "surface": surface, "distance": distance, "n_horses": n,
             "numbers_estimated": numbers_estimated, "n_scratched": n_scratched,
+            "low_info_ratio": low_info_ratio,
             "horses": horses_out,
             "top1_reliability": get_top1_reliability_entry(venue, surface, distance),
         })

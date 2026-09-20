@@ -63,3 +63,4 @@ MC123のtop1予想馬(ptop3最大)について「複勝は当たるが1着は当
 - `pace_data.json`はgit管理外・毎日上書きのため過去分の履歴保存なし。churnの歴史検証をするなら再シミュレーションが必要(コストに見合わないため非推奨)
 - `analyze_mc123_top1_conditions.py`の障害レース除外は`'障害' in race_name`だけでは不十分(JV-Link由来のレース名切り詰めで漏れる)。距離ベースのJUMP_DISTANCES併用が必須(2026-09-20修正済み)
 - `track_cond`はDB主流が1文字(良/稍/重/不)。JV-Link等一部データのみ2文字(不良/稍重)。エンジン判定は必ず`mc123_engine.normalize_track_cond()`経由にすること(2026-09-20、"不"判定漏れバグ修正)
+- `mc_keiba_public/api/odds.js`(2026-09-21新設、注目レースタブ「オッズ取得」ボタン用)はnetkeibaの非公開API(`api_get_jra_odds.html`)に依存する。`action=update`パラメータが無いと空応答になるため必須。ボタン押下時のみ呼ぶ設計で自動ポーリングは一切しない。15秒キャッシュ(モジュールスコープの`Map`)あり。nk_id(netkeiba race_id)は`generate_mc123_forecast.py`がthis_week_races.json優先・無ければresults.kai/week_numから構築して`mc123_data.json`に付与する

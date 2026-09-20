@@ -13,6 +13,9 @@ import json
 from pathlib import Path
 from datetime import date as _date
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mc_dyn_engine import is_jump_race
+
 sys.stdout.reconfigure(encoding='utf-8')
 
 TARGET_DATE = sys.argv[1] if len(sys.argv) > 1 else _date.today().isoformat()
@@ -117,7 +120,9 @@ def fetch_target_races():
 
     def is_valid_race(r):
         rname = r.get('race_name') or ''
-        return '新馬' not in rname and '障害' not in rname
+        # 2026-09-20 F2修正: '障害' in rname単独だとJV-Link由来の切り詰めで漏れるため、
+        # is_jump_race()(mc_dyn_engine.py、surface/distance併用)に統一
+        return '新馬' not in rname and not is_jump_race(rname, r.get('surface'), r.get('distance'))
 
     json_races = [r for r in json_races if is_valid_race(r)]
     print(f'新馬・障害除外後: {len(json_races)}件')

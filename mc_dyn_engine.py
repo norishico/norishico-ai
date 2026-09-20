@@ -502,6 +502,40 @@ def pace_cls_group(race_name):
     return "勝上"
 
 
+# 障害(飛越)レース専用の距離(平地では使われない)。JV-Link由来のrace_nameは5文字程度に
+# 切り詰められることがあり「障害」の文字自体が消えるため('牛若丸ジ'='牛若丸ジャンプステークス'等)、
+# distanceベースの判定が必須。analyze_mc123_top1_conditions.pyで2026-09-20に2024-01-01以降を
+# 全列挙・DB照合して確定した集合をここに集約する(is_jump_race()の一次シグナル)。
+# 平地の3000/3200/3600m級(天皇賞春=3200等)とは値が重複しないことを確認済み。
+JUMP_DISTANCES = {3110, 3140, 3170, 3210, 3250, 3300, 3330, 3350, 3390, 3570,
+                   3900, 3930, 4250, 4260}
+
+
+def is_jump_race(race_name, surface=None, distance=None):
+    """障害レース判定の共通関数(2026-09-20 F2修正)。
+    以下いずれかでTrue:
+      1. surface == '障'(sp.netkeiba等の一部経路で明示されるコード)
+      2. race_nameに'障害'を含む(切り詰められていない場合はこれで足りる)
+      3. race_nameに'JG'を含む(JRA公式の障害グレード表記 JG1/JG2/JG3。実データ確認済みで
+         誤検出なし、全件JUMP_DISTANCESとも一致)
+      4. distanceがJUMP_DISTANCESに含まれる(上記が切り詰めで効かない場合の保険。実例:
+         'ペガサス'='ペガサスジャンプステークス'、'イルミネ'='イルミネーションステークス'等、
+         'JG'すら残らないケースがあるため必須)
+    注意: 'ジャ'前方一致は使わない(実データで'ジャパンカップ'ではなく'ジャニュアリーS'系の
+    平地レースが複数該当し誤検出するため、2026-09-20確認の上不採用)。
+    """
+    name = race_name or ""
+    if surface == "障":
+        return True
+    if "障害" in name:
+        return True
+    if "JG" in name:
+        return True
+    if distance in JUMP_DISTANCES:
+        return True
+    return False
+
+
 def pace_bias_for(surface, cls_group=None, num_horses=None, straight_home_m=None,
                   distance=None, has_corners=True):
     """レース属性からペース意図バイアス(m/s)を計算する。

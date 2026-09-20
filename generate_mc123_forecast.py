@@ -43,6 +43,7 @@ from build_extra_par import build_rank_par, build_margin_par, build_l3f_par
 from mc123_batch import load_horse_hist_all, load_same_day_bias_dict, precompute_horse_features_fast
 from mc123_engine import run_mc123, hash64_seed
 from generate_race_sim import classify_style_c2
+from mc_dyn_engine import is_jump_race
 
 DB = "keiba.db"
 OUT_PATHS = [Path("mc_keiba_public/mc123_data.json")]
@@ -199,7 +200,9 @@ def main():
         if pace_cls_group(rname) == "新馬":
             n_skip_shinba += 1
             continue
-        if "障害" in (rname or "") or surface not in ("芝", "ダ"):
+        # 2026-09-20 F2修正: '障害' in rname単独だとJV-Link由来の切り詰めで漏れる(35レース
+        # 実例確認済み)ため、is_jump_race()(mc_dyn_engine.py、surface/distance併用)に統一
+        if is_jump_race(rname, surface, distance) or surface not in ("芝", "ダ"):
             n_skip_jump += 1
             continue
         horses, numbers_estimated = _fetch_horses_with_retry(conn, race_id, live_mode_by_id[race_id])

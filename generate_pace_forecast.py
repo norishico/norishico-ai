@@ -27,7 +27,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from predict_race_formation import predict_formation, rank_to_tier, describe_pace, TIER_LABELS
-from mc_dyn_engine import pace_cls_group
+from mc_dyn_engine import pace_cls_group, is_jump_race
 
 DB = "keiba.db"
 OUT_PATHS = [Path("mc_keiba_public/pace_data.json")]
@@ -458,7 +458,9 @@ def main():
         # this_week_races.json側は距離欄が「障3000m」等となり surface/distance が
         # 空/0のまま流れ込み、原因不明の失敗として黙って弾かれていた
         # (2026-08-08、中京9R 3歳以上障害OPで発覚)ため、明示的に除外する
-        if "障害" in (rname or "") or surface not in ("芝", "ダ"):
+        # 2026-09-20 F2修正: '障害' in rname単独だとJV-Link由来の切り詰めで漏れる(35レース
+        # 実例確認済み)ため、is_jump_race()(mc_dyn_engine.py、surface/distance併用)に統一
+        if is_jump_race(rname, surface, distance) or surface not in ("芝", "ダ"):
             n_skip_jump += 1
             print(f"  SKIP {venue}{rno}R {rname}(障害または非対応surface)")
             continue

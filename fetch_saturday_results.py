@@ -55,18 +55,46 @@ def get_race_ids_for_date(date_str):
     Seleniumフォールバックを追加し、race_id(JRA公式12桁)から機械的にvenue/race_num
     を導出することで、this_week_races.jsonに依存せず任意の過去日を処理可能にする。
     """
+    json_races = []
     if THIS_WEEK_JSON.exists():
         try:
             with open(THIS_WEEK_JSON, encoding='utf-8') as f:
                 races = json.load(f)
             day_races = [r for r in races if r.get('date', '') == date_str]
             if day_races:
-                print(f"this_week_races.json から {date_str} の {len(day_races)}R を取得")
-                return [{'race_id': r['race_id'], 'venue': r.get('venue', ''), 'race_num': r.get('race_num', 0)} for r in day_races]
+                json_races = [{'race_id': r['race_id'], 'venue': r.get('venue', ''),
+                               'race_num': r.get('race_num', 0)} for r in day_races]
+                print(f"this_week_races.json から {date_str} の {len(json_races)}R を取得")
         except Exception as e:
             print(f"this_week_races.json 読み込みエラー: {e}")
 
-    print(f"this_week_races.jsonに{date_str}のデータなし。Seleniumでnetkeibaから遡及取得を試みます")
+    # 【2026-09-20 潜在項目修正】従来は「this_week_races.jsonに1件でもあれば採用し、
+    # 不足分をSelenium遡及しない」という二択ロジックだった(F1で見つかった取消馬問題と
+    # 同型: 部分的なデータで満足してしまう)。this_week_races.jsonが対象日の一部レース
+    # しかカバーしていない場合(取得タイミングのズレ等)、不足レースがfetch_saturday_
+    # results.pyの更新対象から漏れたまま気づけない。DBの当日(venue, race_num)集合と
+    # 突合し、JSONに無い組み合わせがあればSeleniumでの遡及取得を行う。
+    db_missing_races = 0
+    try:
+        db_conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        db_conn.execute("PRAGMA busy_timeout=30000")
+        db_pairs = {(v, n) for v, n in db_conn.execute(
+            "SELECT DISTINCT venue, race_num FROM results WHERE date=?", (date_str,)
+        ).fetchall()}
+        db_conn.close()
+        json_pairs = {(r['venue'], r['race_num']) for r in json_races}
+        db_missing_races = len(db_pairs - json_pairs)
+        if db_missing_races:
+            print(f"  DB上のレース({len(db_pairs)}R)のうちthis_week_races.jsonに"
+                  f"無い組み合わせが{db_missing_races}R — Seleniumで補います")
+    except Exception as e:
+        print(f"  DB突合チェックエラー(無視して続行): {e}")
+
+    if json_races and not db_missing_races:
+        return json_races
+
+    print(f"this_week_races.jsonに{date_str}のデータなし、または不足あり。"
+          f"Seleniumでnetkeibaから遡及取得を試みます")
     try:
         from fetch_shutsuba import create_driver, fetch_race_list
         yyyymmdd = date_str.replace('-', '')
@@ -91,6 +119,10 @@ def get_race_ids_for_date(date_str):
             return out
     except Exception as e:
         print(f"Selenium遡及取得エラー: {e}")
+    if json_races:
+        print("  Selenium遡及取得に失敗したため、this_week_races.json分のみで続行します"
+              "(不足分は次回の自己修復ループで再チェックされる)")
+        return json_races
     return None
 
 

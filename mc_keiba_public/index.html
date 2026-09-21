@@ -691,12 +691,15 @@ function foldDefault(kind) {
   return !!FOLD_KIND_DEFAULT_OPEN[kind];
 }
 
-// foldHtml({id, kind, title, summary, note, headExtra, raceId, hostId, forceClosed}):
+// foldHtml({id, kind, title, summary, note, headExtra, raceId, hostId, forceClosed, openOverride}):
 // 骨格HTMLを返す。本文(fold-inner内の#{id}-content)は空のプレースホルダで、初回展開時に
 // renderFoldBody()が描画する(隊列SVG等の重い描画を遅延させる)。forceClosedは発走済み
 // レースのカードで「記憶に関わらず必ず閉」にするためのオーバーライド(S3要件7)。
-function foldHtml({ id, kind, title, summary, note, headExtra, raceId, hostId, forceClosed }) {
-  const open = forceClosed ? false : foldDefault(kind);
+// openOverride(2026-09-22追加、真偽値): 馬場ピル切替でカードを再描画する際、再描画直前の
+// このカード自身の開閉状態を引き継ぐためのもの(kind別のグローバル記憶=foldDefaultより
+// 優先する)。未指定(undefined)ならforceClosed→foldDefaultの通常経路。
+function foldHtml({ id, kind, title, summary, note, headExtra, raceId, hostId, forceClosed, openOverride }) {
+  const open = forceClosed ? false : (openOverride !== undefined ? openOverride : foldDefault(kind));
   return `
   <div class="fold" id="${id}" data-kind="${kind}" data-race-id="${raceId || ''}" data-host-id="${hostId || ''}" aria-expanded="${open ? 'true' : 'false'}">
     <div class="fold-head" role="button" tabindex="0" aria-expanded="${open ? 'true' : 'false'}" aria-controls="${id}-inner"
@@ -1147,9 +1150,20 @@ function paceRaceStarted(r) {
   // 土日05:00のみのため、平日は前回開催日のデータをそのまま見ることになる)に無意味な
   // 判定になっていた(例: 月曜朝に日曜の15時発走レースが「未発走」として上位に残る)。
   // 日付が一致する時だけ時刻ロジックを使い、日付が違う過去データは常に発走済み扱いにする。
+  //
+  // 2026-09-22追加修正: 上記は「閲覧日より前のデータ」しか想定していなかったため、
+  // 前夜生成(saturday/sunday_preview.batが翌日分を前倒し生成、9/21夜に9/22分を
+  // 手動生成する運用も同様)で「paceData.dateが閲覧日より未来」のケースが発生すると
+  // 一律trueになり、まだ発走していない翌日のレースが「発走済み」と誤判定されていた
+  // (fold強制クローズにより、馬場ピル切替のたびに開いていたfoldが全部閉じる不具合の
+  // 真因、のりお報告で発覚)。日付の前後比較(ISO 8601文字列は辞書式比較で日付順序と
+  // 一致する)で「未来のデータは常に未発走」を明示的に分岐する。
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  if (paceData && paceData.date && paceData.date !== todayStr) return true;
+  if (paceData && paceData.date) {
+    if (paceData.date < todayStr) return true;
+    if (paceData.date > todayStr) return false;
+  }
   const t = new Date();
   t.setHours(Number(m[1]), Number(m[2]), 0, 0);
   return Date.now() >= t.getTime();
@@ -1294,7 +1308,7 @@ function mc123InitialShownCount(rows) {
   return Math.max(1, n);
 }
 
-function mc123RowHtml(r, idx, shownN, oddsInfo) {
+function mc123RowHtml(r, idx, cutoffN, extraOpen, oddsInfo) {
   const { h, pat, rank, top3, p1 } = r;
   let oddsHtml = '';
   if (oddsInfo && oddsInfo.status !== 'before') {
@@ -1306,7 +1320,11 @@ function mc123RowHtml(r, idx, shownN, oddsInfo) {
       oddsHtml = `<span class="mc123-odds-cell"><span class="mc123-odds-val">${t.odds.toFixed(1)}倍</span><span class="mc123-odds-ev">期待${ev.toFixed(2)}</span></span>`;
     }
   }
-  return `<div class="mc123-row ${rank <= 3 ? 'mc123-top' : ''} ${idx >= shownN ? 'mc123-extra d-none' : ''}">
+  // isExtra: カットオフ超過行の印(トグル対象の目印として常に付与)。d-noneは
+  // extraOpen(このhostIdで「残りを表示」済みか、2026-09-22 馬場切替での状態引き継ぎ対応)
+  // の時だけ外す。
+  const isExtra = idx >= cutoffN;
+  return `<div class="mc123-row ${rank <= 3 ? 'mc123-top' : ''} ${isExtra ? 'mc123-extra' : ''} ${isExtra && !extraOpen ? 'd-none' : ''}">
     <span class="mc123-rank">${rank}</span>
     <span class="wk wk${h.waku}">${h.num}</span>
     <span class="nm">${h.name}</span>
@@ -1319,6 +1337,11 @@ function mc123RowHtml(r, idx, shownN, oddsInfo) {
   </div>`;
 }
 
+// hostId単位で「残りを表示」の展開状態を覚えておく(ページ内のみ、localStorageには
+// 保存しない。2026-09-22追加: 馬場ピル切替でカードが再描画されても、直前に開いていた
+// 展開状態を引き継ぐための一時記憶。toggleMc123Extra/renderMc123FoldContent両方で参照)
+const mc123ExtraOpenState = {};
+
 function toggleMc123Extra(hostId, btn) {
   const list = document.getElementById('mc123-list-' + hostId);
   if (!list || !btn) return;
@@ -1327,19 +1350,21 @@ function toggleMc123Extra(hostId, btn) {
   const isHidden = extras[0].classList.contains('d-none');
   extras.forEach(el => el.classList.toggle('d-none', !isHidden));
   btn.textContent = isHidden ? '▴ 隠す' : `残り${extras.length}頭を表示`;
+  mc123ExtraOpenState[hostId] = isHidden;
 }
 
 function renderMc123FoldContent(rid, hostId, track) {
   const data = mc123RowsData(rid, track);
   if (!data) return '<div class="pace-note">MC123データがありません</div>';
   const { rows } = data;
-  const shownN = mc123InitialShownCount(rows);
-  const restN = rows.length - shownN;
+  const cutoffN = mc123InitialShownCount(rows);
+  const extraOpen = !!mc123ExtraOpenState[hostId];
+  const hiddenCount = rows.length - cutoffN;
   const oddsInfo = oddsDataCache[rid];
   const oddsErr = oddsFetchError[rid];
-  const rowsHtml = rows.map((r, idx) => mc123RowHtml(r, idx, shownN, oddsInfo)).join('');
-  const moreBtn = restN > 0
-    ? `<button type="button" class="mc123-more-btn" onclick="toggleMc123Extra('${hostId}', this)">残り${restN}頭を表示</button>` : '';
+  const rowsHtml = rows.map((r, idx) => mc123RowHtml(r, idx, cutoffN, extraOpen, oddsInfo)).join('');
+  const moreBtn = hiddenCount > 0
+    ? `<button type="button" class="mc123-more-btn" onclick="toggleMc123Extra('${hostId}', this)">${extraOpen ? '▴ 隠す' : '残り' + hiddenCount + '頭を表示'}</button>` : '';
   let oddsNote = '';
   if (oddsInfo && oddsInfo.status === 'before') {
     oddsNote = `<div class="pace-note mt-1">発売前のためオッズ未提供です。</div>`;
@@ -1394,7 +1419,7 @@ function mc123SummaryText(rows) {
   return rows.slice(0, 3).map(r => `${r.h.name}${r.top3.label}`).join('・');
 }
 
-function renderMc123Fold(rid, hostId, track, forceClosed) {
+function renderMc123Fold(rid, hostId, track, forceClosed, openOverride) {
   const data = mc123RowsData(rid, track);
   if (!data) return '';
   const { mc123Race, rows } = data;
@@ -1406,7 +1431,7 @@ function renderMc123Fold(rid, hostId, track, forceClosed) {
   const note = `${track}想定 <span class="info-link" role="button" tabindex="0" onclick="event.stopPropagation(); showInfo(event,'mc123')">ⓘ</span>`;
   return foldHtml({
     id: mc123FoldId(hostId), kind: 'mc123', title: 'AI予測(1〜3着内確率)',
-    summary, note, headExtra, raceId: rid, hostId, forceClosed
+    summary, note, headExtra, raceId: rid, hostId, forceClosed, openOverride
   });
 }
 
@@ -1441,14 +1466,14 @@ function renderFormationFoldBody(el, contentEl) {
   contentEl.innerHTML = renderFormationFoldContent(rid, track);
 }
 
-function renderFormationFold(rid, hostId, track, forceClosed) {
+function renderFormationFold(rid, hostId, track, forceClosed, openOverride) {
   const race = paceData.races.find(r => r.race_id === rid);
   if (!race) return '';
   const summary = formationSummaryText(race, track);
   const note = `<span class="info-link" role="button" tabindex="0" onclick="event.stopPropagation(); showInfo(event,'formation')">ⓘ</span>`;
   return foldHtml({
     id: formationFoldId(hostId), kind: 'formation', title: '隊列予想(通過順)',
-    summary, note, raceId: rid, hostId, forceClosed
+    summary, note, raceId: rid, hostId, forceClosed, openOverride
   });
 }
 
@@ -1474,9 +1499,9 @@ function renderAccDetailFoldBody(el, contentEl) {
   contentEl.innerHTML = renderAccDetailFoldContent(el.dataset.raceId);
 }
 
-function renderAccDetailFoldWrapper(rid, hostId, forceClosed) {
+function renderAccDetailFoldWrapper(rid, hostId, forceClosed, openOverride) {
   const id = accDetailFoldId(hostId);
-  const open = forceClosed ? false : foldDefault('accdetail');
+  const open = forceClosed ? false : (openOverride !== undefined ? openOverride : foldDefault('accdetail'));
   return `<div class="fold" id="${id}" data-kind="accdetail" data-race-id="${rid}" data-host-id="${hostId}" aria-expanded="${open ? 'true' : 'false'}">
     <div class="fold-body">
       <div class="fold-inner" id="${id}-inner">
@@ -1505,11 +1530,26 @@ function renderRaceDetailFoldBody(el, contentEl) {
   renderPaceCard(rid, innerHostId);
 }
 
+// 再描画直前のこのカード自身の開閉状態を読み取る(2026-09-22追加)。setPaceTrack()での
+// 馬場ピル切替は毎回host.innerHTMLを丸ごと作り直すため、これを挟まないとkind別の
+// グローバル記憶(foldDefault)頼みになり、「このカードだけ今開いていた」状態が
+// 再描画のたびに失われて閉じたように見えていた(のりお報告「馬場を選ぶと全部
+// 折りたたまれる」の原因)。
+function captureFoldOpenState(host) {
+  const state = {};
+  if (!host) return state;
+  host.querySelectorAll('.fold[data-kind]').forEach(el => {
+    state[el.dataset.kind] = el.getAttribute('aria-expanded') === 'true';
+  });
+  return state;
+}
+
 function renderPaceCard(rid, hostId) {
   hostId = hostId || ('pace-card-' + rid);
   const race = paceData.races.find(r => r.race_id === rid);
   const host = document.getElementById(hostId);
   if (!race || !host) return;
+  const prevFold = captureFoldOpenState(host);
   const track = paceSel[rid] || TRACKS[0];
   const p = race.pace[track] || race.pace[TRACKS[0]] || {};
   const [verdict, vcolor] = paceVerdict(p);
@@ -1528,11 +1568,11 @@ function renderPaceCard(rid, hostId) {
     ? `<span class="pace-chip acc-chip" style="color:${ACC_COLOR[acc.tier]};cursor:pointer"
          onclick="toggleFold('${accDetailFoldId(hostId)}')">隊列 精度:${acc.tier}${acc.data_limited ? '(参考)' : ''}</span>`
     : '';
-  const accDetailWrap = acc ? renderAccDetailFoldWrapper(rid, hostId, started) : '';
+  const accDetailWrap = acc ? renderAccDetailFoldWrapper(rid, hostId, started, prevFold.accdetail) : '';
   const mc123Race = mc123Data && mc123Data.races
     ? mc123Data.races.find(r => r.race_id === rid) : null;
-  const mc123Fold = mc123Race ? renderMc123Fold(rid, hostId, track, started) : '';
-  const formationFold = renderFormationFold(rid, hostId, track, started);
+  const mc123Fold = mc123Race ? renderMc123Fold(rid, hostId, track, started, prevFold.mc123) : '';
+  const formationFold = renderFormationFold(rid, hostId, track, started, prevFold.formation);
 
   // 参考(過去傾向)チップ: 旧実装は文章1〜2文をベタ書きしていたが、短いチップ+ℹに変更
   // (12人委員会承認、2026-08-13改訂のロジック自体は変更なし)

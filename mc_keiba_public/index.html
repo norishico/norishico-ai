@@ -285,32 +285,44 @@
   .mc123-block { margin-bottom: 14px; }
   .mc123-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
   .mc123-title { font-size:12px; font-weight:700; color:#818cf8; }
-  .mc123-list { display:flex; flex-direction:column; gap:3px; }
-  .mc123-row { display:flex; align-items:center; gap:6px; font-size:12px; padding:3px 6px;
+  /* CSS grid化(2026-09-23、S4): 旧flexレイアウトは375px幅でflex-wrapすると、行ごとに
+     固定幅要素(順位・枠・脚質タグ・複勝バー・複勝%・1着%)の折り返し位置がずれ、行の
+     高さ・見た目が揃わない不具合があった(375px専用のflex-wrap+個別幅調整パッチで
+     一時しのぎしていたが根本解消ではなかった)。grid化で列位置を固定し、オッズ列
+     (取得後のみ表示)だけをcontainer queryで2段目に落とす構造的な解決にする。
+     container-type:inline-sizeは.mc123-listの実際の描画幅を基準にするため、ウィンドウ幅
+     ではなく入れ子カード(S3)での実際の利用可能幅に正しく反応する */
+  .mc123-list { display:flex; flex-direction:column; gap:3px; container-type:inline-size; }
+  .mc123-row { display:grid; grid-template-columns: 15px 22px minmax(0,1fr) auto 28px 32px 30px;
+    column-gap:6px; row-gap:2px; align-items:center; font-size:12px; padding:3px 6px;
     border-radius:6px; border-left:2px solid transparent; min-width:0; }
   .mc123-row.mc123-top { border-left-color:#818cf8; background:rgba(129,140,248,.07); }
-  .mc123-rank { width:15px; text-align:center; font-size:11px; font-weight:700;
-    color:#71717a; flex-shrink:0; }
+  .mc123-rank { text-align:center; font-size:11px; font-weight:700; color:#71717a; }
   .mc123-row.mc123-top .mc123-rank { color:#818cf8; }
-  .mc123-row .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
-  .mc123-row .style-tag { flex-shrink:0; }
-  .mc123-bar-wrap { flex:0 1 60px; min-width:28px; height:6px; background:rgba(255,255,255,.06);
+  .mc123-row .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .mc123-bar-wrap { width:100%; height:6px; background:rgba(255,255,255,.06);
     border-radius:3px; overflow:hidden; }
   .mc123-bar { height:100%; background:#818cf8; border-radius:3px; }
-  .mc123-pct { width:32px; text-align:right; font-size:11px; color:var(--bs-secondary-color);
-    flex-shrink:0; font-variant-numeric:tabular-nums; }
+  .mc123-pct { text-align:right; font-size:11px; color:var(--bs-secondary-color);
+    font-variant-numeric:tabular-nums; }
   /* 1着率(p1)表示(2026-09-19追加、委員会承認済み)。ptop3より一段地味な扱いにし
-     "AIの本命"に見えすぎないようにする(委員会ゆきこ指摘): バーを薄く・細く、文字を小さく */
-  .mc123-bar-wrap-p1 { flex:0 1 40px; min-width:20px; height:4px; background:rgba(255,255,255,.05);
-    border-radius:2px; overflow:hidden; margin-left:2px; }
-  .mc123-bar-p1 { height:100%; background:#a5b4fc; border-radius:2px; opacity:.75; }
-  .mc123-pct-p1 { width:30px; text-align:right; font-size:10px; color:#a5b4fc;
-    flex-shrink:0; font-variant-numeric:tabular-nums; }
+     "AIの本命"に見えすぎないようにする(委員会ゆきこ指摘): 文字を小さく・薄い色に。
+     2026-09-23(S4): grid化の7列設計(順位・枠・馬名・脚質タグ・複勝バー・複勝%・1着%)に
+     合わせ、旧実装が併せ持っていた専用ミニバー(.mc123-bar-wrap-p1/.mc123-bar-p1)は
+     廃止しテキストのみにした。375px以下での個別非表示対策(旧.mc123-bar-wrap-p1
+     {display:none})が不要になった */
+  .mc123-pct-p1 { text-align:right; font-size:10px; color:#a5b4fc;
+    font-variant-numeric:tabular-nums; }
   .mc123-legend { display:flex; align-items:center; gap:3px; font-size:10px;
     color:var(--bs-secondary-color); }
   .mc123-legend-swatch { display:inline-block; width:7px; height:7px; border-radius:2px; }
   .mc123-legend-swatch.top3 { background:#818cf8; }
   .mc123-legend-swatch.p1 { background:#a5b4fc; margin-left:5px; }
+  /* オッズ列(取得後のみ表示、mc123-odds-cell)は、.mc123-listの実描画幅が340px以下の時
+     だけ2段目全幅に配置する(S4)。ウィンドウ幅ベースの旧media queryより正確 */
+  @container (max-width: 340px) {
+    .mc123-odds-cell { grid-column: 1 / -1; }
+  }
   /* 注目レースタブ (2026-08-22追加、MC123 top1_reliability=「高」抽出)。買い目ロジックとも
      mc123-blockのインディゴ配色を踏襲しつつ、金銀銅のような「当たり馬券」を連想させる
      装飾は避ける(mc123-block同様の委員会方針を踏襲) */
@@ -373,17 +385,11 @@
     .nav-tabs::-webkit-scrollbar { display: none; }
     .nav-tabs .nav-item { flex-shrink: 0; }
     .nav-tabs .nav-link { padding-left: 10px; padding-right: 10px; font-size: 13px; white-space: nowrap; }
-    /* オッズ列追加(S5)後に375px幅で馬名が0幅に潰れる実機確認済みの不具合を修正
-       (2026-09-21、iframeでの375px幅検証で発見・複数回の実測調整を経て確定)。
-       rank/waku/style-tag/バー×2/オッズ列がいずれもflex-shrink:0の固定幅で、合計が
-       画面幅を超えるため馬名を1行目に収められなかった。1着バー(視覚バーのみ、数値は
-       残す)を非表示にし、複勝バーの基準幅を最小値まで縮め、オッズ列は2行目全幅に
-       折り返す。margin-leftは付けない(flex-basis:100%と併用すると幅が加算されてしまい
-       行からはみ出すバグを実測で確認したため)。 */
-    .mc123-bar-wrap-p1 { display: none; }
-    .mc123-row { flex-wrap: wrap; row-gap: 2px; }
-    .mc123-bar-wrap { flex: 0 1 28px; }
-    .mc123-odds-cell { flex-basis: 100%; margin-left: 0; justify-content: flex-end; order: 99; }
+    /* 2026-09-21に375px幅でのmc123-row折り返し崩れ対策として追加したflex-wrap+個別幅
+       調整パッチ(mc123-bar-wrap-p1非表示・mc123-row flex-wrap・mc123-bar-wrap縮小・
+       mc123-odds-cell 2段目固定)は、2026-09-23のgrid化(S4、.mc123-row本体のCSS参照)で
+       構造的に不要になったため削除。オッズ列の2段目配置は.mc123-list側の
+       container-query(@container (max-width:340px))に置き換えた */
     /* S2(2026-09-23): fold-head内でodds-btn(nowrap化)とfold-summaryが幅を奪い合い、
        375px以下だとodds-btnが縦4文字に潰れる/summaryが極端に圧縮される不具合があったため、
        375px以下ではsummary自体を非表示にする。要約は開けば中身が見えるため情報は失われない */
@@ -1344,6 +1350,10 @@ function mc123RowHtml(r, idx, cutoffN, extraOpen, oddsInfo) {
   // extraOpen(このhostIdで「残りを表示」済みか、2026-09-22 馬場切替での状態引き継ぎ対応)
   // の時だけ外す。
   const isExtra = idx >= cutoffN;
+  // grid化(2026-09-23、S4): .mc123-rowのgrid-template-columns(7列: 順位・枠・馬名・
+  // 脚質タグ・複勝バー・複勝%・1着%)に対応する7要素をこの順で並べる。旧実装の
+  // 1着率ミニバー(.mc123-bar-wrap-p1/.mc123-bar-p1)は廃止しテキスト(1着%)のみにした
+  // (CSS側コメント参照)。オッズ列(oddsHtml)は取得後のみ追加される8番目の要素。
   return `<div class="mc123-row ${rank <= 3 ? 'mc123-top' : ''} ${isExtra ? 'mc123-extra' : ''} ${isExtra && !extraOpen ? 'd-none' : ''}">
     <span class="mc123-rank">${rank}</span>
     <span class="wk wk${h.waku}">${h.num}</span>
@@ -1351,7 +1361,6 @@ function mc123RowHtml(r, idx, cutoffN, extraOpen, oddsInfo) {
     <span class="style-tag ${STYLE_CLASS_PACE[h.style] || 'style-chutan'}">${h.style || ''}</span>
     <div class="mc123-bar-wrap"><div class="mc123-bar" style="width:${top3.raw}%"></div></div>
     <span class="mc123-pct">${top3.label}</span>
-    <div class="mc123-bar-wrap-p1"><div class="mc123-bar-p1" style="width:${p1.raw}%"></div></div>
     <span class="mc123-pct-p1">${p1.label}</span>
     ${oddsHtml}
   </div>`;

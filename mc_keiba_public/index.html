@@ -222,7 +222,7 @@
   .fold[aria-expanded="true"] > .fold-head > .fold-caret { transform:rotate(90deg); }
   .fold-title { font-size:12px; font-weight:700; color:#818cf8; flex-shrink:0; white-space:nowrap; }
   .fold-summary { font-size:11px; color:var(--bs-secondary-color); overflow:hidden;
-    text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
+    text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 0; }
   .fold[aria-expanded="true"] > .fold-head > .fold-summary { display:none; }
   .fold-note { font-size:11px; color:var(--bs-secondary-color); margin:2px 0 0; }
   /* 開閉アニメーションはCSS gridのgrid-template-rows:0fr→1frトリックを当初採用したが、
@@ -315,7 +315,12 @@
      mc123-blockのインディゴ配色を踏襲しつつ、金銀銅のような「当たり馬券」を連想させる
      装飾は避ける(mc123-block同様の委員会方針を踏襲) */
   .featured-list { display:flex; flex-direction:column; gap:12px; }
-  .featured-card { display:flex; gap:12px; border:1px solid rgba(255,255,255,.08); border-radius:14px;
+  /* flex-wrap:wrap(2026-09-23追加、S3): racedetail fold(「このレース全体の予想を見る」)を
+     featured-bodyの内側から外側(featured-detail-slot、flex-basis:100%)へ移し、入れ子の
+     pace-cardが利用できる幅をfeatured-rank(28px)+gapで削られた分(約270px)から
+     カード全幅(約330px)へ広げるための土台。rank+bodyの1行目は幅に収まるため通常時は
+     折り返らず、detail-slotだけがflex-basis:100%で強制的に2行目に落ちる */
+  .featured-card { display:flex; flex-wrap:wrap; gap:12px; border:1px solid rgba(255,255,255,.08); border-radius:14px;
     background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
     padding:14px; }
   .featured-card.featured-top { border-color:rgba(129,140,248,.4);
@@ -324,6 +329,7 @@
     border:1px solid rgba(129,140,248,.5); color:#818cf8; font-size:13px; font-weight:700;
     display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .featured-body { flex:1; min-width:0; }
+  .featured-detail-slot { flex-basis:100%; min-width:0; }
   .featured-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
   .featured-horse { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
   .featured-stats { display:flex; gap:18px; flex-wrap:wrap; }
@@ -338,7 +344,7 @@
      免責文言は「AIについて」タブ#about-odds + ⓘポップオーバー(INFO_TEXT.odds)に集約した */
   .odds-btn { font-size:12px; font-weight:600; padding:7px 14px; border-radius:8px;
     background:rgba(129,140,248,.12); color:#818cf8; border:1px solid rgba(129,140,248,.35);
-    cursor:pointer; transition:background .12s; }
+    cursor:pointer; transition:background .12s; white-space:nowrap; flex-shrink:0; }
   .odds-btn:hover:not(:disabled) { background:rgba(129,140,248,.2); }
   .odds-btn:disabled { opacity:.4; cursor:not-allowed; }
   /* WIN5タブ (2026-08-22追加、2026-09-06本命ブロック削除)。featured-card/featured-rank/
@@ -378,6 +384,13 @@
     .mc123-row { flex-wrap: wrap; row-gap: 2px; }
     .mc123-bar-wrap { flex: 0 1 28px; }
     .mc123-odds-cell { flex-basis: 100%; margin-left: 0; justify-content: flex-end; order: 99; }
+    /* S2(2026-09-23): fold-head内でodds-btn(nowrap化)とfold-summaryが幅を奪い合い、
+       375px以下だとodds-btnが縦4文字に潰れる/summaryが極端に圧縮される不具合があったため、
+       375px以下ではsummary自体を非表示にする。要約は開けば中身が見えるため情報は失われない */
+    .fold-summary { display: none; }
+    /* S3(2026-09-23): 375px以下でカードのpadding自体を圧縮し、入れ子pace-cardの
+       利用可能幅を少しでも広げる(14px→10px) */
+    .featured-card { padding: 10px; }
   }
 </style>
 </head>
@@ -996,10 +1009,9 @@ function renderFeaturedCard(it, idx) {
       </div>
       <div class="d-flex align-items-center gap-2 mt-2">
         <button class="odds-btn" type="button" onclick="openRaceDetailAndFetchOdds('${race.race_id}','${hostId}',this)" ${!race.nk_id || race.numbers_estimated ? 'disabled' : ''}>オッズ取得</button>
-        <span class="pace-note">単勝オッズ・期待回収率をAI予測内に表示します</span>
       </div>
-      ${detailFold}
     </div>
+    <div class="featured-detail-slot">${detailFold}</div>
   </div>`;
 }
 
@@ -1128,8 +1140,8 @@ function renderWin5Card(r) {
         <div class="win5-pred-label">AI3着以内候補(MC123・複勝圏内率上位)</div>
         ${mc123Html}
       </div>
-      ${detailToggle}
     </div>
+    <div class="featured-detail-slot">${detailToggle}</div>
   </div>`;
 }
 
@@ -1258,13 +1270,16 @@ function renderPaceTab() {
   races.forEach(r => renderPaceCard(r.race_id));
 }
 
-function setPaceTrack(rid, t, hostId) {
+function setPaceTrack(rid, t, hostId, compact) {
   paceSel[rid] = t;
   // カード全体を再描画するだけでよい: MC123 foldは開いていれば初期化パスで自動的に
   // renderMc123FoldBody()が呼ばれ、取得済みオッズ(oddsDataCache)があればそれを使い回して
   // 選択中の馬場パターンでp1・期待回収率だけ再計算する(オッズ自体の再取得はしない、
-  // 2026-09-21のUX再設計で旧odds-panel直接操作から一本化)
-  renderPaceCard(rid, hostId);
+  // 2026-09-21のUX再設計で旧odds-panel直接操作から一本化)。
+  // compact(2026-09-23追加、S3): 注目レース/WIN5の入れ子表示で呼ばれたカードは
+  // 再描画後もヘッダーのレース名ブロック省略を維持する(track-pillのonclickに埋め込んで
+  // 引き回す。ownerの状態管理を増やしたくないための最小実装)
+  renderPaceCard(rid, hostId, { compact: !!compact });
 }
 
 // WIN5はrace_idの形式がpace_data.json/mc123_data.jsonと異なる(netkeiba由来の12桁数値)ため、
@@ -1532,7 +1547,9 @@ function renderRaceDetailFoldBody(el, contentEl) {
   const rid = el.dataset.raceId;
   const innerHostId = el.id + '-pacecard';
   contentEl.innerHTML = `<div id="${innerHostId}"></div>`;
-  renderPaceCard(rid, innerHostId);
+  // compact:true(2026-09-23追加、S3): 注目レース・WIN5カード側に既に同じ会場・レース名が
+  // 表示されているため、入れ子pace-cardのヘッダーではレース名ブロックを省略する
+  renderPaceCard(rid, innerHostId, { compact: true });
 }
 
 // 再描画直前のこのカード自身の開閉状態を読み取る(2026-09-22追加)。setPaceTrack()での
@@ -1549,8 +1566,10 @@ function captureFoldOpenState(host) {
   return state;
 }
 
-function renderPaceCard(rid, hostId) {
+function renderPaceCard(rid, hostId, opts) {
   hostId = hostId || ('pace-card-' + rid);
+  opts = opts || {};
+  const compact = !!opts.compact;
   const race = paceData.races.find(r => r.race_id === rid);
   const host = document.getElementById(hostId);
   if (!race || !host) return;
@@ -1560,7 +1579,7 @@ function renderPaceCard(rid, hostId) {
   const [verdict, vcolor] = paceVerdict(p);
   const started = paceRaceStarted(race);
   const pills = TRACKS.map(t =>
-    `<button class="track-pill ${t === track ? 'active' : ''}" onclick="setPaceTrack('${rid}','${t}','${hostId}')">${t}</button>`).join('');
+    `<button class="track-pill ${t === track ? 'active' : ''}" onclick="setPaceTrack('${rid}','${t}','${hostId}',${compact})">${t}</button>`).join('');
   const seg = (v, cls, label) => {
     const pct = Math.round((v||0) * 100);
     return `<div class="pace-seg ${cls}" style="width:${pct}%" title="${label} ${pct}%">${pct >= 12 ? label + ' ' + pct + '%' : ''}</div>`;
@@ -1592,14 +1611,20 @@ function renderPaceCard(rid, hostId) {
   }
   const refChipsHtml = chips.length ? `<div class="d-flex gap-2 flex-wrap mt-2">${chips.join('')}</div>` : '';
 
-  host.innerHTML = `
-  <div class="pace-card ${started ? 'pace-card-started' : ''}">
-    <div class="pace-card-head">
+  // compact(S3): 注目レース・WIN5に入れ子表示される時は呼び出し元カード側に既に
+  // 同じ会場・レース名が出ているため、レース名ブロック(会場バッジ+レース番号/名+
+  // 発走時刻等)を省略する。馬場ピル・精度チップ・暫定馬番警告は重複ではないため残す
+  const headName = compact ? '' : `
       <span class="venue-badge">${race.venue}</span>
       <div style="min-width:0">
         <div class="fw-bold" style="font-size:14px">${race.rno}R ${race.rname}</div>
         <div class="pace-note">${race.start_time ? (started ? `<span style="opacity:.6">${race.start_time}発走済</span>・` : `${race.start_time}発走・`) : ''}${race.surface}${race.distance}m・${race.n_horses}頭・逃げ${p.nige_count != null ? p.nige_count : race.nige_count}頭</div>
-      </div>
+      </div>`;
+
+  host.innerHTML = `
+  <div class="pace-card ${started ? 'pace-card-started' : ''}">
+    <div class="pace-card-head">
+      ${headName}
       ${estWarn}${accChip}
       <div class="track-seg">${pills}</div>
     </div>

@@ -214,11 +214,16 @@
     padding:4px 0; color:inherit; }
   .fold-caret { display:inline-block; transition:transform .2s ease; color:#818cf8;
     font-size:11px; flex-shrink:0; }
-  .fold[aria-expanded="true"] .fold-caret { transform:rotate(90deg); }
+  /* 2026-09-23修正: 子孫セレクタだと、外側foldを開いた瞬間その内側に入れ子になっている
+     別のfold(まだaria-expanded=falseのはず)のcaret/summaryにまでスタイルが波及し、
+     キャレットが回転・要約が消えるだけで中身(fold-body)は開かない(内側foldはaria-expanded=
+     falseのまま)という不具合があった。foldHtml()のDOM構造(.fold > .fold-head > .fold-caret/
+     .fold-summary、.fold > .fold-body)に対応する子結合子(>)に変更し、直接の子孫にのみ適用する。 */
+  .fold[aria-expanded="true"] > .fold-head > .fold-caret { transform:rotate(90deg); }
   .fold-title { font-size:12px; font-weight:700; color:#818cf8; flex-shrink:0; white-space:nowrap; }
   .fold-summary { font-size:11px; color:var(--bs-secondary-color); overflow:hidden;
     text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
-  .fold[aria-expanded="true"] .fold-summary { display:none; }
+  .fold[aria-expanded="true"] > .fold-head > .fold-summary { display:none; }
   .fold-note { font-size:11px; color:var(--bs-secondary-color); margin:2px 0 0; }
   /* 開閉アニメーションはCSS gridのgrid-template-rows:0fr→1frトリックを当初採用したが、
      実機確認(claude-in-chrome)でChromiumがfr単位同士の遷移を正しく解決できず、
@@ -226,7 +231,7 @@
      より確実なmax-height方式に変更(2026-09-21)。含みうる最大コンテンツ(18頭のMC123
      リストや隊列チャート)を見込んで余裕を持たせた値にしている */
   .fold-body { overflow:hidden; max-height:0; transition:max-height .3s ease; }
-  .fold[aria-expanded="true"] .fold-body { max-height:2400px; }
+  .fold[aria-expanded="true"] > .fold-body { max-height:2400px; }
   .fold-inner { overflow:hidden; }
   .fold-foot { text-align:center; padding-top:6px; }
   .fold-foot button { background:none; border:0; color:#60a5fa; font-size:11px; cursor:pointer; padding:6px 10px; }

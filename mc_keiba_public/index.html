@@ -965,7 +965,7 @@ function renderFeaturedTab() {
       <span class="fw-bold" style="font-size:15px">注目レース</span>
       <span class="pace-chip">${mc123Data.date || ''}</span>
       <span class="pace-chip">${items.length}レース</span>
-      <span class="pace-note ms-auto">MC123 信頼度「高」×展開予想 精度「高」×発走順(${(mc123Data.n_mc || 0).toLocaleString()}回試行)</span>
+      <span class="pace-note ms-auto" style="cursor:pointer" onclick="showInfo(event,'reliability')">選出基準について <span style="opacity:.7">ⓘ</span></span>
     </div>`;
   const cards = items.map((it, idx) => renderFeaturedCard(it, idx)).join('');
   c.innerHTML = header + notice + `<div class="featured-list">${cards}</div>`;
@@ -1589,9 +1589,16 @@ function renderPaceCard(rid, hostId, opts) {
   const started = paceRaceStarted(race);
   const pills = TRACKS.map(t =>
     `<button class="track-pill ${t === track ? 'active' : ''}" onclick="setPaceTrack('${rid}','${t}','${hostId}',${compact})">${t}</button>`).join('');
+  // S5(2026-09-23): ラベル表示条件が割合(pct)>=12%のみで実際の描画幅を見ていないため、
+  // 270〜340px幅の狭いpace-gauge(入れ子カード等)だと「ミドル 12%」のようなラベルが
+  // 要素幅に収まらず「ドル 1」のように途中で切れる不具合があった。要素幅の直接測定は
+  // 描画前のためできないので、簡便に375px以下(≒モバイル)では閾値を25%に引き上げる
+  // (プランナー設計の簡易案)。title属性は閾値に関わらず常に付与済みのため、ラベルが
+  // 出ない場合もホバー/タップで割合を確認できる
+  const segLabelThreshold = window.innerWidth <= 375 ? 25 : 12;
   const seg = (v, cls, label) => {
     const pct = Math.round((v||0) * 100);
-    return `<div class="pace-seg ${cls}" style="width:${pct}%" title="${label} ${pct}%">${pct >= 12 ? label + ' ' + pct + '%' : ''}</div>`;
+    return `<div class="pace-seg ${cls}" style="width:${pct}%" title="${label} ${pct}%">${pct >= segLabelThreshold ? label + ' ' + pct + '%' : ''}</div>`;
   };
   const estWarn = race.numbers_estimated
     ? `<span class="pace-chip" style="color:#fbbf24">馬番は暫定(枠順確定前データ)</span>` : '';

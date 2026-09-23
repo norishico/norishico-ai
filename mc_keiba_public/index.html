@@ -376,6 +376,25 @@
   .win5-mc123-row .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
   .win5-mc123-pct { font-size:12px; font-weight:700; color:#818cf8; flex-shrink:0;
     font-variant-numeric:tabular-nums; }
+  /* ══ コース一覧タブ (2026-09-23追加、S7) ══
+     注目レースに選出される会場×距離の組み合わせ(course_tiers.json)を一覧表示する。
+     PC幅(768px以上)はテーブル、スマホ幅は1件=カードのレスポンシブ切り替え
+     (両方をDOMに描画しCSSで出し分ける。件数が最大でも100件強のため許容範囲) */
+  .ct-header-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+  .ct-table { display:none; width:100%; border-collapse:collapse; font-size:13px; }
+  .ct-table th { text-align:left; font-size:11px; font-weight:600; color:var(--bs-secondary-color);
+    padding:6px 10px; border-bottom:1px solid rgba(255,255,255,.1); white-space:nowrap; }
+  .ct-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,.06); vertical-align:middle; }
+  .ct-cards { display:flex; flex-direction:column; gap:8px; }
+  .ct-card { border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:10px 12px;
+    background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)); }
+  .ct-card-row1 { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .ct-card-row2 { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .ct-tier-chip .sub { opacity:.7; font-weight:400; }
+  @media (min-width: 768px) {
+    .ct-table { display:table; }
+    .ct-cards { display:none; }
+  }
   /* タブナビ スマホ対応: 展開予想タブ追加で4タブになり、375-390px幅で折り返して
      2段崩れしていたため、横スクロール化+コンパクト化で1行に収める */
   @media (max-width: 575px) {
@@ -449,6 +468,11 @@
       </li>
       <li class="nav-item">
         <a class="nav-link" data-tab="logic" href="#" onclick="switchTab('logic');return false;">AIについて</a>
+      </li>
+      <li class="nav-item">
+        <!-- 2026-09-23追加(S7): 注目レースに選出される会場×距離の組み合わせ一覧(course_tiers.json、
+             build_course_tiers_json.pyが週次生成)。既存4タブと同じ横スクロールnavに収まる -->
+        <a class="nav-link" data-tab="coursetiers" href="#" onclick="switchTab('coursetiers');return false;">コース一覧</a>
       </li>
     </ul>
   </div>
@@ -556,6 +580,10 @@
           <div class="step-desc">終盤(ゴール前)に一気にペースが上がる「Sペース比率60%以上」の
           展開になったレースでは、MC123の1位予想馬の複勝的中率は過去平均62%でした(全体平均53%、
           2024年以降n=652)。これも相関であり、個別レースでの的中を保証するものではありません。</div>
+          <!-- 2026-09-23追加(S8): コース一覧タブへの導線 -->
+          <div class="step-note">注目レースの対象コース一覧は
+            <a onclick="switchTab('coursetiers')" style="color:#818cf8;font-weight:700;cursor:pointer">「コース一覧」タブ</a>
+            で確認できます。</div>
         </div>
       </div>
     </div>
@@ -645,6 +673,13 @@
   </div>
 </div>
 
+<!-- ══ コース一覧タブ (2026-09-23追加、S7。course_tiers.jsonをタブを開いた時だけfetchする) ══ -->
+<div id="tab-coursetiers" style="display:none">
+  <div class="container-xl py-3" id="coursetiers-container">
+    <div class="text-secondary py-4 text-center">読み込み中…</div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.2.0/dist/js/tabler.min.js"></script>
 <script>
 const TRACKS = ['良・稍重', '重', '不良'];
@@ -654,7 +689,7 @@ function switchTab(name) {
   document.querySelectorAll('.nav-link[data-tab]').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === name);
   });
-  ['logic', 'pace', 'featured', 'win5'].forEach(t => {
+  ['logic', 'pace', 'featured', 'win5', 'coursetiers'].forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.style.display = t === name ? '' : 'none';
   });
@@ -666,6 +701,7 @@ function switchTab(name) {
   if (name === 'pace') loadPaceTab();
   if (name === 'featured') loadFeaturedTab();
   if (name === 'win5') loadWin5Tab();
+  if (name === 'coursetiers') loadCourseTiersTab();
 }
 
 // ── 戻るボタン: 600px以上スクロールしたら表示 ──
@@ -1149,6 +1185,153 @@ function renderWin5Card(r) {
     </div>
     <div class="featured-detail-slot">${detailToggle}</div>
   </div>`;
+}
+
+// ══ コース一覧タブ (2026-09-23追加、S7) ══════════════════════════════════════════
+// course_tiers.json(build_course_tiers_json.py、水曜6:00 NorishikoAI_MC123TierRefreshで
+// 週次生成)を表示する。他タブのデータ(pace_data.json/mc123_data.json/win5_data.json)とは
+// 完全独立の読み込み経路で、タブを開いた時だけfetchする(失敗しても他タブには一切影響しない)。
+// 「本日開催」列の突合にのみmc123_data.jsonを補助的に使う(失敗しても列が出ないだけ)。
+let courseTiersData = null, courseTiersLoaded = false, courseTiersFilter = 'high'; // 'high' | 'all'
+
+// tier色は.pace-chipで既に使われている配色(高=teal/中=slate/低=amber)を流用する
+// (renderPaceCard内のACC_COLORと同じ値、コース一覧タブ単独でも使うためトップレベルに切り出し)
+const TIER_COLOR = { '高': '#2dd4bf', '中': '#94a3b8', '低': '#facc15' };
+
+async function loadCourseTiersTab() {
+  if (courseTiersLoaded) { renderCourseTiersTab(); return; }
+  const c = document.getElementById('coursetiers-container');
+  try {
+    const [r] = await Promise.all([
+      fetch('course_tiers.json', {cache:'no-store'}),
+      mc123Loaded ? Promise.resolve() : loadMc123Data().catch(() => {}),
+    ]);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    courseTiersData = await r.json();
+    courseTiersLoaded = true;
+    renderCourseTiersTab();
+  } catch (e) {
+    courseTiersData = null;
+    c.innerHTML = '<div class="text-secondary py-5 text-center">一覧を取得できませんでした</div>';
+  }
+}
+
+function setCourseTiersFilter(f) { courseTiersFilter = f; renderCourseTiersTab(); }
+
+// 会場×surface×distanceキーで当日のレース番号一覧を引けるマップを作る。mc123_data.jsonの
+// 日付が本日と一致する時だけ返す(不一致=週の半ば等は空Mapを返し、呼び出し側で「本日開催」列
+// 自体を非表示にする)。paceRaceStarted/renderWin5Tabと同じtodayStr算出パターンを踏襲
+function buildTodayRaceMap() {
+  const map = new Map();
+  if (!mc123Data || !mc123Data.races) return map;
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  if (mc123Data.date !== todayStr) return map;
+  mc123Data.races.forEach(r => {
+    const key = r.venue + '|' + r.surface + '|' + r.distance;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(r.rno);
+  });
+  return map;
+}
+
+const SURFACE_ORDER = { '芝': 0, 'ダ': 1 };
+
+function courseTiersFilteredSorted() {
+  if (!courseTiersData || !courseTiersData.cells) return [];
+  let cells = courseTiersData.cells.slice();
+  if (courseTiersFilter === 'high') cells = cells.filter(c => c.both_high);
+  // 並び順: 会場→芝/ダ→距離(のりお確定事項)。build_course_tiers_json.py側でも同順に
+  // ソート済みだが、フィルタ後も順序を保証するためフロント側でも明示的に再ソートする
+  cells.sort((a, b) => {
+    if (a.venue !== b.venue) return a.venue.localeCompare(b.venue, 'ja');
+    const so = (SURFACE_ORDER[a.surface] ?? 9) - (SURFACE_ORDER[b.surface] ?? 9);
+    if (so !== 0) return so;
+    return a.distance - b.distance;
+  });
+  return cells;
+}
+
+// tierInfo: {tier, n, place_rate|rho, data_limited} または null(外部結合で片側が
+// 無いセル)。kind='rel'はMC123信頼度(複勝的中率)、kind='acc'は隊列予測精度
+function tierChipHtml(tierInfo, kind) {
+  if (!tierInfo || !tierInfo.tier) return '<span class="text-secondary" style="font-size:12px">データなし</span>';
+  const color = TIER_COLOR[tierInfo.tier] || '#94a3b8';
+  const limited = tierInfo.data_limited ? '(参考)' : '';
+  const detail = kind === 'rel'
+    ? `複勝的中率${Math.round((tierInfo.place_rate || 0) * 100)}%`
+    : `隊列的中(n=${tierInfo.n})`;
+  return `<span class="pace-chip ct-tier-chip" style="color:${color}">${tierInfo.tier}${limited}` +
+    `<span class="sub"> ${detail}${kind === 'rel' ? `(n=${tierInfo.n})` : ''}</span></span>`;
+}
+
+function renderCourseTiersRow(cell, todayMap, showTodayCol) {
+  const key = cell.venue + '|' + cell.surface + '|' + cell.distance;
+  const todayRaces = todayMap.get(key);
+  const todayLabel = todayRaces ? todayRaces.slice().sort((a, b) => a - b).map(n => n + 'R').join('・') : '';
+  const relChip = tierChipHtml(cell.rel, 'rel');
+  const accChip = tierChipHtml(cell.acc, 'acc');
+  const todayTd = showTodayCol
+    ? `<td>${todayLabel ? `<span class="pace-chip" style="color:#fb923c">本日 ${todayLabel}</span>` : ''}</td>` : '';
+  const row = `<tr>
+    <td class="fw-bold">${cell.venue}</td>
+    <td>${cell.surface}${cell.distance}m</td>
+    ${todayTd}
+    <td>${relChip}</td>
+    <td>${accChip}</td>
+  </tr>`;
+  const todayCardChip = showTodayCol && todayLabel
+    ? `<span class="pace-chip" style="color:#fb923c;margin-left:auto">本日 ${todayLabel}</span>` : (showTodayCol ? '<span class="ms-auto"></span>' : '');
+  const card = `<div class="ct-card">
+    <div class="ct-card-row1">
+      <span class="fw-bold">${cell.venue}</span>
+      <span class="text-secondary" style="font-size:12px">${cell.surface}${cell.distance}m</span>
+      ${todayCardChip}
+    </div>
+    <div class="ct-card-row2">${relChip}${accChip}</div>
+  </div>`;
+  return { row, card };
+}
+
+function renderCourseTiersTab() {
+  const c = document.getElementById('coursetiers-container');
+  if (!c) return;
+  if (!courseTiersData) {
+    c.innerHTML = '<div class="text-secondary py-5 text-center">一覧を取得できませんでした</div>';
+    return;
+  }
+  const cells = courseTiersFilteredSorted();
+  const todayMap = buildTodayRaceMap();
+  const showTodayCol = todayMap.size > 0;
+  const genAt = fmtCtGeneratedAt(courseTiersData.generated_at);
+  const header = `
+    <div class="ct-header-row">
+      <span class="fw-bold" style="font-size:15px">コース一覧</span>
+      <span class="pace-chip" style="cursor:pointer" onclick="showInfo(event,'reliability')">週次更新: ${genAt} <span style="opacity:.7">ⓘ</span></span>
+      <span class="pace-chip">${(courseTiersData.reliability_n_races || 0).toLocaleString()}レースで集計</span>
+    </div>
+    <div class="pace-note mb-3">注目レースに選出される「MC123信頼度・隊列予測精度がともに高い」会場×距離の組み合わせです。参考情報で、買い目ではありません。</div>
+    <div class="track-seg mb-3" style="margin-left:0">
+      <button class="track-pill ${courseTiersFilter === 'high' ? 'active' : ''}" onclick="setCourseTiersFilter('high')">高×高のみ</button>
+      <button class="track-pill ${courseTiersFilter === 'all' ? 'active' : ''}" onclick="setCourseTiersFilter('all')">すべて</button>
+    </div>`;
+  if (cells.length === 0) {
+    c.innerHTML = header + '<div class="text-secondary py-5 text-center">該当する組み合わせがありません</div>';
+    return;
+  }
+  const rendered = cells.map(cell => renderCourseTiersRow(cell, todayMap, showTodayCol));
+  const theadTodayTh = showTodayCol ? '<th>本日開催</th>' : '';
+  const table = `<table class="ct-table"><thead><tr>
+      <th>会場</th><th>距離</th>${theadTodayTh}<th>MC123信頼度</th><th>隊列精度</th>
+    </tr></thead><tbody>${rendered.map(r => r.row).join('')}</tbody></table>`;
+  const cards = `<div class="ct-cards">${rendered.map(r => r.card).join('')}</div>`;
+  c.innerHTML = header + table + cards;
+}
+
+// generated_at("2026-09-23T06:53:23")を"2026-09-23 06:53"表示に整形する
+function fmtCtGeneratedAt(iso) {
+  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(iso || '');
+  return m ? `${m[1]} ${m[2]}` : (iso || '不明');
 }
 
 async function loadPaceTab() {

@@ -454,6 +454,7 @@ def cmd_race(args):
 
 def cmd_validate(args):
     from scipy.stats import spearmanr
+    from mc_dyn_engine import is_jump_race
     t0 = time.time()
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA cache_size=-65536")
@@ -473,6 +474,12 @@ def cmd_validate(args):
             break
         race, horses = fetch_race(conn, race_id)
         if race is None or len(horses) < 6:
+            n_skip += 1
+            continue
+        # 2026-09-23修正: --min-dist既定0では障害専用距離(3110等)がSQLのdistance>=min_dist
+        # を素通りしてしまう。is_jump_race()(2026-09-20 F2)で明示除外(cmd_validateは
+        # 精度検証(ρ)集計用のため、compute_formation_accuracy.pyと同じ汚染が起きうる)。
+        if is_jump_race(race.get("race_name"), race.get("surface"), race.get("distance")):
             n_skip += 1
             continue
         out = predict_formation(conn, race, horses, n_sim=args.n_sim, seed=n_done + 1)

@@ -37,14 +37,25 @@ L_MAP = {
 }
 
 
-def classify_class(race_name):
+def classify_class(race_name, surface=None, distance=None):
     """race_nameからクラスを分類する。
     新表記(1勝/2勝/3勝クラス)・旧表記(500万下/1000万下/1600万下)の両方に対応。
     旧表記の対応関係(JRAの呼称変更、2019年前後に統一): 500万下=1勝クラス相当,
     1000万下=2勝クラス相当, 1600万下=3勝クラス相当。
     (DB確認: 500万下354件・1000万下89件が実在するため対応を追加。1600万下は0件だったが
      将来データ追加時のために念のため対応しておく)
+
+    surface/distance(2026-09-23追加、任意引数・後方互換): 渡された場合のみ
+    is_jump_race()(mc_dyn_engine.py、2026-09-20 F2)で距離ベースの障害レース判定を
+    併用する。元々の「"障害" in rn」判定はレース名切り詰め(JV-Link経由)で漏れることが
+    あり(京都ダ/芝3170m等の障害専用距離が実際に混入していた実例あり、build_class_par
+    table等でこの関数を使う集計に紛れ込んでいた)。呼び出し元がsurface/distanceを渡さない
+    既存コード(mc123_batch.py・classify_style_c2.py等多数)は従来通りの挙動を維持する。
     """
+    if surface is not None or distance is not None:
+        from mc_dyn_engine import is_jump_race
+        if is_jump_race(race_name, surface, distance):
+            return None
     rn = str(race_name or "")
     if not rn:
         return None
@@ -98,7 +109,7 @@ def build_class_par_table(conn, cutoff_date=None, min_n=MIN_N_CLASS_PAR, verbose
     groups = defaultdict(list)
     n_unclassified = 0
     for race_name, venue, surface, distance, track_cond, time_sec in rows:
-        cls = classify_class(race_name)
+        cls = classify_class(race_name, surface, distance)
         if cls is None or not track_cond:
             n_unclassified += 1
             continue
@@ -168,7 +179,7 @@ def calibrate_k_cls(conn, cutoff_date=None, min_n=MIN_N_PAIR, verbose=True):
 
     groups = defaultdict(lambda: defaultdict(list))  # groups[(venue,surface,distance,track_cond)][cls] = [times]
     for race_name, venue, surface, distance, track_cond, time_sec in rows:
-        cls = classify_class(race_name)
+        cls = classify_class(race_name, surface, distance)
         if cls is None or not track_cond:
             continue
         groups[(venue, surface, distance, track_cond)][cls].append(time_sec)
@@ -226,7 +237,7 @@ RECENCY_WEIGHTS = [1.0, 0.8, 0.6, 0.45, 0.35]
 def compute_a_run(conn, class_par, k_cls, same_day_bias_map, race_name, venue, surface,
                    distance, track_cond, time_sec, date):
     """1走分の A_run = L(cls)*k_cls - z_run_corrected を計算。計算不能ならNoneを返す。"""
-    cls = classify_class(race_name)
+    cls = classify_class(race_name, surface, distance)
     if cls is None or cls not in L_MAP or not track_cond or time_sec is None or time_sec <= 0:
         return None
     key = (cls, venue, surface, distance, track_cond)

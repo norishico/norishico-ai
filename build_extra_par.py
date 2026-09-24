@@ -37,16 +37,21 @@ def rel_finish_neg(finish, num_horses):
 
 
 def build_rank_par(conn, cutoff_date=None, verbose=True):
-    """rel_finish_negのグローバル(mu,sigma)。"""
-    where = "WHERE finish IS NOT NULL AND finish < 90 AND num_horses > 1"
+    """rel_finish_negのグローバル(mu,sigma)。
+    2026-09-23修正: 元々surfaceフィルタが無く、障害レース(surface='障'の直接分含む)が
+    混入していた。surface IN ('芝','ダ')限定+is_jump_race()(距離ベースの保険)を追加。"""
+    from mc_dyn_engine import is_jump_race
+    where = "WHERE finish IS NOT NULL AND finish < 90 AND num_horses > 1 AND surface IN ('芝','ダ')"
     params = []
     if cutoff_date:
         where += " AND date < ?"
         params.append(cutoff_date)
     vals = []
-    for finish, num_horses in conn.execute(
-        f"SELECT finish, num_horses FROM results {where}", params
+    for race_name, surface, distance, finish, num_horses in conn.execute(
+        f"SELECT race_name, surface, distance, finish, num_horses FROM results {where}", params
     ):
+        if is_jump_race(race_name, surface, distance):
+            continue
         v = rel_finish_neg(finish, num_horses)
         if v is not None:
             vals.append(v)
@@ -62,15 +67,20 @@ def build_margin_par(conn, cutoff_date=None, min_n=30, verbose=True):
     """(surface,dist_bucket) 10セルのsigma(平均センタリングなし)。
     1着自身の行のmarginもそのまま使う(DB格納値=次点との差の負値)。
     margin>=90(DNFセンチネル999.9)またはNULLはスキップ。"""
+    # 2026-09-23修正: race_nameをSELECTに追加し、is_jump_race()で障害専用距離
+    # (dist_bucketが機械的に"2401+"扱いしてしまう3110m等)を除外する。
+    from mc_dyn_engine import is_jump_race
     where = "WHERE margin IS NOT NULL AND margin < 90 AND surface IN ('芝','ダ')"
     params = []
     if cutoff_date:
         where += " AND date < ?"
         params.append(cutoff_date)
     groups = defaultdict(list)
-    for surface, distance, margin in conn.execute(
-        f"SELECT surface, distance, margin FROM results {where}", params
+    for race_name, surface, distance, margin in conn.execute(
+        f"SELECT race_name, surface, distance, margin FROM results {where}", params
     ):
+        if is_jump_race(race_name, surface, distance):
+            continue
         db = dist_bucket(distance)
         if db is None:
             continue
@@ -125,7 +135,7 @@ def build_l3f_par(conn, cutoff_date=None, min_n=MIN_N_L3F, verbose=True):
 
     groups = defaultdict(list)
     for race_name, venue, surface, distance, track_cond, last3f in rows:
-        cls = classify_class(race_name)
+        cls = classify_class(race_name, surface, distance)
         if cls is None or not track_cond:
             continue
         groups[(cls, venue, surface, distance, track_cond)].append(last3f)

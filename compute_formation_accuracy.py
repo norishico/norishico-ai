@@ -48,7 +48,7 @@ N_SIM_VALIDATE = 80
 
 
 def fetch_target_races(conn):
-    from mc_dyn_engine import pace_cls_group
+    from mc_dyn_engine import pace_cls_group, is_jump_race
     # track_condが欠損の行(約7%)は実際の馬場状態を推測できないため除外する
     # (「良」に固定してシミュレーションすると馬場補正が体系的に外れ、精度計算が歪む)
     rows = conn.execute("""
@@ -58,10 +58,22 @@ def fetch_target_races(conn):
           AND track_cond IS NOT NULL AND track_cond != ''
     """, (START_DATE,)).fetchall()
     out = []
+    n_jump_excluded = 0
     for race_id, venue, surface, distance, rname, track_cond, race_date in rows:
         if pace_cls_group(rname) == "新馬":
             continue
+        # 2026-09-23発見・修正: 本関数には障害レース除外が一度も実装されておらず(新馬戦の
+        # 除外しかなかった)、京都ダ/芝3170m等の障害専用距離がformation_accuracy.jsonに
+        # 混入していた(のりお指摘、course_tiers.jsonで「MC123信頼度はデータなしなのに
+        # 隊列精度だけ値がある」不整合として発覚。analyze_mc123_top1_conditions.py側は
+        # 2026-09-20に既に障害除外済みだったため、この不一致でバグが可視化された)。
+        # 共通関数is_jump_race()(2026-09-20 F2で新設)を適用。
+        if is_jump_race(rname, surface, distance):
+            n_jump_excluded += 1
+            continue
         out.append((race_id, venue, surface, distance, rname, track_cond, race_date))
+    if n_jump_excluded:
+        print(f"  障害レース除外: {n_jump_excluded}件")
     return out
 
 

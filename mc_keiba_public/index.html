@@ -339,6 +339,8 @@
     padding:14px; }
   .featured-card.featured-top { border-color:rgba(129,140,248,.4);
     background:linear-gradient(180deg, rgba(129,140,248,.09), rgba(129,140,248,.02)); }
+  /* 発走済みレース(2026-09-26追加): 今日の予想タブのpace-card-startedと同じ減光挙動 */
+  .featured-card.featured-card-started { opacity:.76; }
   .featured-rank { width:28px; height:28px; border-radius:50%; background:rgba(129,140,248,.15);
     border:1px solid rgba(129,140,248,.5); color:#818cf8; font-size:13px; font-weight:700;
     display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -971,10 +973,15 @@ function extractFeaturedRaces() {
       // 発走時刻はmc123_data.json自体には無いため、既に取得済みのpace_data.json側
       // (paceRace、隊列精度の突合で既に読み込んでいる)から流用する(2026-08-22追加、
       // のりお追加要望。新規フェッチを増やさずに済むためこちらを採用)
-      return { race, horse, rel, acc, pat, startTime: paceRace.start_time };
+      // startedは今日の予想タブと同じpaceRaceStarted()で判定(2026-09-26追加、のりお
+      // 要望「注目レースの発走済みは今日の予想と同じ挙動に」)
+      return { race, horse, rel, acc, pat, startTime: paceRace.start_time, started: paceRaceStarted(paceRace) };
     })
     .filter(Boolean)
-    .sort((a, b) => featuredStartMinutes(a.startTime) - featuredStartMinutes(b.startTime));
+    .sort((a, b) => {
+      if (a.started !== b.started) return a.started ? 1 : -1;
+      return featuredStartMinutes(a.startTime) - featuredStartMinutes(b.startTime);
+    });
 }
 
 // 発走時刻("H:MM"/"HH:MM")を分に変換してソート比較に使う。時刻不明は末尾に回す
@@ -1004,14 +1011,15 @@ function renderFeaturedTab() {
       <span class="pace-chip">${mc123Data.date || ''}</span>
       <span class="pace-chip">${items.length}レース</span>
       <span class="pace-note ms-auto" style="cursor:pointer" onclick="showInfo(event,'reliability')">選出基準について <span style="opacity:.7">ⓘ</span></span>
-    </div>`;
+    </div>
+    <div class="pace-note mb-3">発走済みのレースは一覧の下に移動します。</div>`;
   const cards = items.map((it, idx) => renderFeaturedCard(it, idx)).join('');
   c.innerHTML = header + notice + `<div class="featured-list">${cards}</div>`;
   initFolds(c);
 }
 
 function renderFeaturedCard(it, idx) {
-  const { race, horse, rel, acc, pat, startTime } = it;
+  const { race, horse, rel, acc, pat, startTime, started } = it;
   const p1 = Math.round((pat.p1 || 0) * 100);
   const ptop3 = Math.round((pat.ptop3 || 0) * 100);
   const placeRate = Math.round((rel.place_rate || 0) * 100);
@@ -1023,14 +1031,14 @@ function renderFeaturedCard(it, idx) {
   const hostId = 'featured-detail-' + race.race_id;
   const detailFold = renderRaceDetailFold(race.race_id, hostId);
   return `
-  <div class="featured-card ${idx < 5 ? 'featured-top' : ''}">
+  <div class="featured-card ${idx < 5 && !started ? 'featured-top' : ''} ${started ? 'featured-card-started' : ''}">
     <div class="featured-rank">${idx + 1}</div>
     <div class="featured-body">
       <div class="featured-head">
         <span class="venue-badge">${race.venue}</span>
         <div style="min-width:0">
           <div class="fw-bold" style="font-size:14px">${race.rno}R ${race.rname}</div>
-          <div class="pace-note">${startTime ? startTime + '発走・' : ''}${race.surface}${race.distance}m・${race.n_horses}頭</div>
+          <div class="pace-note">${startTime ? (started ? `<span style="opacity:.6">${startTime}発走済</span>・` : `${startTime}発走・`) : ''}${race.surface}${race.distance}m・${race.n_horses}頭</div>
         </div>
         <div class="d-flex gap-2 flex-wrap ms-auto">
           <span class="pace-chip" style="color:#2dd4bf">MC123 信頼度:高</span>

@@ -28,4 +28,16 @@ def in_tier_scope(venue, race_date):
 def scope_label():
     parts = [f"{TIER_START_DATE} 〜 (実行時点)"]
     parts += [f"{v}は{d}〜" for v, d in sorted(TIER_VENUE_START.items())]
+    parts.append("2歳未勝利は除外")
     return "; ".join(parts)
+
+
+# 2歳未勝利除外(2026-09-27追加、のりお承認)。通算1-2走目(ほぼ初出走)の馬が53.9%
+# (3歳以上未勝利32.0%・条件戦以上14.5%)と突出して情報量が薄く、会場×距離セルの
+# 過去実績(rel/acc)に混ぜると集計の信頼性を下げるため、集計元・注目レース選出の両方から除外する。
+# 3歳以上の未勝利戦は対象外(除外しない)。DBのrace_nameには年齢が含まれないため、
+# 「未勝利」の文言+ageカラム(<=2)で判定する。
+def is_2yo_maiden(race_name, age):
+    if not race_name or "未勝利" not in race_name:
+        return False
+    return age is not None and age <= 2

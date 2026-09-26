@@ -5,8 +5,10 @@ analyze_mc123_top1_conditions.py — MC123の1位予想馬が実際に複勝圏�
 
 「混戦度」というモデル内在指標ではなく、「会場×距離」「mc_dyn展開予想のH/M/S率が極端な時」
 という実測条件でMC123 #1ピックの複勝的中率がどう変わるかを調べる。AYOkeibaの本番スコープと
-同一基準(芝・ダート全レース、新馬・障害のみ除外、未勝利は含む)でtier_scope.pyのTIER_START_DATE
-以降(2026-09-26改訂で2021-01-01、京都は改修後の2023-04-22以降のみ)を対象とする。
+同一基準(芝・ダート全レース、新馬・障害・2歳未勝利のみ除外、3歳以上未勝利は含む)で
+tier_scope.pyのTIER_START_DATE以降(2026-09-26改訂で2021-01-01、京都は改修後の2023-04-22
+以降のみ)を対象とする。2歳未勝利は2026-09-27追加除外(通算1-2走目の馬が53.9%と情報量が
+薄く、セルの過去実績を薄める、のりお指摘)。
 
 方法(リーク防止・効率化): calibrate_mc123.load_year_racesと同じ設計で年ごとに
 cutoff_date=年始で構造テーブル(class_par/k_cls/pace_baseline/rank_par/margin_par/l3f_par/
@@ -29,7 +31,7 @@ from collections import defaultdict
 from multiprocessing import Pool
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from tier_scope import TIER_START_DATE, TIER_VENUE_START, in_tier_scope, scope_label
+from tier_scope import TIER_START_DATE, TIER_VENUE_START, in_tier_scope, scope_label, is_2yo_maiden
 
 DB_PATH = str(Path(__file__).resolve().parent / "keiba.db")
 N_MC = 1000
@@ -52,23 +54,29 @@ def umaban_to_gate(umaban):
 def fetch_target_races(conn):
     from mc_dyn_engine import pace_cls_group, is_jump_race
     rows = conn.execute("""
-        SELECT DISTINCT race_id, venue, surface, distance, race_name, date
+        SELECT race_id, venue, surface, distance, race_name, date, MIN(age) AS age_min
         FROM results
         WHERE date >= ? AND surface IN ('芝','ダ') AND num_horses >= 6 AND pos4 IS NOT NULL
           AND track_cond IS NOT NULL AND track_cond != ''
+        GROUP BY race_id, venue, surface, distance, race_name, date
     """, (TIER_START_DATE,)).fetchall()
     out = []
     n_scope_excluded = 0
-    for race_id, venue, surface, distance, rname, race_date in rows:
+    n_2yo_maiden_excluded = 0
+    for race_id, venue, surface, distance, rname, race_date, age_min in rows:
         if pace_cls_group(rname) == "新馬":
             continue
         if is_jump_race(rname, surface, distance):
+            continue
+        if is_2yo_maiden(rname, age_min):
+            n_2yo_maiden_excluded += 1
             continue
         if not in_tier_scope(venue, race_date):
             n_scope_excluded += 1
             continue
         out.append((race_id, venue, surface, distance, rname, race_date))
     print(f"  会場別開始日で除外: {n_scope_excluded}件")
+    print(f"  2歳未勝利で除外: {n_2yo_maiden_excluded}件")
     return out
 
 

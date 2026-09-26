@@ -3,9 +3,9 @@
 会場×表面×距離別の隊列予測精度(ρ)を計算し formation_accuracy.json を生成する(2026-08-08新規、
 2026-08-13外部セカンドオピニオン(Manus AI)+12人委員会で統計手法を改訂)。
 
-方法(2026-08-13改訂版、2026-09-26スコープ拡大):
+方法(2026-08-13改訂版、2026-09-26スコープ拡大、2026-09-27に2歳未勝利除外追加):
   1. tier_scope.pyのTIER_START_DATE以降(2021-01-01、京都は改修後の2023-04-22以降のみ)・
-     新馬戦除く・6頭立て以上のレースをpredict_formation(n_sim=80)で検証
+     新馬戦・2歳未勝利除く・6頭立て以上のレースをpredict_formation(n_sim=80)で検証
      (n_sim=80は既存cmd_validateの実測済み設定を踏襲。ヘッドラインは4角(pos4)基準、
      ゴール(finish)基準は弱さの併記用に別途算出) ※--stats-onlyでは実施しない(下記)
   2. 会場×表面×距離セルごとに集計。within-race分散はセル内の残差から実測プール推定
@@ -41,7 +41,7 @@ from multiprocessing import Pool
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from tier_scope import TIER_START_DATE, TIER_VENUE_START, in_tier_scope, scope_label
+from tier_scope import TIER_START_DATE, TIER_VENUE_START, in_tier_scope, scope_label, is_2yo_maiden
 
 DB_PATH = str(Path(__file__).resolve().parent / "keiba.db")
 MIN_CELL_N_RELIABLE = 15   # 異質性検定・分位境界決定に使う最小セル件数
@@ -54,15 +54,17 @@ def fetch_target_races(conn):
     # track_condが欠損の行(約7%)は実際の馬場状態を推測できないため除外する
     # (「良」に固定してシミュレーションすると馬場補正が体系的に外れ、精度計算が歪む)
     rows = conn.execute("""
-        SELECT DISTINCT race_id, venue, surface, distance, race_name, track_cond, date
+        SELECT race_id, venue, surface, distance, race_name, track_cond, date, MIN(age) AS age_min
         FROM results
         WHERE date >= ? AND surface IN ('芝','ダ') AND num_horses >= 6 AND pos4 IS NOT NULL
           AND track_cond IS NOT NULL AND track_cond != ''
+        GROUP BY race_id, venue, surface, distance, race_name, track_cond, date
     """, (TIER_START_DATE,)).fetchall()
     out = []
     n_jump_excluded = 0
     n_scope_excluded = 0
-    for race_id, venue, surface, distance, rname, track_cond, race_date in rows:
+    n_2yo_maiden_excluded = 0
+    for race_id, venue, surface, distance, rname, track_cond, race_date, age_min in rows:
         if pace_cls_group(rname) == "新馬":
             continue
         # 2026-09-23発見・修正: 本関数には障害レース除外が一度も実装されておらず(新馬戦の
@@ -74,6 +76,11 @@ def fetch_target_races(conn):
         if is_jump_race(rname, surface, distance):
             n_jump_excluded += 1
             continue
+        # 2026-09-27追加: 2歳未勝利除外(tier_scope.is_2yo_maiden参照、通算1-2走目の馬が
+        # 53.9%と情報量が薄くセルの過去実績を薄めるため)。3歳以上未勝利は対象外(除外しない)。
+        if is_2yo_maiden(rname, age_min):
+            n_2yo_maiden_excluded += 1
+            continue
         if not in_tier_scope(venue, race_date):
             n_scope_excluded += 1
             continue
@@ -81,6 +88,7 @@ def fetch_target_races(conn):
     if n_jump_excluded:
         print(f"  障害レース除外: {n_jump_excluded}件")
     print(f"  会場別開始日で除外: {n_scope_excluded}件")
+    print(f"  2歳未勝利で除外: {n_2yo_maiden_excluded}件")
     return out
 
 

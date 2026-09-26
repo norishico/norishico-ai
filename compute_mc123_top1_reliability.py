@@ -120,6 +120,7 @@ def main():
     payload = {
         "source": "mc123_top1_conditions.json",
         "source_generated_at": src.get("generated_at"),
+        "scope": src.get("scope"),
         "n_races_used": src.get("n_races"),
         "overall_place_rate": round(p_bar, 4) if p_bar is not None else None,
         "sigma2_pool": round(sigma2_pool, 5),

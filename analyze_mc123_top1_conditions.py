@@ -5,7 +5,8 @@ analyze_mc123_top1_conditions.py — MC123の1位予想馬が実際に複勝圏�
 
 「混戦度」というモデル内在指標ではなく、「会場×距離」「mc_dyn展開予想のH/M/S率が極端な時」
 という実測条件でMC123 #1ピックの複勝的中率がどう変わるかを調べる。AYOkeibaの本番スコープと
-同一基準(芝・ダート全レース、新馬・障害のみ除外、未勝利は含む)で2024-01-01以降を対象とする。
+同一基準(芝・ダート全レース、新馬・障害のみ除外、未勝利は含む)でtier_scope.pyのTIER_START_DATE
+以降(2026-09-26改訂で2021-01-01、京都は改修後の2023-04-22以降のみ)を対象とする。
 
 方法(リーク防止・効率化): calibrate_mc123.load_year_racesと同じ設計で年ごとに
 cutoff_date=年始で構造テーブル(class_par/k_cls/pace_baseline/rank_par/margin_par/l3f_par/
@@ -28,9 +29,9 @@ from collections import defaultdict
 from multiprocessing import Pool
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tier_scope import TIER_START_DATE, TIER_VENUE_START, in_tier_scope, scope_label
 
 DB_PATH = str(Path(__file__).resolve().parent / "keiba.db")
-START_DATE = "2024-01-01"
 N_MC = 1000
 N_SIM_PACE = 80
 
@@ -55,14 +56,19 @@ def fetch_target_races(conn):
         FROM results
         WHERE date >= ? AND surface IN ('芝','ダ') AND num_horses >= 6 AND pos4 IS NOT NULL
           AND track_cond IS NOT NULL AND track_cond != ''
-    """, (START_DATE,)).fetchall()
+    """, (TIER_START_DATE,)).fetchall()
     out = []
+    n_scope_excluded = 0
     for race_id, venue, surface, distance, rname, race_date in rows:
         if pace_cls_group(rname) == "新馬":
             continue
         if is_jump_race(rname, surface, distance):
             continue
+        if not in_tier_scope(venue, race_date):
+            n_scope_excluded += 1
+            continue
         out.append((race_id, venue, surface, distance, rname, race_date))
+    print(f"  会場別開始日で除外: {n_scope_excluded}件")
     return out
 
 
@@ -131,7 +137,7 @@ def _worker(args):
         fin = horses_mc[top1_idx]["finish"]
         top1_placed = 1 if (fin and 1 <= fin <= 3) else 0
 
-        return (venue, surface, distance, top1_placed, p["h_rate"], p["m_rate"], p["s_rate"])
+        return (venue, surface, distance, top1_placed, p["h_rate"], p["m_rate"], p["s_rate"], race_date)
     except Exception as e:
         return ("ERR", str(e), race_id)
 
@@ -179,9 +185,16 @@ def main():
     if errors:
         print("エラー例:", errors[:5])
 
+    # 期間別診断(2026-09-26新設): 選出ゲートには使わない参考情報として、会場×距離×surface
+    # セルごとにplace_rateを2021-2023/2024-の2期間で分けて記録し、非定常性を目視確認できるようにする
+    PERIOD_CUTOFF = "2024-01-01"
+
     by_vd = defaultdict(list)
-    for venue, surface, distance, placed, h, m, s in results:
+    by_vd_period = defaultdict(lambda: defaultdict(list))
+    for venue, surface, distance, placed, h, m, s, race_date in results:
         by_vd[(venue, surface, distance)].append(placed)
+        period = "2021-2023" if race_date < PERIOD_CUTOFF else "2024-"
+        by_vd_period[(venue, surface, distance)][period].append(placed)
 
     buckets = {
         "S>=0.6": lambda h, m, s: s >= 0.6,
@@ -193,7 +206,7 @@ def main():
     }
     bucket_stats = {}
     for label, cond in buckets.items():
-        placed_list = [placed for venue, surface, distance, placed, h, m, s in results if cond(h, m, s)]
+        placed_list = [placed for venue, surface, distance, placed, h, m, s, race_date in results if cond(h, m, s)]
         if placed_list:
             bucket_stats[label] = {"n": len(placed_list),
                                    "place_rate": round(sum(placed_list) / len(placed_list), 4)}
@@ -202,14 +215,20 @@ def main():
 
     vd_stats = []
     for (venue, surface, distance), placed_list in by_vd.items():
+        period_stats = {}
+        for period, plist in by_vd_period[(venue, surface, distance)].items():
+            if plist:
+                period_stats[period] = {"n": len(plist), "place_rate": round(sum(plist) / len(plist), 4)}
         vd_stats.append({"venue": venue, "surface": surface, "distance": distance,
-                         "n": len(placed_list), "place_rate": round(sum(placed_list) / len(placed_list), 4)})
+                         "n": len(placed_list), "place_rate": round(sum(placed_list) / len(placed_list), 4),
+                         "period_stats": period_stats})
     vd_stats.sort(key=lambda x: -x["place_rate"])
 
     payload = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "n_races": len(results), "n_mc": N_MC, "n_sim_pace": N_SIM_PACE,
         "overall_place_rate": round(overall, 4) if overall is not None else None,
+        "scope": scope_label(), "start_date": TIER_START_DATE, "venue_start_overrides": TIER_VENUE_START,
         "pace_bucket_stats": bucket_stats,
         "venue_distance_stats": vd_stats,
     }

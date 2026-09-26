@@ -30,12 +30,13 @@ def load_reliability():
     メタ情報(生成時刻・使用レース数)を返す。ファイルが無ければ空辞書+Noneメタで返す
     (generate_mc_record.load_tier_lookup()と同様、存在しない場合でも落ちない)。"""
     if not RELIABILITY_PATH.exists():
-        return {}, {'generated_at': None, 'n_races': 0}
+        return {}, {'generated_at': None, 'n_races': 0, 'scope': None}
     data = json.loads(RELIABILITY_PATH.read_text(encoding='utf-8'))
     lut = {(c['venue'], c['surface'], c['distance']): c for c in data.get('cells', [])}
     meta = {
         'generated_at': data.get('source_generated_at'),
         'n_races': data.get('n_races_used', 0),
+        'scope': data.get('scope'),
     }
     return lut, meta
 
@@ -112,6 +113,7 @@ def main():
         'formation_generated_at': acc_meta['generated_at'],
         'reliability_n_races': rel_meta['n_races'],
         'formation_n_races': acc_meta['n_races'],
+        'scope': rel_meta.get('scope'),
         'cells': cells,
     }
 

@@ -3,8 +3,9 @@
 会場×表面×距離別の隊列予測精度(ρ)を計算し formation_accuracy.json を生成する(2026-08-08新規、
 2026-08-13外部セカンドオピニオン(Manus AI)+12人委員会で統計手法を改訂)。
 
-方法(2026-08-13改訂版):
-  1. 2024-01-01以降・新馬戦除く・6頭立て以上のレースをpredict_formation(n_sim=80)で検証
+方法(2026-08-13改訂版、2026-09-26スコープ拡大):
+  1. tier_scope.pyのTIER_START_DATE以降(2021-01-01、京都は改修後の2023-04-22以降のみ)・
+     新馬戦除く・6頭立て以上のレースをpredict_formation(n_sim=80)で検証
      (n_sim=80は既存cmd_validateの実測済み設定を踏襲。ヘッドラインは4角(pos4)基準、
      ゴール(finish)基準は弱さの併記用に別途算出) ※--stats-onlyでは実施しない(下記)
   2. 会場×表面×距離セルごとに集計。within-race分散はセル内の残差から実測プール推定
@@ -39,9 +40,10 @@ from collections import defaultdict
 from multiprocessing import Pool
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tier_scope import TIER_START_DATE, TIER_VENUE_START, in_tier_scope, scope_label
 
 DB_PATH = str(Path(__file__).resolve().parent / "keiba.db")
-START_DATE = "2024-01-01"
 MIN_CELL_N_RELIABLE = 15   # 異質性検定・分位境界決定に使う最小セル件数
 ALPHA = 0.05                # 事前固定の有意水準(結果を見てからの変更は禁止)
 N_SIM_VALIDATE = 80
@@ -56,9 +58,10 @@ def fetch_target_races(conn):
         FROM results
         WHERE date >= ? AND surface IN ('芝','ダ') AND num_horses >= 6 AND pos4 IS NOT NULL
           AND track_cond IS NOT NULL AND track_cond != ''
-    """, (START_DATE,)).fetchall()
+    """, (TIER_START_DATE,)).fetchall()
     out = []
     n_jump_excluded = 0
+    n_scope_excluded = 0
     for race_id, venue, surface, distance, rname, track_cond, race_date in rows:
         if pace_cls_group(rname) == "新馬":
             continue
@@ -71,9 +74,13 @@ def fetch_target_races(conn):
         if is_jump_race(rname, surface, distance):
             n_jump_excluded += 1
             continue
+        if not in_tier_scope(venue, race_date):
+            n_scope_excluded += 1
+            continue
         out.append((race_id, venue, surface, distance, rname, track_cond, race_date))
     if n_jump_excluded:
         print(f"  障害レース除外: {n_jump_excluded}件")
+    print(f"  会場別開始日で除外: {n_scope_excluded}件")
     return out
 
 
@@ -120,7 +127,7 @@ def _worker(args):
                     rho_goal = r
         if rho4 is None and rho_goal is None:
             return None
-        return (venue, surface, distance, rho4, rho_goal)
+        return (venue, surface, distance, rho4, rho_goal, race_date)
     except Exception as e:
         return ("ERR", str(e), race_id, None, None)
     finally:
@@ -167,6 +174,7 @@ def main():
         n_races_used = prev["n_races_used"]
         n_sim_per_race = prev["n_sim_per_race"]
         computed_scope = prev["computed_scope"] + " ※統計手法のみ再計算、シミュレーション未再実行"
+        grand_mean_rho_pos4_by_period = prev.get("grand_mean_rho_pos4_by_period")
         print(f"--stats-only: {out_path.name} の{len(cell_means)}セルを再利用(シミュレーション省略)")
     else:
         conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
@@ -195,14 +203,23 @@ def main():
             print("エラー例:", errors[:3])
 
         # セル集計
+        PERIOD_CUTOFF = "2024-01-01"
         cell_rho4 = defaultdict(list)
         cell_rho_goal = defaultdict(list)
-        for venue, surface, distance, rho4, rho_goal in results:
+        period_rho4 = defaultdict(list)  # 期間別診断(2026-09-26新設、選出ゲートには不使用)
+        for venue, surface, distance, rho4, rho_goal, race_date in results:
             key = (venue, surface, distance)
             if rho4 is not None:
                 cell_rho4[key].append(rho4)
+                period = "2021-2023" if race_date < PERIOD_CUTOFF else "2024-"
+                period_rho4[period].append(rho4)
             if rho_goal is not None:
                 cell_rho_goal[key].append(rho_goal)
+
+        grand_mean_rho_pos4_by_period = {
+            period: {"n": len(vals), "mean": round(sum(vals) / len(vals), 4)}
+            for period, vals in period_rho4.items() if vals
+        }
 
         all_rho4 = [r for vals in cell_rho4.values() for r in vals]
         grand_mean_rho4 = sum(all_rho4) / len(all_rho4) if all_rho4 else None
@@ -223,7 +240,7 @@ def main():
         cell_rho_goal_mean = {k: (sum(v) / len(v) if v else None) for k, v in cell_rho_goal.items()}
         n_races_used = len(results)
         n_sim_per_race = N_SIM_VALIDATE
-        computed_scope = f"{START_DATE} 〜 (実行時点)"
+        computed_scope = scope_label()
 
     het = heterogeneity_test(list(cell_means.values()), list(cell_ns.values()), sigma2_pool)
 
@@ -281,6 +298,7 @@ def main():
         "computed_scope": computed_scope,
         "n_races_used": n_races_used,
         "n_sim_per_race": n_sim_per_race,
+        "grand_mean_rho_pos4_by_period": grand_mean_rho_pos4_by_period,
         "grand_mean_rho_pos4": round(grand_mean_rho4, 4) if grand_mean_rho4 is not None else None,
         "grand_mean_rho_goal": round(grand_mean_rho_goal, 4) if grand_mean_rho_goal is not None else None,
         "sigma2_pool": round(sigma2_pool, 5),

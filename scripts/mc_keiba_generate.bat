@@ -1,17 +1,28 @@
 @echo off
 REM mc_keiba_generate.bat - Task Scheduler: SAT+SUN 05:00
-REM generate_mc_record.py(widget) + generate_pace_forecast.py(展開予想) +
-REM generate_mc123_forecast.py(MC123) -> vercel deploy
-REM 2026-08-10: 「記録履歴」タブ撤去に伴いgenerate_mc_record.pyの役割はウィジェット用
-REM widget_data.json生成のみに縮小(index.htmlはもう書き換えない)。
-REM 2026-08-13: pace_data.json/mc123_data.jsonの自動生成をbatに組み込み(既知の課題を解消)。
-REM この2本は失敗しても独立設計(古いデータが残るだけで本体・ウィジェットには影響しない)
-REM ため、個別の失敗ではデプロイ自体は止めない(generate_mc_record.pyの失敗のみデプロイを
-REM 止めるcanaryとして扱う)
-REM 2026-08-23: win5_data.json自動生成を追加(手動生成のみで前日分のまま止まる不具合を解消)。
-REM 引数なし実行で本日日付を自動取得(pace/mc123と違いYYYYMMDD内部処理のため%TODAY%は渡さない)。
-REM この起動タスク自体が土日(=中央競馬開催に概ね一致)のみ実行のため、開催日限定の追加ロジックは不要。
-REM 同様に失敗してもデプロイは止めない
+REM generate_mc_record.py (widget) + generate_pace_forecast.py (pace sim) +
+REM generate_mc123_forecast.py (MC123) -> vercel deploy
+REM 2026-08-10: generate_mc_record.py now only builds widget_data.json.
+REM 2026-08-13: pace_data.json / mc123_data.json generation folded into this batch.
+REM These two are independent (a failure just leaves stale data, no impact on the
+REM main widget), so their own failures do not block the deploy step; only
+REM generate_mc_record.py acts as the canary that blocks the deploy.
+REM 2026-08-23: added win5_data.json generation (previously manual-only, would go stale).
+REM 2026-09-20 F5: accumulate per-step failures into FAIL so the final exit code
+REM always reflects a failure even though the deploy step still runs regardless.
+REM 2026-09-27: rewrote this file with plain-ASCII comments only. The previous
+REM version had Japanese REM comments saved as UTF-8, and on this Japanese-locale
+REM Windows box cmd.exe parses batch files using the ANSI codepage (CP932/Shift-JIS)
+REM by default, which corrupted the REM keyword itself in several lines and made
+REM cmd.exe try to execute the garbled text as a command. This caused the task to
+REM fail immediately with zero log output, both under the original interactive
+REM logon and after switching to S4U. Same lesson as feedback_ps1_writing.md
+REM (avoid non-ASCII text in files cmd.exe/PowerShell must parse). Also replaced
+REM the locale-dependent %date%/%time% parsing and the nested "powershell -command"
+REM call (both plausible contributors) with plain Python date computation, and
+REM added a marker log written before any other step so a future failure this
+REM early still leaves a trace.
+echo [marker] batch triggered %date% %time% >> "C:\Users\westr\norishiko_ai\logs\mc_keiba_generate_lastrun_marker.log" 2>&1
 setlocal
 set PROJ=C:\Users\westr\norishiko_ai
 set PYEXE=py
@@ -21,15 +32,11 @@ set LOGDIR=%PROJ%\logs
 
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
 
-set STAMP=%date:~0,4%%date:~5,2%%date:~8,2%_%time:~0,2%%time:~3,2%%time:~6,2%
-set STAMP=%STAMP: =0%
+for /f "usebackq" %%i in (`%PYEXE% -c "import datetime; print(datetime.datetime.now().strftime('%%Y%%m%%d_%%H%%M%%S'))"`) do set STAMP=%%i
 set LOGFILE=%LOGDIR%\mc_keiba_generate_%STAMP%.log
 
-for /f %%i in ('powershell -command "Get-Date -Format yyyy-MM-dd"') do set TODAY=%%i
+for /f "usebackq" %%i in (`%PYEXE% -c "import datetime; print(datetime.date.today().isoformat())"`) do set TODAY=%%i
 
-REM 2026-09-20 F5修正: 各ステップの失敗を蓄積し、最終的な終了コードに反映させる
-REM (タスクスケジューラの成功/失敗監視だけで検知できるようにするため。個別の失敗では
-REM デプロイ自体は止めない設計は維持しつつ、終了コードには必ず反映する)。
 set FAIL=0
 
 cd /d "%PROJ%"

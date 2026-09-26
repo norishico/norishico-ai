@@ -10,10 +10,13 @@ REM  2026-09-04: created after discovering these 3 scripts had no scheduled
 REM  run since being written in August (design gap, not a bug)
 REM  2026-09-23 (S6): added build_course_tiers_json.py (mc_keiba_public/
 REM  course_tiers.json for the AYOkeiba "course list" tab) + a Vercel prod
-REM  deploy at the end of this weekly run (のりお承認済み: this is now the
-REM  only path that ships course_tiers.json, since the daily MCKeibaGenerate
-REM  deploy does not regenerate it)
+REM  deploy at the end of this weekly run (approved by project owner: this
+REM  is now the only path that ships course_tiers.json, since the daily
+REM  MCKeibaGenerate deploy does not regenerate it)
+REM  2026-09-27: rewrote with plain-ASCII comments only and Python-based date
+REM  computation (see mc_keiba_generate.bat for the full explanation).
 REM ======================================================================
+echo [marker] batch triggered %date% %time% >> "C:\Users\westr\norishiko_ai\logs\mc123_tier_refresh_lastrun_marker.log" 2>&1
 setlocal
 set PROJ=C:\Users\westr\norishiko_ai
 set PYEXE=py
@@ -23,8 +26,7 @@ set LOGDIR=%PROJ%\logs
 
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
 
-set STAMP=%date:~0,4%%date:~5,2%%date:~8,2%_%time:~0,2%%time:~3,2%%time:~6,2%
-set STAMP=%STAMP: =0%
+for /f "usebackq" %%i in (`%PYEXE% -c "import datetime; print(datetime.datetime.now().strftime('%%Y%%m%%d_%%H%%M%%S'))"`) do set STAMP=%%i
 set LOGFILE=%LOGDIR%\mc123_tier_refresh_%STAMP%.log
 
 cd /d "%PROJ%"

@@ -3,7 +3,12 @@ REM ======================================================================
 REM  Sunday preview (Task Scheduler: Sat 20:00)
 REM  Sunday race prediction. Runs after Saturday races end to avoid
 REM  conflict with race_day_auto_refresh loop (2026-04-18 policy change).
+REM 2026-09-27: rewrote with plain-ASCII comments only and Python-based date
+REM computation (see mc_keiba_generate.bat for the full explanation). The old
+REM UTF-8 Japanese REM comments corrupted the REM keyword under cmd.exe's
+REM default CP932 parsing, causing this task to fail with zero log output.
 REM ======================================================================
+echo [marker] batch triggered %date% %time% >> "C:\Users\westr\norishiko_ai\logs\sunday_preview_lastrun_marker.log" 2>&1
 setlocal
 set PROJ=C:\Users\westr\norishiko_ai
 set PYEXE=py
@@ -13,12 +18,9 @@ set LOGDIR=%PROJ%\logs
 
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
 
-set STAMP=%date:~0,4%%date:~5,2%%date:~8,2%_%time:~0,2%%time:~3,2%%time:~6,2%
-set STAMP=%STAMP: =0%
+for /f "usebackq" %%i in (`%PYEXE% -c "import datetime; print(datetime.datetime.now().strftime('%%Y%%m%%d_%%H%%M%%S'))"`) do set STAMP=%%i
 set LOGFILE=%LOGDIR%\sunday_preview_%STAMP%.log
 
-REM 2026-09-20 F5修正: 各ステップの失敗を蓄積し、最終的な終了コードに反映させる
-REM (タスクスケジューラの成功/失敗監視だけで検知できるようにするため)。
 set FAIL=0
 
 cd /d "%PROJ%"
@@ -65,8 +67,8 @@ REM generate_mc_record.py has its own staleness guard against weekend_prediction
 REM so if publish_weekend.py failed above, this step fails loud here too (goto :ayoend
 REM skips pace/mc123/win5/deploy, same canary pattern as mc_keiba_generate.bat).
 REM The 05:00 raceday MCKeibaGenerate task is kept as-is to catch overnight scratches.
-for /f %%i in ('powershell -NoProfile -Command "(Get-Date).AddDays(1).ToString('yyyy-MM-dd')"') do set TOMORROW=%%i
-for /f %%i in ('powershell -NoProfile -Command "(Get-Date).AddDays(1).ToString('yyyyMMdd')"') do set TOMORROW_C=%%i
+for /f "usebackq" %%i in (`%PYEXE% -c "import datetime; print((datetime.date.today()+datetime.timedelta(days=1)).isoformat())"`) do set TOMORROW=%%i
+for /f "usebackq" %%i in (`%PYEXE% -c "import datetime; print((datetime.date.today()+datetime.timedelta(days=1)).strftime('%%Y%%m%%d'))"`) do set TOMORROW_C=%%i
 
 echo [%date% %time%] AYOkeiba early generate start TOMORROW=%TOMORROW% >> "%LOGFILE%"
 "%PYEXE%" -X utf8 generate_mc_record.py %TOMORROW% >> "%LOGFILE%" 2>&1

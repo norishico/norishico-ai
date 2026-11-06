@@ -62,6 +62,13 @@ set RC_MC123=%ERRORLEVEL%
 echo [%date% %time%] mc123 forecast rc=%RC_MC123% >> "%LOGFILE%"
 if %RC_MC123% NEQ 0 set FAIL=1
 
+REM 2026-11-07: incremental race_laps fetch (past dates only, skips existing) so that the
+REM forward eval can compare pH/pM/pS with the realized pace. fetch_laps.py was manual-only
+REM and race_laps had silently stopped at 2026-06-28. Log only, never touches FAIL.
+echo [%date% %time%] fetch_laps start >> "%LOGFILE%"
+"%PYEXE%" -X utf8 fetch_laps.py --year %TODAY:~0,4% >> "%LOGFILE%" 2>&1
+echo [%date% %time%] fetch_laps rc=%ERRORLEVEL% >> "%LOGFILE%"
+
 REM 2026-11-06: MC123 forward-validation report (pre-race forecasts saved in mc123_forward\
 REM vs confirmed results). Log only: a failure here must not touch FAIL or block the deploy.
 echo [%date% %time%] mc123 forward eval start >> "%LOGFILE%"

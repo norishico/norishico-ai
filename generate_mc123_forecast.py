@@ -252,6 +252,19 @@ def _fetch_horses_with_retry(conn, race_id, live_mode, max_retry=3, wait_sec=5):
     return horses, est, n_scratched
 
 
+def detail_by_umaban(det, horses):
+    """run_mc123(return_detail=True)のdetail(horsesのindex基準)を、馬番(umaban)基準に変換する。
+    Forward検証ログ専用(2026-11-07新設)。サイトのmc123_data.jsonには出さない(非表示で計測のみ)。"""
+    um = [int(h["umaban"]) for h in horses]
+    conv = lambda rows: [[um[i] for i in r[:-1]] + [r[-1]] for r in rows]
+    return {
+        "pace_probs": det["pace_probs"], "n_pace": det["n_pace"],
+        "cond": {P: (None if c is None else {str(um[i]): x for i, x in enumerate(c)})
+                 for P, c in det["cond"].items()},
+        "umaren": conv(det["umaren"]), "wide": conv(det["wide"]), "sanrenpuku": conv(det["sanrenpuku"]),
+    }
+
+
 def validate_race_output(horses, patterns):
     """出力直前の整合性検証(2026-11-06新設)。エラー文字列のリストを返し、空なら正常。
     weekend_predictions.jsonの78%サイレント欠落(2026-07-22)や、margin文字列のTypeErrorのように
@@ -297,7 +310,7 @@ def _engine_tag():
     return hashlib.sha1(p.read_bytes()).hexdigest()[:8]
 
 
-def log_forward(race_meta, horses, patterns, n_mc, generated_at, engine_tag):
+def log_forward(race_meta, horses, patterns, n_mc, generated_at, engine_tag, details=None):
     """発走前の予測をForward検証ログに保存する(2026-11-06新設)。
 
     LOCK規則: 同一race_idは先着保存(2回目以降の実行では上書きしない)。後から再実行して
@@ -317,8 +330,12 @@ def log_forward(race_meta, horses, patterns, n_mc, generated_at, engine_tag):
                              for r in rows]
                      for label, rows in patterns.items()},
     }
+    if details:
+        # 非表示の計測用(2026-11-07新設): ペース別の条件付き確率・pH/pM/pS・組合せ確率の上位
+        doc["races"][race_meta["race_id"]]["detail"] = details
     tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
+    # 詳細つきで1日あたりのサイズが増えるためコンパクト形式で保存(評価側は形式非依存)
+    tmp.write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     os.replace(tmp, path)
     return True
 
@@ -402,7 +419,7 @@ def main():
             continue
 
         n = len(horses)
-        patterns, first_result = {}, None
+        patterns, first_result, details = {}, None, {}
         for label, cond in TRACK_PATTERNS:
             race_info = {"venue": venue, "distance": distance, "track_cond": cond,
                         "num_horses": n, "date": TARGET_DATE, "surface": surface, "race_id": race_id}
@@ -411,7 +428,8 @@ def main():
                                                 bias_map, pace_baseline, rank_par=rank_par,
                                                 margin_par=margin_par, l3f_par=l3f_par)
                 seed = hash64_seed(f"{race_id}_{cond}")
-                result = run_mc123(horses, race_info, n_mc=N_MC, seed=seed, wind=None)
+                result, det = run_mc123(horses, race_info, n_mc=N_MC, seed=seed, wind=None,
+                                        return_detail=True)
             except Exception as e:
                 print(f"  ERR {race_id} {rname} ({label}): {e}")
                 result = None
@@ -419,6 +437,8 @@ def main():
                 continue
             if first_result is None:
                 first_result = result
+            if det is not None:
+                details[label] = detail_by_umaban(det, horses)
             patterns[label] = [{"p1": round(r["p1"], 4), "p2": round(r["p2"], 4),
                                "p3": round(r["p3"], 4), "ptop3": round(r["ptop3"], 4)}
                               for r in result]
@@ -476,7 +496,7 @@ def main():
         else:
             meta = {"race_id": race_id, "race_date": TARGET_DATE, "venue": venue, "rno": rno,
                     "rname": rname, "surface": surface, "distance": distance, "n_horses": n}
-            if log_forward(meta, horses, patterns, N_MC, gen_at, eng_tag):
+            if log_forward(meta, horses, patterns, N_MC, gen_at, eng_tag, details):
                 n_logged += 1
 
     # 2026-11-06新設: 出力の完全性検証。対象レース数(新馬・障害を除く)に対する出力割合を見る

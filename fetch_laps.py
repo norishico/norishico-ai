@@ -297,10 +297,13 @@ def get_race_list(conn, year_from, year_to):
         SELECT DISTINCT date, venue, race_num, kai, week_num, surface, distance
         FROM results
         WHERE date BETWEEN ? AND ?
+          AND date < date('now', 'localtime')
           AND kai IS NOT NULL AND week_num IS NOT NULL
           AND (race_name IS NULL OR race_name NOT LIKE '%障害%')
         ORDER BY date, venue, race_num
     '''
+    # 2026-11-07: 「前日まで」に限定。resultsには出馬表段階の未来日レースも入るため、ガード無しだと
+    # 未開催レースのラップ空の行が保存され、既存スキップの仕様で二度と再取得されなくなる
     rows = conn.execute(q, (f'{year_from}-01-01', f'{year_to}-12-31')).fetchall()
 
     races = []

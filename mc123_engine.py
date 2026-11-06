@@ -223,7 +223,10 @@ def precompute_horse_features(conn, horses, race_info, class_par, k_cls, same_da
     return horses
 
 
-def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
+DETAIL_TOPK = 20  # return_detail時に保持する組合せ(馬連/ワイド/三連複それぞれ)の上位件数
+
+
+def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None, return_detail=False):
     """MC本体。horsesは事前にprecompute_horse_features()済みのリストを渡すこと。
 
     Args:
@@ -233,12 +236,21 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
         seed: Noneならrace_idから決定的に生成
         wind: {'tail_home': float, 'gust_max': float} or None(中立シナリオ)
 
+        return_detail: True なら (out, detail) を返す(2026-11-07新設、Forward検証ログ用)。
+            乱数の消費順は変えないので out は return_detail に依らず同一。
+
     Returns:
         list[dict]: horses と同じ順序で {'p1','p2','p3','ptop3'}
+        return_detail=True のとき (list[dict], dict|None)。detail は
+            pace_probs: エンジンが各試行でペースを引く確率 {H,M,S}(手書き式、較正は未検証)
+            n_pace: 各ペースが引かれた試行数
+            cond: ペース別の条件付き順位確率 {P: [[p1,p2,p3] per horse]}(引かれなかったPはNone)
+            umaren/wide/sanrenpuku: 確率上位DETAIL_TOPK組。馬はhorses内のindex、末尾が確率
     """
     n = len(horses)
     if n < 3:
-        return [{"p1": 1.0 / n, "p2": 1.0 / n, "p3": 1.0 / n, "ptop3": 1.0} for _ in range(n)]
+        out = [{"p1": 1.0 / n, "p2": 1.0 / n, "p3": 1.0 / n, "ptop3": 1.0} for _ in range(n)]
+        return (out, None) if return_detail else out
 
     if seed is None:
         seed = hash64_seed(race_info.get("race_id", "unknown"))
@@ -299,6 +311,10 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
     tail_home = wind.get("tail_home", 0.0) if wind else 0.0
 
     rank_counts = np.zeros((3, n))  # [0]=1着, [1]=2着, [2]=3着
+    if return_detail:
+        cond_counts = {P_: np.zeros((3, n)) for P_ in "HMS"}
+        n_pace = {"H": 0, "M": 0, "S": 0}
+        c_umaren, c_wide, c_sanrenpuku = {}, {}, {}
 
     for _ in range(n_mc):
         P = rng.choice(["H", "M", "S"], p=[pH, pM, pS])
@@ -369,6 +385,18 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
         order = np.argsort(-(gain + noise))
         for pos in range(min(3, n)):
             rank_counts[pos, order[pos]] += 1
+        if return_detail:
+            n_pace[P] += 1
+            t3 = [int(x) for x in order[:3]]
+            for pos in range(3):
+                cond_counts[P][pos, t3[pos]] += 1
+            k = (min(t3[0], t3[1]), max(t3[0], t3[1]))
+            c_umaren[k] = c_umaren.get(k, 0) + 1
+            s3 = sorted(t3)
+            for k in ((s3[0], s3[1]), (s3[0], s3[2]), (s3[1], s3[2])):
+                c_wide[k] = c_wide.get(k, 0) + 1
+            k3 = tuple(s3)
+            c_sanrenpuku[k3] = c_sanrenpuku.get(k3, 0) + 1
 
     out = []
     for i in range(n):
@@ -377,7 +405,21 @@ def run_mc123(horses, race_info, n_mc=N_MC_DEFAULT, seed=None, wind=None):
         p3 = rank_counts[2, i] / n_mc
         out.append({"p1": round(p1, 4), "p2": round(p2, 4), "p3": round(p3, 4),
                      "ptop3": round(p1 + p2 + p3, 4)})
-    return out
+    if not return_detail:
+        return out
+
+    def _topk(c):
+        items = sorted(c.items(), key=lambda kv: (-kv[1], kv[0]))[:DETAIL_TOPK]
+        return [list(k) + [round(v / n_mc, 4)] for k, v in items]
+
+    detail = {
+        "pace_probs": {"H": round(pH, 4), "M": round(pM, 4), "S": round(pS, 4)},
+        "n_pace": n_pace,
+        "cond": {P_: ([[round(float(cond_counts[P_][pos, i]) / n_pace[P_], 4) for pos in range(3)]
+                       for i in range(n)] if n_pace[P_] else None) for P_ in "HMS"},
+        "umaren": _topk(c_umaren), "wide": _topk(c_wide), "sanrenpuku": _topk(c_sanrenpuku),
+    }
+    return out, detail
 
 
 def _self_test():

@@ -14,6 +14,13 @@ generate_mc123_forecast.py が発走前に保存した予測(mc123_forward/日�
 - 区間別の信頼性表(予測確率帯ごとの平均予測 vs 実測)
 - 1位予想(p1最大 / ptop3最大)の実測的中率 と その平均予測確率
 
+Phase A計測(2026-11-07新設、非表示。ログに detail がある日から集計):
+- 組合せ確率(馬連/ワイド/三連複の上位20組)の較正: 予測確率帯ごとの平均予測 vs 実測的中率
+- ペース確率 pH/pM/pS(エンジンが試行ごとに引く、手書き式で較正未検証)と、実際のペース
+  (race_laps.pace_type、netkeibaラップ由来)の突合: 3クラスBrier・クラス別の予測 vs 実測頻度
+- 条件付き確率の価値(オラクル): 実ペースを条件にした確率が周辺確率よりBrierを下げるか。
+  実ペースは発走前には不明なので、これは「ペース情報の価値の上限」であり実際の改善量ではない
+
 除外(件数は必ずレポートに出す):
 - 結果が未確定 / 取消・除外馬が混ざる(確率の質量が欠けるため) / 馬場状態が不明
 - generated_at の日付がレース日より後(as_of監査: 結果を見た後の予測の混入防止)
@@ -34,6 +41,7 @@ TRACK_TO_PATTERN = {"良": "良・稍重", "稍": "良・稍重", "稍重": "良
 MIN_HORSES_FOR_CONCLUSION = 500  # これ未満は「暫定」。較正の傾きの標準誤差が大きすぎる
 BINS_P1 = [0, 0.03, 0.06, 0.10, 0.15, 0.20, 0.30, 0.40, 1.0001]
 BINS_TOP3 = [0, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 1.0001]
+BINS_COMBO = [0, 0.01, 0.02, 0.04, 0.06, 0.10, 0.15, 0.20, 0.30, 0.50, 1.0001]
 
 
 def _opt(args, name, default):
@@ -105,6 +113,82 @@ def load_results(conn, race_id):
     return finish, (conds[0] if conds else None)
 
 
+def realized_pace(conn, race_id):
+    row = conn.execute("SELECT pace_type FROM race_laps WHERE race_id = ?", (race_id,)).fetchone()
+    return row[0] if row and row[0] in ("H", "M", "S") else None
+
+
+def collect_detail(det, horses, fins, p1, p3, race_id, conn, acc):
+    """Phase A計測用の集計(acc: 蓄積辞書)。detailは馬番基準。"""
+    acc["n_detail_races"] += 1
+    um = [h["umaban"] for h in horses]
+    by_um = dict(zip(um, fins))
+    top3 = {u for u, f in by_um.items() if f <= 3}
+    first_second = {u for u, f in by_um.items() if f in (1, 2)}
+    if len(top3) == 3 and len(first_second) == 2:  # 同着があると組の定義が曖昧になるため除外
+        truth = {"umaren": lambda c: set(c) == first_second, "wide": lambda c: set(c) <= top3,
+                 "sanrenpuku": lambda c: set(c) == top3}
+        for key in ("umaren", "wide", "sanrenpuku"):
+            for row in det[key]:
+                acc["combo"][key][0].append(row[-1])
+                acc["combo"][key][1].append(float(truth[key](row[:-1])))
+    else:
+        acc["n_tie_skip"] += 1
+    pace = realized_pace(conn, race_id)
+    if pace is None:
+        return
+    acc["n_pace_label"] += 1
+    pp = det["pace_probs"]
+    acc["pace_rows"].append((pp["H"], pp["M"], pp["S"], "HMS".index(pace)))
+    c = det["cond"].get(pace)
+    if c:
+        for u, f, m1, m3 in zip(um, fins, p1, p3):
+            x = c[str(u)]
+            acc["cond"]["p1"][0].append(float(m1)); acc["cond"]["p1"][1].append(x[0])
+            acc["cond"]["p1"][2].append(float(f == 1))
+            acc["cond"]["ptop3"][0].append(float(m3)); acc["cond"]["ptop3"][1].append(sum(x))
+            acc["cond"]["ptop3"][2].append(float(f <= 3))
+
+
+def summarize_detail(acc):
+    out = {"races_with_detail": acc["n_detail_races"], "races_skipped_ties": acc["n_tie_skip"],
+           "races_with_pace_label": acc["n_pace_label"]}
+    combos = {}
+    for key, (pr, y) in acc["combo"].items():
+        if not pr:
+            continue
+        pr, y = np.array(pr), np.array(y)
+        combos[key] = {"n_combos": int(len(pr)), "mean_pred": round(float(pr.mean()), 4),
+                       "observed": round(float(y.mean()), 4),
+                       "brier": round(float(np.mean((pr - y) ** 2)), 5),
+                       "reliability": reliability_table(pr, y, BINS_COMBO)}
+    out["combos_top20_by_pred"] = combos
+    out["combos_note"] = "各レース各券種の予測上位20組のみ(予測値で選抜、結果は見ていないので選抜バイアスなし)"
+    if acc["pace_rows"]:
+        arr = np.array([r[:3] for r in acc["pace_rows"]])
+        real = np.array([r[3] for r in acc["pace_rows"]])
+        Y = np.eye(3)[real]
+        prior = np.array([0.25, 0.40, 0.35])
+        out["pace_probs"] = {
+            "n_races": int(len(arr)),
+            "mean_pred": {k: round(float(arr[:, i].mean()), 4) for i, k in enumerate("HMS")},
+            "observed_freq": {k: round(float(Y[:, i].mean()), 4) for i, k in enumerate("HMS")},
+            "brier_3class": round(float(np.mean(np.sum((arr - Y) ** 2, axis=1))), 5),
+            "brier_3class_fixed_prior_25_40_35": round(float(np.mean(np.sum((prior - Y) ** 2, axis=1))), 5),
+            "note": "pH/pM/pSは手書き式。観測頻度と平均予測が離れていれば『ハイ40%』等の表示は未較正"}
+    cv = {}
+    for k, (m, c, y) in acc["cond"].items():
+        if not y:
+            continue
+        m, c, y = np.array(m), np.array(c), np.array(y)
+        cv[k] = {"n_horses": int(len(y)), "brier_marginal": round(float(np.mean((m - y) ** 2)), 5),
+                 "brier_conditioned_on_realized_pace": round(float(np.mean((c - y) ** 2)), 5)}
+    if cv:
+        out["conditioning_value_oracle"] = cv
+        out["conditioning_note"] = "実ペースは発走前に不明。ペース情報の価値の上限(オラクル)であり実際の改善量ではない"
+    return out
+
+
 def main():
     args = sys.argv[1:]
     forward_dir = Path(_opt(args, "--forward-dir", "mc123_forward"))
@@ -119,6 +203,9 @@ def main():
     P1, Y1, B1, P3, Y3, B3 = [], [], [], [], [], []
     top1_win, top1_place, hi_conf = [], [], []
     logged = 0
+    acc = {"n_detail_races": 0, "n_tie_skip": 0, "n_pace_label": 0, "pace_rows": [],
+           "combo": {k: ([], []) for k in ("umaren", "wide", "sanrenpuku")},
+           "cond": {"p1": ([], [], []), "ptop3": ([], [], [])}}
     pattern_count = {}
     track_unknown_by_surface = {}
     engine_tags = {}
@@ -162,6 +249,9 @@ def main():
             top1_place.append((float(p3[i3]), float(fin[i3] <= 3)))
             if p3[i3] >= 0.6:
                 hi_conf.append(float(fin[i3] <= 3))
+            det = (r.get("detail") or {}).get(pat)
+            if det:
+                collect_detail(det, horses, fins, p1, p3, race_id, conn, acc)
     conn.close()
 
     report = {"races_logged": logged, "races_evaluated": used_races, "excluded": excl,
@@ -187,6 +277,8 @@ def main():
         report["hypothesis_ptop3_ge_0.6"] = {
             "n": len(hi_conf), "place_rate": round(float(np.mean(hi_conf)), 4) if hi_conf else None,
             "note": "仮説(過去652Rで62%)。独立した将来データでの検証。nが小さいうちは結論を出さない"}
+        if acc["n_detail_races"]:
+            report["phase_a_detail"] = summarize_detail(acc)
     else:
         report["status"] = "評価可能なレースなし(結果未反映、または記録開始直後)"
 

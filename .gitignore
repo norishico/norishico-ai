@@ -49,6 +49,10 @@ dashboard.html
 !dashboard_config/
 !dashboard_config/*.json
 
+# MC123 Forward-validation log (pre-race forecasts, cannot be regenerated -> keep in git)
+!mc123_forward/
+!mc123_forward/*.json
+
 .vercel
 
 # ==== 2026-07-05 監査で追加 ====

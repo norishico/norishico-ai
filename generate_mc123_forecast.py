@@ -46,9 +46,30 @@ from generate_race_sim import classify_style_c2
 from mc_dyn_engine import is_jump_race
 
 DB = "keiba.db"
-OUT_PATHS = [Path("mc_keiba_public/mc123_data.json")]
-TARGET_DATE = sys.argv[1] if len(sys.argv) > 1 else _date.today().isoformat()
+
+
+def _pop_opt(args, name, default=None):
+    if name in args:
+        i = args.index(name)
+        v = args[i + 1]
+        del args[i:i + 2]
+        return v
+    return default
+
+
+# 日付は必ずargv[1]に置く(generate_pace_forecast側もsys.argv[1]を日付として読むため)。
+# オプションは日付の後ろ: --out PATH(mc123_data.json出力先の退避、テスト用) /
+# --forward-dir DIR(Forward検証ログ保存先) / --log-finished(終了済みレースも記録、テスト専用)
+_ARGS = sys.argv[1:]
+_OUT_OVERRIDE = _pop_opt(_ARGS, "--out")
+FORWARD_DIR = Path(_pop_opt(_ARGS, "--forward-dir", "mc123_forward"))
+LOG_FINISHED = "--log-finished" in _ARGS
+if LOG_FINISHED:
+    _ARGS.remove("--log-finished")
+OUT_PATHS = [Path(_OUT_OVERRIDE) if _OUT_OVERRIDE else Path("mc_keiba_public/mc123_data.json")]
+TARGET_DATE = _ARGS[0] if _ARGS else _date.today().isoformat()
 N_MC = 10000
+MIN_DELIVERY_RATIO = 0.8  # 対象レースのうち出力できた割合がこれ未満なら失敗扱い(2026-11-06新設)
 TRACK_PATTERNS = [("良・稍重", "良"), ("重", "重"), ("不良", "不")]
 
 # 2026-09-21新設: AYOkeiba「注目レース」タブのオッズ取得ボタン用にnk_id(netkeiba race_id、
@@ -231,6 +252,77 @@ def _fetch_horses_with_retry(conn, race_id, live_mode, max_retry=3, wait_sec=5):
     return horses, est, n_scratched
 
 
+def validate_race_output(horses, patterns):
+    """出力直前の整合性検証(2026-11-06新設)。エラー文字列のリストを返し、空なら正常。
+    weekend_predictions.jsonの78%サイレント欠落(2026-07-22)や、margin文字列のTypeErrorのように
+    「壊れたデータが黙って出る/黙って欠ける」事故を、生成時点でfail-loudに検知するためのガード。
+    確率の合計は、全シミュレーションで必ず1頭が1着/2着/3着になるため p1/p2/p3=1、
+    ptop3=p1+p2+p3=3(n>=3)になる(4桁丸め誤差のみ許容)。"""
+    errs = []
+    n = len(horses)
+    if not patterns:
+        return ["馬場パターンの結果が1つもない"]
+    names = [h["horse_name"] for h in horses]
+    if any(not x for x in names):
+        errs.append("馬名が空")
+    if len(set(names)) != n:
+        errs.append("馬名が重複")
+    try:
+        umas = [int(h["umaban"]) for h in horses]
+    except (TypeError, ValueError):
+        umas = []
+        errs.append("馬番が数値でない")
+    if umas and (len(set(umas)) != n or min(umas) <= 0):
+        errs.append("馬番が重複/不正")
+    targets = (("p1", 1.0), ("p2", 1.0), ("p3", 1.0), ("ptop3", float(min(3, n))))
+    for label, rows in patterns.items():
+        if len(rows) != n:
+            errs.append(f"{label}: 行数{len(rows)}!=頭数{n}")
+            continue
+        for key, target in targets:
+            vals = [r[key] for r in rows]
+            if any(v is None or v != v or v < 0 or v > 1 for v in vals):
+                errs.append(f"{label}: {key}にNaN/範囲外")
+                continue
+            s = sum(vals)
+            if abs(s - target) > 0.02:
+                errs.append(f"{label}: sum({key})={s:.4f} (期待{target})")
+    return errs
+
+
+def _engine_tag():
+    """mc123_engine.pyのハッシュ先頭8桁。Forward検証ログに「どのエンジン版の予測か」を残す。"""
+    import hashlib
+    p = Path(__file__).resolve().parent / "mc123_engine.py"
+    return hashlib.sha1(p.read_bytes()).hexdigest()[:8]
+
+
+def log_forward(race_meta, horses, patterns, n_mc, generated_at, engine_tag):
+    """発走前の予測をForward検証ログに保存する(2026-11-06新設)。
+
+    LOCK規則: 同一race_idは先着保存(2回目以降の実行では上書きしない)。後から再実行して
+    結果を見た上で予測を差し替える余地を構造的に無くす。ログは日付別JSON(git追跡可能な
+    テキスト、*.dbは.gitignore対象のため不採用)。原子的書き込み(tmp→os.replace)。
+    戻り値: 新規保存したらTrue、既存でスキップしたらFalse。"""
+    import os
+    FORWARD_DIR.mkdir(parents=True, exist_ok=True)
+    path = FORWARD_DIR / f"{TARGET_DATE}.json"
+    doc = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"date": TARGET_DATE, "races": {}}
+    if race_meta["race_id"] in doc["races"]:
+        return False
+    doc["races"][race_meta["race_id"]] = {
+        **race_meta, "generated_at": generated_at, "n_mc": n_mc, "engine_tag": engine_tag,
+        "horses": [{"umaban": int(h["umaban"]), "name": h["horse_name"]} for h in horses],
+        "patterns": {label: [{"p1": r["p1"], "p2": r["p2"], "p3": r["p3"], "ptop3": r["ptop3"]}
+                             for r in rows]
+                     for label, rows in patterns.items()},
+    }
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
+    os.replace(tmp, path)
+    return True
+
+
 def main():
     conn = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
     conn.execute("PRAGMA cache_size=-65536")
@@ -270,6 +362,10 @@ def main():
     nk_id_map = load_nk_id_map()
 
     races_out, n_skip_shinba, n_skip_jump, n_skip_err, n_skip_umaban = [], 0, 0, 0, 0
+    n_invalid, n_logged, n_log_skipped_finished = 0, 0, 0
+    invalid_detail = []
+    gen_at = datetime.now().isoformat(timespec="seconds")
+    eng_tag = _engine_tag()
     for race_id, venue, rno, rname, surface, distance, n_ent, track_cond in day_races:
         if pace_cls_group(rname) == "新馬":
             n_skip_shinba += 1
@@ -330,6 +426,14 @@ def main():
             n_skip_err += 1
             continue
 
+        # 2026-11-06新設: 出力直前の整合性検証。不正なレースは公開せず落とし、最後に失敗終了する
+        errs = validate_race_output(horses, patterns)
+        if errs:
+            n_invalid += 1
+            invalid_detail.append({"race_id": race_id, "errors": errs})
+            print(f"  INVALID {venue}{rno}R {rname}: {'; '.join(errs)}")
+            continue
+
         # 2026-09-20 F8修正: K_LOWINFO(低情報馬補正)は馬名の完全一致で履歴照合するため、
         # 表記ゆれで誤って「低情報馬」と判定される場合、レース単位で比率が異常に高くなる
         # はず。precompute_horse_features_fast()がhorses各要素に立てるlow_infoフラグを
@@ -361,22 +465,79 @@ def main():
         print(f"  OK {venue}{rno}R {rname} {surface}{distance}m {n}頭"
               f"{' (馬番は推定)' if numbers_estimated else ''}")
 
+        # Forward検証ログ(2026-11-06新設): 発走前の予測のみ記録する。終了済みレース(finish確定)
+        # は結果を見た後の予測になり検証として無効なので記録しない(--log-finishedはテスト専用)。
+        # 馬番が推定値のレースも、馬番と馬名の対応が信頼できないため記録しない。
+        finished = conn.execute(
+            "SELECT 1 FROM results WHERE race_id = ? AND finish IS NOT NULL AND finish < 90 LIMIT 1",
+            (race_id,)).fetchone() is not None
+        if numbers_estimated or (finished and not LOG_FINISHED):
+            n_log_skipped_finished += 1
+        else:
+            meta = {"race_id": race_id, "race_date": TARGET_DATE, "venue": venue, "rno": rno,
+                    "rname": rname, "surface": surface, "distance": distance, "n_horses": n}
+            if log_forward(meta, horses, patterns, N_MC, gen_at, eng_tag):
+                n_logged += 1
+
+    # 2026-11-06新設: 出力の完全性検証。対象レース数(新馬・障害を除く)に対する出力割合を見る
+    expected = len(day_races) - n_skip_shinba - n_skip_jump
+    delivered = len(races_out)
+    fatal = []
+    if expected > 0 and delivered / expected < MIN_DELIVERY_RATIO:
+        fatal.append(f"出力{delivered}R / 対象{expected}R = {delivered/expected:.0%} "
+                     f"(閾値{MIN_DELIVERY_RATIO:.0%}未満)")
+    if n_invalid:
+        fatal.append(f"整合性検証エラー{n_invalid}レース")
+
+    # pace_data.jsonとのrace_id突合(同日・同基準のはずなので差分は要確認)
+    pace_diff = None
+    try:
+        pace_path = Path("mc_keiba_public/pace_data.json")
+        if pace_path.exists():
+            pd_ = json.loads(pace_path.read_text(encoding="utf-8"))
+            if pd_.get("date") == TARGET_DATE:
+                pace_ids = {r["race_id"] for r in pd_["races"]}
+                mc_ids = {r["race_id"] for r in races_out}
+                pace_diff = {"only_pace": sorted(pace_ids - mc_ids), "only_mc123": sorted(mc_ids - pace_ids)}
+                if pace_diff["only_pace"] or pace_diff["only_mc123"]:
+                    print(f"  ⚠ pace_data.jsonとrace_id不一致: pace側のみ{len(pace_diff['only_pace'])} / "
+                          f"MC123側のみ{len(pace_diff['only_mc123'])}")
+    except Exception as e:
+        print(f"  ⚠ pace_data.json突合に失敗(無視): {e}")
+
     payload = {
         "date": TARGET_DATE,
-        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "generated_at": gen_at,
         "n_mc": N_MC,
         "note": "MC123エンジンによる各馬の1〜3着内確率です。買い目(推奨馬券)ではなく参考情報です。"
                 "オッズ(期待値)は考慮していません。",
+        "validation": {"expected": expected, "delivered": delivered, "invalid": invalid_detail,
+                       "pace_diff": pace_diff},
         "races": races_out,
     }
     text = json.dumps(payload, ensure_ascii=False, indent=1)
     for p in OUT_PATHS:
-        if p.parent.exists():
-            p.write_text(text, encoding="utf-8")
-            print(f"書き出し: {p}")
-    print(f"完了: {len(races_out)}R 出力 / 新馬スキップ{n_skip_shinba} / 障害等スキップ{n_skip_jump} / "
-          f"馬番欠損スキップ{n_skip_umaban} / 対象外・失敗{n_skip_err}")
+        if not p.parent.exists():
+            continue
+        # 同日データを縮めて上書きしない(後発の不調な実行が、先行の良好な出力を潰すのを防ぐ)
+        if p.exists():
+            try:
+                old = json.loads(p.read_text(encoding="utf-8"))
+                if old.get("date") == TARGET_DATE and len(old.get("races", [])) > delivered:
+                    fatal.append(f"{p}: 既存{len(old['races'])}R > 今回{delivered}R のため上書きしない")
+                    continue
+            except Exception:
+                pass  # 既存が壊れているなら上書きで復旧する
+        p.write_text(text, encoding="utf-8")
+        print(f"書き出し: {p}")
+    print(f"完了: {delivered}R 出力 / 新馬スキップ{n_skip_shinba} / 障害等スキップ{n_skip_jump} / "
+          f"馬番欠損スキップ{n_skip_umaban} / 対象外・失敗{n_skip_err} / 検証エラー{n_invalid}")
+    print(f"Forward検証ログ: 新規{n_logged}R保存 / 終了済み・馬番推定でスキップ{n_log_skipped_finished}R "
+          f"(engine={eng_tag}, dir={FORWARD_DIR})")
     conn.close()
+    if fatal:
+        print("🚨 FAIL: " + " / ".join(fatal))
+        sys.exit(1)
 
 
 if __name__ == "__main__":

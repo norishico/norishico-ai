@@ -298,9 +298,15 @@ def _surface_from_track_cd(cd):
 
 
 def _track_cond(ra):
-    # 障/ダは dirt_baba_cd、それ以外は siba_baba_cd
-    cd = ra.get("siba_baba_cd", "").strip() or ra.get("dirt_baba_cd", "").strip()
-    return BABA_COND.get(cd, "")
+    # 芝は siba_baba_cd、ダートは dirt_baba_cd。2026-11-06修正: 従来は
+    # `siba_baba_cd or dirt_baba_cd` だったが、ダート戦では siba_baba_cd が '0'(未設定)で届き、
+    # '0'は非空文字列のためorが右側に進まず、BABA_CONDに無い'0'で空文字→track_cond NULLになっていた
+    # (2026-03以降ダート戦で系統的に欠損、9-10月は55-65%)。有効コード(1-4)のみを採用する。
+    for key in ("siba_baba_cd", "dirt_baba_cd"):
+        cd = ra.get(key, "").strip()
+        if cd in BABA_COND:
+            return BABA_COND[cd]
+    return ""
 
 
 def _time_raw_msstt(se_time):

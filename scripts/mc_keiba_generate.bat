@@ -62,6 +62,12 @@ set RC_MC123=%ERRORLEVEL%
 echo [%date% %time%] mc123 forecast rc=%RC_MC123% >> "%LOGFILE%"
 if %RC_MC123% NEQ 0 set FAIL=1
 
+REM 2026-11-06: MC123 forward-validation report (pre-race forecasts saved in mc123_forward\
+REM vs confirmed results). Log only: a failure here must not touch FAIL or block the deploy.
+echo [%date% %time%] mc123 forward eval start >> "%LOGFILE%"
+"%PYEXE%" -X utf8 evaluate_mc123_forward.py >> "%LOGFILE%" 2>&1
+echo [%date% %time%] mc123 forward eval rc=%ERRORLEVEL% >> "%LOGFILE%"
+
 echo [%date% %time%] win5 data start >> "%LOGFILE%"
 "%PYEXE%" -X utf8 generate_win5_data.py >> "%LOGFILE%" 2>&1
 set RC_WIN5=%ERRORLEVEL%

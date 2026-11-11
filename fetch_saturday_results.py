@@ -427,7 +427,7 @@ def backup_db(max_retries=6, wait_sec=5):
 # AYOkeiba/MC123ともにthis_week_races.json由来の出走表を使う)だが、DBのデータ
 # 完全性の問題として、--dateを含め直近LOOKBACK_DAYS日分をまとめて毎回再チェックする
 # 自己修復方式に変更。次に本タスクが走った時点でJV-Link取込済みの日は自動的に埋まる。
-LOOKBACK_DAYS = 9
+LOOKBACK_DAYS = 16
 
 
 def check_date(conn, date_str):
